@@ -21,7 +21,8 @@ export default function Home() {
                         name="GBM"
                         id="GBM"
                         autoComplete="GBM"
-                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                        disabled
+                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 disabled:bg-slate-100 rounded-md disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -36,8 +37,9 @@ export default function Home() {
                         type="text"
                         name="product"
                         id="product"
+                        disabled
                         autoComplete="product"
-                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 disabled:bg-slate-100 rounded-md disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -52,8 +54,9 @@ export default function Home() {
                         type="text"
                         name="plant"
                         id="plant"
+                        disabled
                         autoComplete="plant"
-                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 disabled:bg-slate-100 rounded-md disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -69,8 +72,9 @@ export default function Home() {
                         type="text"
                         name="route"
                         id="route"
+                        disabled
                         autoComplete="route"
-                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 disabled:bg-slate-100 rounded-md disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -85,8 +89,9 @@ export default function Home() {
                         type="text"
                         name="work-description"
                         id="work-description"
+                        disabled
                         autoComplete="work-description"
-                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                        className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 disabled:bg-slate-100 rounded-md disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
