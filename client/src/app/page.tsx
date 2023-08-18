@@ -6,7 +6,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <div className="relative flex place-items-center ">
         <div>
-          <div className='rounded overflow-hidden shadow-lg p-12 bg-white '>
+          <div className='rounded overflow-hidden shadow-lg p-12 bg-white min-w-[60rem]'>
             {/* GBM, Product, Plant, Route, 작업내용 */}
             <form>
               <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
