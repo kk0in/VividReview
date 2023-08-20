@@ -62,6 +62,22 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     return isPlaying ? faCirclePause : faCirclePlay;
   };
 
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === ' ') {
+        handlePlayPause()
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPlaying]);
+
+
   const formatTime = (timeInSeconds: number): string => {
     const date = new Date(null);
     date.setSeconds(timeInSeconds);
@@ -89,11 +105,11 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
   };
 
   return (
-    <div>
+    <div className="w-[90%]">
       <video ref={videoRef} src={videoSrc} onTimeUpdate={handleTimeUpdate} />
 
       <div
-        className="h-2.5 mx-1.5 my-1.5 cursor-pointer bg-stone-300 rounded"
+        className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"
         ref={progressRef}
         onClick={handleProgressBarClick}
       >

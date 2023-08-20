@@ -24,8 +24,8 @@ export default function Page() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-grow flex flex-row">
-        <div className="flex-auto bg-slate-900 p-4 text-white">
+      <div className="flex-grow flex flex-row h-1/2 max-h-1/2">
+        <div className="flex-auto bg-slate-900 p-4 text-white w-[30rem]">
           <h2 className="my-1">분석 영상</h2>
           <VideoViewer currentModapts={currentModapts} videoSrc={videoSrc} />
         </div>
@@ -57,7 +57,7 @@ export default function Page() {
           />
         </div>
       </div>
-      <div className="flex-grow bg-slate-900 p-4 text-white">Video Timeline</div>
+      <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">Video Timeline</div>
     </div>
   );
 }
