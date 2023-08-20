@@ -64,22 +64,22 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
         <table className="w-[80%] table-auto">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 No
               </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 Modapts
               </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 From
               </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 To
               </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 Start
               </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-200 text-left">
+              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
                 End
               </th>
             </tr>
@@ -93,8 +93,8 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
               >
                 {row.map((cell, cellIndex) => (
                   <td
-                    key={cellIndex}
-                    className="border-b border-slate-700 p-[0.5] pl-6  text-slate-400 font-mono"
+                    key={cellIndex} 
+                    className={`border-b border-slate-700 p-[0.5] pl-6 font-mono ${rowIndex === highlightedRow ? "text-slate-800" : "text-slate-200"}`}
                   >
                     {cell}
                   </td>

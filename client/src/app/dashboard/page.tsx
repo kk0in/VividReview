@@ -26,26 +26,33 @@ export default function Page() {
     <div className="h-full flex flex-col">
       <div className="flex-grow flex flex-row h-1/2 max-h-1/2">
         <div className="flex-auto bg-slate-900 p-4 text-white w-[30rem]">
-          <h2 className="my-1">분석 영상</h2>
+        <div className="flex justify-between mb-3 pr-5">
+
+          <h5 className="my-1 text-sm font-bold">분석 영상</h5>
+          </div>
           <VideoViewer currentModapts={currentModapts} videoSrc={videoSrc} />
         </div>
         <div className="flex-auto bg-slate-900 p-4 text-white">
-          <h2>전신</h2>
+        <div className="flex justify-between mt-1 mb-3 pr-5">
+
+          <h5 className="my-1 text-sm font-bold">자세 정보</h5>
+          </div>
+          <h6 className="text-xs my-1">전신 (Wholebody)</h6>
           <KeypointsDrawing position="wholeBody" />
           <div className="flex">
             <div className="mr-2">
-              <h2>좌측 손</h2>
+              <h6 className="text-xs my-1">좌측 손 (Left Hand)</h6>
               <KeypointsDrawing position="RightHand" />
             </div>
             <div>
-              <h2>우측 손</h2>
+              <h6 className="text-xs my-1">우측 손 (Right Hand)</h6>
               <KeypointsDrawing position="LeftHand" />
             </div>
           </div>
         </div>
         <div className="flex-auto bg-slate-900 p-4 text-white">
-          <div className="flex justify-between my-3">
-            <h2>Modapts Table</h2>
+          <div className="flex justify-between mb-3 pr-5">
+            <h5 className="my-1 text-sm font-bold">MODAPTS 테이블</h5>
             <button className="font-mono">
               <FontAwesomeIcon icon={faFileExport} size="xs" />
               Export

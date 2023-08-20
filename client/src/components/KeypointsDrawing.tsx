@@ -86,7 +86,7 @@ class KeypointsDrawing extends Component {
     context.clearRect(0, 0, canvas.width, canvas.height);
     const one =
       position === "wholeBody"
-        ? canvasWidth / 1.1
+        ? canvasWidth / 1.0
         : position === "RightHand"
         ? 100 / 0.35
         : 100 / 0.1;
@@ -101,7 +101,7 @@ class KeypointsDrawing extends Component {
       const [x1, y1] = keypoints[startIdx];
       const [x2, y2] = keypoints[endIdx];
 
-      const scale = 0.4;
+      const scale = 0.45;
 
       const scaledX1 = x1 * scale - one;
       const scaledY1 = y1 * scale - two;
@@ -120,9 +120,9 @@ class KeypointsDrawing extends Component {
   render() {
     const { position } = this.props;
     const canvasSizeWidth =
-      position === "wholeBody" ? 200 : position === "RightHand" ? 100 : 100;
+      position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
     const canvasSizeHeight =
-      position === "wholeBody" ? 180 : position === "RightHand" ? 100 : 100;
+      position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
 
     return (
       <div style={{}}>
