@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useRef, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -6,7 +7,7 @@ import {
   faCirclePause,
   faClockRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
-import { currentTimeState } from "./currentTimeState";
+import { currentTimeState } from "../app/recoil/currentTimeState";
 import { useRecoilState } from "recoil";
 
 const VideoViewer = ({ currentModapts, videoSrc }) => {
@@ -74,9 +75,9 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
       .toString()
       .padStart(2, "0")}:${millisecs
-      .toString()
-      .padStart(3, "0")
-      .substring(0, 2)}`;
+        .toString()
+        .padStart(3, "0")
+        .substring(0, 2)}`;
     return formattedTime;
   };
 
@@ -89,12 +90,7 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
 
   return (
     <div>
-      <video
-        className="rounded"
-        ref={videoRef}
-        src={videoSrc}
-        onTimeUpdate={handleTimeUpdate}
-      />
+      <video ref={videoRef} src={videoSrc} onTimeUpdate={handleTimeUpdate} />
 
       <div
         className="h-2.5 mx-1.5 my-1.5 cursor-pointer bg-stone-300 rounded"
@@ -102,7 +98,7 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
         onClick={handleProgressBarClick}
       >
         <div
-          className="h-2.5 rounded bg-cyan-400"
+          className="h-2.5 rounded bg-blue-400"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -127,17 +123,16 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
         </div>
 
         <div
-          className={`w-14 ml-5 rounded-lg flex items-center justify-center ${
-            currentModapts
+          className={`w-14 ml-5 rounded-lg flex items-center justify-center ${currentModapts
               ? currentModapts.startsWith("M")
                 ? "bg-blue-500"
                 : currentModapts.startsWith("G")
-                ? "bg-orange-500"
-                : currentModapts.startsWith("R")
-                ? "bg-green-500"
-                : "bg-red-500"
+                  ? "bg-orange-500"
+                  : currentModapts.startsWith("R")
+                    ? "bg-green-500"
+                    : "bg-red-500"
               : "bg-purple-500"
-          }`}
+            }`}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
         </div>

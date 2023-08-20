@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRecoilState } from "recoil";
-import { currentTimeState } from "./currentTimeState";
+import { currentTimeState } from "../app/recoil/currentTimeState";
 
 const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
@@ -39,7 +39,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
               <th className="px-2 py-2 border text-xs font-semibold font-mono">
                 Modapts
               </th>
-              <th class="px-2 py-2 border text-xs font-semibold font-mono">
+              <th className="px-2 py-2 border text-xs font-semibold font-mono">
                 From
               </th>
               <th className="px-2 py-2 border text-xs font-semibold font-mono">

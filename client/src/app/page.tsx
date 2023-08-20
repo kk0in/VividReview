@@ -1,16 +1,21 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { VideoCameraIcon, TableCellsIcon } from '@heroicons/react/24/solid'
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+    <div className="flex h-full flex-col items-center justify-between px-24 py-8 bg-slate-700 overflow-auto">
       <div className="relative flex place-items-center ">
         <div>
-          <div className='rounded overflow-hidden shadow-lg p-12 bg-white min-w-[60rem]'>
+          <div className='rounded overflow-hidden shadow-lg px-12 py-8 bg-white min-w-[80rem]'>
             {/* GBM, Product, Plant, Route, 작업내용 */}
             <form>
-              <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                <div className="sm:col-span-4">
+              <div className='mb-6'>
+                <h3 className="text-lg font-bold text-gray-900">Add new project</h3>
+                <h4 className="text-sm font-medium text-gray-500">Project information</h4>
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-x-6 gap-y-6 sm:grid-cols-4">
+                <div className="sm:col-span-1">
                   <label htmlFor="GBM" className="block text-sm font-medium leading-6 text-gray-900">
                     GBM
                   </label>
@@ -27,7 +32,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-1">
                   <label htmlFor="Product" className="block text-sm font-medium leading-6 text-gray-900">
                     Product
                   </label>
@@ -44,7 +49,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-1">
                   <label htmlFor="Plant" className="block text-sm font-medium leading-6 text-gray-900">
                     Plant
                   </label>
@@ -62,7 +67,7 @@ export default function Home() {
                   </div>
 
                 </div>
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-1">
                   <label htmlFor="Route" className="block text-sm font-medium leading-6 text-gray-900">
                     Route
                   </label>
@@ -79,12 +84,12 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-2">
                   <label htmlFor="work-description" className="block text-sm font-medium leading-6 text-gray-900">
                     작업내용
                   </label>
                   <div className="mt-2">
-                    <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                    <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
                       <input
                         type="text"
                         name="work-description"
@@ -103,7 +108,7 @@ export default function Home() {
                   </label>
                   <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                     <div className="text-center">
-                      {/* <PhotoIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /> */}
+                      <VideoCameraIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                       <div className="mt-4 flex text-sm leading-6 text-gray-600">
                         <label
                           htmlFor="file-upload"
@@ -114,7 +119,7 @@ export default function Home() {
                         </label>
                         <p className="pl-1">or drag and drop</p>
                       </div>
-                      <p className="text-xs leading-5 text-gray-600">fileformat description</p>
+                      <p className="text-xs leading-5 text-gray-600">MP4 File</p>
                     </div>
                   </div>
                 </div>
@@ -124,7 +129,7 @@ export default function Home() {
                   </label>
                   <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                     <div className="text-center">
-                      {/* <PhotoIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /> */}
+                      <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                       <div className="mt-4 flex text-sm leading-6 text-gray-600">
                         <label
                           htmlFor="csv-file-upload"
@@ -135,7 +140,7 @@ export default function Home() {
                         </label>
                         <p className="pl-1">or drag and drop</p>
                       </div>
-                      <p className="text-xs leading-5 text-gray-600">upload csv file</p>
+                      <p className="text-xs leading-5 text-gray-600">CSV (UTF-8) File</p>
                     </div>
                   </div>
                 </div>
@@ -154,6 +159,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

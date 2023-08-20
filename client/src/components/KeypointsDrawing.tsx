@@ -2,7 +2,7 @@
 import React, { Component } from "react";
 import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
-import { currentTimeState } from "./currentTimeState";
+import { currentTimeState } from "../app/recoil/currentTimeState";
 function withCurrentTime(WrappedComponent) {
   return function WithCurrentTime(props) {
     const currentTime = useRecoilValue(currentTimeState);

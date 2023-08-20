@@ -25,11 +25,11 @@ export default function Page() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-grow flex flex-row">
-        <div className="flex-auto bg-red-300 p-4">
+        <div className="flex-auto bg-slate-900 p-4 text-white">
           <h2 className="my-1">분석 영상</h2>
           <VideoViewer currentModapts={currentModapts} videoSrc={videoSrc} />
         </div>
-        <div className="flex-auto bg-red-300 p-4">
+        <div className="flex-auto bg-slate-900 p-4 text-white">
           <h2>전신</h2>
           <KeypointsDrawing position="wholeBody" />
           <div className="flex">
@@ -43,7 +43,7 @@ export default function Page() {
             </div>
           </div>
         </div>
-        <div className="flex-auto bg-red-300 p-4">
+        <div className="flex-auto bg-slate-900 p-4 text-white">
           <div className="flex justify-between my-3">
             <h2>Modapts Table</h2>
             <button className="font-mono">
@@ -57,7 +57,7 @@ export default function Page() {
           />
         </div>
       </div>
-      <div className="flex-grow bg-yellow-300 p-4">Video Timeline</div>
+      <div className="flex-grow bg-slate-900 p-4 text-white">Video Timeline</div>
     </div>
   );
 }
