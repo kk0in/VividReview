@@ -1,61 +1,36 @@
 "use client";
-import React, { Component } from "react";
+import React, { useEffect, useRef } from "react";
 import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
 import { currentTimeState } from "../app/recoil/currentTimeState";
-function withCurrentTime(WrappedComponent) {
-  return function WithCurrentTime(props) {
+
+interface KeypointsDrawingProps {
+  position: string;
+}
+
+function withCurrentTime<P>(WrappedComponent: React.ComponentType<P & { currentTime: number }>): React.ComponentType<P> {
+  return function WithCurrentTime(props: P) {
     const currentTime = useRecoilValue(currentTimeState);
     return <WrappedComponent currentTime={currentTime} {...props} />;
   };
 }
 
-class KeypointsDrawing extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      keypoints: [],
-      instanceIndex: 0,
-      skeleton_links: [],
-      position: "", // position 값 추가
-    };
-  }
+function KeypointsDrawing(props: KeypointsDrawingProps): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { position } = props;
+  const currentTime = useRecoilValue(currentTimeState);
 
-  componentDidMount() {
-    this.loadData(this.state.instanceIndex); // 초기 데이터 로딩
-    this.drawInterval = setInterval(
-      this.changeInstanceAndDraw.bind(this),
-      33.33
-    );
-  }
-
-  componentWillUnmount() {
-    clearInterval(this.drawInterval);
-  }
-
-  loadData(instanceIndex) {
+  const loadData = (instanceIndex: number) => {
     const keypoints =
       keypointData.instance_info[instanceIndex].instances[0].keypoints;
-    this.setState({ keypoints, instanceIndex });
-  }
+    return keypoints;
+  };
 
-  changeInstanceAndDraw() {
-    const { currentTime } = this.props;
+  const drawLines = (keypoints: number[][]) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
 
-    const interval = 33.33;
-
-    const frame_id = Math.ceil((currentTime * 1000) / interval);
-    const nextIndex = frame_id;
-    this.loadData(nextIndex);
-    this.drawLines();
-  }
-
-  drawLines() {
-    const canvas = this.canvasRef;
-    const context = canvas.getContext("2d");
-
-    const { keypoints } = this.state; // position 값 가져오기
-    const position = this.props.position;
+    if (!context) return;
 
     let skeleton_links;
     if (position === "wholeBody") {
@@ -80,6 +55,7 @@ class KeypointsDrawing extends Component {
     } else {
       skeleton_links = keypointData.meta_info.skeleton_links; // 기본값
     }
+
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
@@ -96,6 +72,7 @@ class KeypointsDrawing extends Component {
         : position === "RightHand"
         ? 500 / 3.5
         : 500 / 1.1;
+
     skeleton_links.forEach((link) => {
       const [startIdx, endIdx] = link;
       const [x1, y1] = keypoints[startIdx];
@@ -115,26 +92,37 @@ class KeypointsDrawing extends Component {
       context.lineWidth = 1;
       context.stroke();
     });
-  }
+  };
 
-  render() {
-    const { position } = this.props;
-    const canvasSizeWidth =
-      position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
-    const canvasSizeHeight =
-      position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
+  useEffect(() => {
+    const instanceIndex = Math.ceil((currentTime * 1000) / 33.33);
+    const keypoints = loadData(instanceIndex);
+    drawLines(keypoints);
 
-    return (
-      <div style={{}}>
-        <canvas
-          ref={(ref) => (this.canvasRef = ref)}
-          width={canvasSizeWidth}
-          height={canvasSizeHeight}
-          className="bg-white"
-        />
-      </div>
-    );
-  }
+    const drawInterval = setInterval(() => {
+      const nextIndex = instanceIndex + 1;
+      const keypoints = loadData(nextIndex);
+      drawLines(keypoints);
+    }, 33.33);
+
+    return () => clearInterval(drawInterval);
+  }, [currentTime, position]);
+
+  const canvasSizeWidth =
+    position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
+  const canvasSizeHeight =
+    position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
+
+  return (
+    <div style={{}}>
+      <canvas
+        ref={canvasRef}
+        width={canvasSizeWidth}
+        height={canvasSizeHeight}
+        className="bg-white"
+      />
+    </div>
+  );
 }
 
 export default withCurrentTime(KeypointsDrawing);
