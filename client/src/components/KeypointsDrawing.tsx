@@ -1,21 +1,23 @@
-"use client";
+// "use client";
 import React, { useEffect, useRef } from "react";
 import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
 import { currentTimeState } from "../app/recoil/currentTimeState";
 
-interface KeypointsDrawingProps {
+interface TestProps {
   position: string;
 }
 
-function withCurrentTime<P>(WrappedComponent: React.ComponentType<P & { currentTime: number }>): React.ComponentType<P> {
+function withCurrentTime<P>(
+  WrappedComponent: React.ComponentType<P & { currentTime: number }>
+): React.ComponentType<P> {
   return function WithCurrentTime(props: P) {
     const currentTime = useRecoilValue(currentTimeState);
     return <WrappedComponent currentTime={currentTime} {...props} />;
   };
 }
 
-function KeypointsDrawing(props: KeypointsDrawingProps): JSX.Element {
+function Test(props: TestProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
@@ -43,53 +45,60 @@ function KeypointsDrawing(props: KeypointsDrawingProps): JSX.Element {
             (link[1] >= 23 && link[1] <= 90)
           )
       );
-    } else if (position === "RightHand") {
+    } else if (position === "LeftHand") {
       skeleton_links = keypointData.meta_info.skeleton_links.filter(
         (link) =>
           link[0] >= 91 && link[0] <= 111 && link[1] >= 91 && link[1] <= 111
       );
-    } else if (position === "LeftHand") {
+    } else if (position === "RightHand") {
       skeleton_links = keypointData.meta_info.skeleton_links.filter(
-        (link) => link[0] >= 112 && link[1] >= 112
+        (link) =>
+          link[0] >= 112 && link[0] <= 132 && link[1] >= 112 && link[1] <= 132
       );
     } else {
       skeleton_links = keypointData.meta_info.skeleton_links; // 기본값
     }
 
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-
     context.clearRect(0, 0, canvas.width, canvas.height);
-    const one =
+    const scale = position === "wholeBody" ? 0.45 : 0.7;
+
+    const centerX =
       position === "wholeBody"
-        ? canvasWidth / 1.0
-        : position === "RightHand"
-        ? 100 / 0.35
-        : 100 / 0.1;
-    const two =
+        ? keypoints[8][0] - 80
+        : position === "LeftHand"
+        ? keypoints[91][0] - 80
+        : keypoints[112][0] - 80;
+    const centerY =
       position === "wholeBody"
-        ? canvasHeight / 3
-        : position === "RightHand"
-        ? 500 / 3.5
-        : 500 / 1.1;
+        ? keypoints[1][1] - 50
+        : position === "LeftHand"
+        ? keypoints[91][1] - 50
+        : keypoints[112][1] - 50;
 
     skeleton_links.forEach((link) => {
       const [startIdx, endIdx] = link;
       const [x1, y1] = keypoints[startIdx];
       const [x2, y2] = keypoints[endIdx];
 
-      const scale = 0.45;
-
-      const scaledX1 = x1 * scale - one;
-      const scaledY1 = y1 * scale - two;
-      const scaledX2 = x2 * scale - one;
-      const scaledY2 = y2 * scale - two;
+      const scaledX1 = (x1 - centerX) * scale;
+      const scaledY1 = (y1 - centerY) * scale;
+      const scaledX2 = (x2 - centerX) * scale;
+      const scaledY2 = (y2 - centerY) * scale;
 
       context.beginPath();
       context.moveTo(scaledX1, scaledY1);
       context.lineTo(scaledX2, scaledY2);
-      context.strokeStyle = "black";
-      context.lineWidth = 1;
+      context.strokeStyle =
+        (startIdx >= 91 && startIdx <= 111) ||
+        (startIdx == 5 && endIdx == 7) ||
+        startIdx == 7
+          ? "orange"
+          : (startIdx >= 112 && startIdx <= 132) ||
+            (startIdx == 6 && endIdx == 8) ||
+            startIdx == 8
+          ? "green"
+          : "blue";
+      context.lineWidth = 2;
       context.stroke();
     });
   };
@@ -108,10 +117,8 @@ function KeypointsDrawing(props: KeypointsDrawingProps): JSX.Element {
     return () => clearInterval(drawInterval);
   }, [currentTime, position]);
 
-  const canvasSizeWidth =
-    position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
-  const canvasSizeHeight =
-    position === "wholeBody" ? 200 : position === "RightHand" ? 150 : 150;
+  const canvasSizeWidth = position === "wholeBody" ? 200 : 110;
+  const canvasSizeHeight = position === "wholeBody" ? 180 : 110;
 
   return (
     <div style={{}}>
@@ -125,4 +132,4 @@ function KeypointsDrawing(props: KeypointsDrawingProps): JSX.Element {
   );
 }
 
-export default withCurrentTime(KeypointsDrawing);
+export default withCurrentTime(Test);
