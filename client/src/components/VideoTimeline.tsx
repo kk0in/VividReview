@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { usePapaParse } from "react-papaparse";
+import { Resizable } from "re-resizable";
 
 export default function VideoTimeline() {
   const { readRemoteFile } = usePapaParse();
@@ -32,12 +33,12 @@ export default function VideoTimeline() {
       const minute = parseInt(timeArray[0]);
       const second = parseInt(timeArray[1].split(".")[0]);
       const frame = parseInt(timeArray[1].split(".")[1]);
-  
+
       const milliseconds =
         minute * 60 * 1000 +
         second * 1000 +
         (frame * 1000) / 60;
-  
+
       return milliseconds;
     }
     else return 0;
@@ -61,14 +62,23 @@ export default function VideoTimeline() {
 
 
   return (
-    <>
-      <div className="flex flex-row gap-2 overflow-auto">
-        {csvData.map((row: any, rowIndex: number) => (
-          <div key={rowIndex} className={`rounded py-2 px-4 border flex-none`} style={{width : timeToMilliseconds(row['duration'])/5, backgroundColor: colormap(row['label'])}} >
-            {row["label"]}
+    <div className="flex flex-row overflow-auto" style={{gap: '2px'}}>
+      {csvData.map((row: any, rowIndex: number) => (
+        <Resizable 
+          key={rowIndex} 
+          defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 'auto' }}
+          minWidth={10} 
+          maxWidth={1000} 
+          enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
+        >
+          <div 
+              className={`rounded py-2 px-1 border flex items-center justify-center`}
+              style={{ width: '100%', backgroundColor: colormap(row['label']) }}
+          >
+              {row["label"]}
           </div>
-        ))}
-      </div>
-    </>
+        </Resizable>
+      ))}
+    </div>
   );
-}
+}  
