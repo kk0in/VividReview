@@ -108,6 +108,23 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     }
   };
 
+  const colormap = (label: string) => {
+    if (label === "BG") return "#BAB0AC";
+    let label_alphabet = label[0];
+    switch (label_alphabet) {
+      case "M":
+        return "#4E79A7";
+      case "G":
+        return "#F28E2B";
+      case "P":
+        return "#E15759";
+      case "R":
+        return "#76B7B2";
+      case "A":
+        return "#59A14F";
+    }
+  };
+
   return (
     <div className="w-[90%]">
       <video ref={videoRef} src={videoSrc} onTimeUpdate={handleTimeUpdate} />
@@ -142,17 +159,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
         </div>
 
         <div
-          className={`w-14 ml-5 rounded-lg flex items-center justify-center ${
-            currentModapts
-              ? currentModapts.startsWith("M")
-                ? "bg-blue-500"
-                : currentModapts.startsWith("G")
-                ? "bg-orange-500"
-                : currentModapts.startsWith("R")
-                ? "bg-green-500"
-                : "bg-red-500"
-              : "bg-purple-500"
-          }`}
+          className={`w-14 ml-5 rounded-lg flex items-center justify-center`}
+          style={{ backgroundColor: colormap(currentModapts) }}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
         </div>

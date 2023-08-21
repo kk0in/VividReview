@@ -13,7 +13,7 @@ export default function Page() {
   const [csvData, setCSVData] = useState([]);
   const csvFilePath = "/X_fv_0701_MX_0001.csv";
   const videoSrc = "/0701_MX_0001.mp4";
-  
+
   const handleRemoteFile = () => {
     readRemoteFile(csvFilePath, {
       complete: (results: any) => {
@@ -30,12 +30,7 @@ export default function Page() {
   }, []);
 
   const [currentModapts, setcurrentModapts] = useState("null");
-  // return(
-  //   <div>
-  //     <VideoViewer currentModapts={currentModapts} videoSrc={videoSrc} />
-  //     <Test position="LeftHand" />
-  //     </div>
-  // );}
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-grow flex flex-row h-1/2 max-h-1/2">
