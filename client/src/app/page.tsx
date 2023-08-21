@@ -1,15 +1,30 @@
+"use client"
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { VideoCameraIcon, TableCellsIcon } from '@heroicons/react/24/solid'
+import { FormEvent } from 'react'
+import FileUpload from '@/components/FileUploader'
 
 export default function Home() {
+
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    console.log(e.currentTarget)
+  }
+
+  const handleFileUploaded = (file: File) => {
+    console.log('File uploaded:', file);
+  };
+
   return (
     <div className="flex h-full flex-col items-center justify-between px-24 py-8 bg-slate-700 overflow-auto">
       <div className="relative flex place-items-center ">
         <div>
           <div className='rounded overflow-hidden shadow-lg px-12 py-8 bg-white min-w-[80rem]'>
             {/* GBM, Product, Plant, Route, 작업내용 */}
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className='mb-6'>
                 <h3 className="text-lg font-bold text-gray-900">Add new project</h3>
                 <h4 className="text-sm font-medium text-gray-500">Project information</h4>
@@ -107,7 +122,9 @@ export default function Home() {
                     Video
                   </label>
                   <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                    <div className="text-center">
+                  <FileUpload onFileUploaded={handleFileUploaded} filetype='mp4'/>
+
+                    {/* <div className="text-center">
                       <VideoCameraIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                       <div className="mt-4 flex text-sm leading-6 text-gray-600">
                         <label
@@ -120,7 +137,7 @@ export default function Home() {
                         <p className="pl-1">or drag and drop</p>
                       </div>
                       <p className="text-xs leading-5 text-gray-600">MP4 File</p>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
                 <div className="col-span-full">
@@ -128,7 +145,8 @@ export default function Home() {
                     CSV
                   </label>
                   <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                    <div className="text-center">
+                    <FileUpload onFileUploaded={handleFileUploaded} filetype='csv'/>
+                    {/* <div className="text-center">
                       <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                       <div className="mt-4 flex text-sm leading-6 text-gray-600">
                         <label
@@ -141,7 +159,7 @@ export default function Home() {
                         <p className="pl-1">or drag and drop</p>
                       </div>
                       <p className="text-xs leading-5 text-gray-600">CSV (UTF-8) File</p>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </div>
@@ -150,7 +168,8 @@ export default function Home() {
                   type="submit"
                   className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                 >
-                  <Link href="/dashboard">Go to dashboard</Link>
+                  {/* <Link href="/dashboard">Go to dashboard</Link> */}
+                  Submit
                 </button>
               </div>
             </form>
