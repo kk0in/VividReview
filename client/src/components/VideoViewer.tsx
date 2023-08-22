@@ -1,31 +1,55 @@
-"use client";
-
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCirclePlay,
   faCirclePause,
   faClockRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
-import { currentTimeState } from "../app/recoil/currentTimeState";
 import { useRecoilState } from "recoil";
+import { currentTimeState } from "../app/recoil/currentTimeState";
 
-const VideoViewer = ({ currentModapts, videoSrc }) => {
+interface VideoViewerProps {
+  currentModapts: string;
+  videoSrc: string;
+}
+
+const VideoViewer: React.FC<VideoViewerProps> = ({
+  currentModapts,
+  videoSrc,
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
+  const animationFrameRef = useRef(0);
 
-  const handleTimeUpdate = () => {
+
+  const handleTimeUpdate = (newTime) => {
     const video = videoRef.current;
     if (video) {
-      const newTime = video.currentTime;
+    //   const newTime = video.currentTime;
       setCurrentTime(newTime);
       const duration = video.duration;
       const calculatedProgress = (newTime / duration) * 100;
       setProgress(calculatedProgress);
     }
-  };
+  }
+
+  const updateTimestamp = () => {
+    const video = videoRef.current;
+    if (video){
+      // console.log(video.currentTime)
+      animationFrameRef.current = requestAnimationFrame(updateTimestamp);
+      handleTimeUpdate(video.currentTime)
+    }
+  }
+
+  useEffect(() => {
+    animationFrameRef.current = requestAnimationFrame(updateTimestamp);
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, []);
+
+  useEffect
 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) {
@@ -45,7 +69,7 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     }
   };
 
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const handlePlayPause = () => {
     if (videoRef.current) {
@@ -62,21 +86,19 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     return isPlaying ? faCirclePause : faCirclePlay;
   };
 
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === ' ') {
-        handlePlayPause()
+      if (event.key === " ") {
+        handlePlayPause();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isPlaying]);
-
 
   const formatTime = (timeInSeconds: number): string => {
     const date = new Date(null);
@@ -87,13 +109,14 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     const millisecs = Math.floor(
       (timeInSeconds - Math.floor(timeInSeconds)) * 1000
     );
+    // ms to 60frame rate
+    const msToFrame = Math.floor((millisecs * 60) / 1000);
 
     const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
       .toString()
-      .padStart(2, "0")}:${millisecs
-        .toString()
-        .padStart(3, "0")
-        .substring(0, 2)}`;
+      .padStart(2, "0")}:${msToFrame
+      .toString()
+      .padStart(2, "0")}`;
     return formattedTime;
   };
 
@@ -104,10 +127,26 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
     }
   };
 
+  const colormap = (label: string) => {
+    if (label === "BG") return "#BAB0AC";
+    let label_alphabet = label[0];
+    switch (label_alphabet) {
+      case "M":
+        return "#4E79A7";
+      case "G":
+        return "#F28E2B";
+      case "P":
+        return "#E15759";
+      case "R":
+        return "#76B7B2";
+      case "A":
+        return "#59A14F";
+    }
+  };
+
   return (
     <div className="w-[90%]">
-      <video ref={videoRef} src={videoSrc} onTimeUpdate={handleTimeUpdate} />
-
+      <video ref={videoRef} src={videoSrc} />
       <div
         className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"
         ref={progressRef}
@@ -126,9 +165,9 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
           <button className="m-2" onClick={handlePlayPause}>
             <FontAwesomeIcon icon={getPlayPauseIcon()} size="xl" />
           </button>
-          <text className="m-2 font-mono">
+          <span className="m-2 font-mono">
             {videoRef.current ? formatTime(currentTime) : "00:00:00"}
-          </text>
+          </span>
           <button className="m-2" onClick={() => rewind(-5)}>
             <FontAwesomeIcon
               icon={faClockRotateLeft}
@@ -139,16 +178,8 @@ const VideoViewer = ({ currentModapts, videoSrc }) => {
         </div>
 
         <div
-          className={`w-14 ml-5 rounded-lg flex items-center justify-center ${currentModapts
-              ? currentModapts.startsWith("M")
-                ? "bg-blue-500"
-                : currentModapts.startsWith("G")
-                  ? "bg-orange-500"
-                  : currentModapts.startsWith("R")
-                    ? "bg-green-500"
-                    : "bg-red-500"
-              : "bg-purple-500"
-            }`}
+          className={`w-14 ml-5 rounded-lg flex items-center justify-center`}
+          style={{ backgroundColor: colormap(currentModapts) }}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
         </div>

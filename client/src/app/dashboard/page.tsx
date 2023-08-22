@@ -3,21 +3,30 @@ import React, { useState, useEffect } from "react";
 import VideoViewer from "../../components/VideoViewer";
 import ModaptsTable from "../../components/ModaptsTable";
 import KeypointsDrawing from "../../components/KeypointsDrawing";
+
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExport } from "@fortawesome/free-solid-svg-icons";
+import VideoTimeline from "@/components/VideoTimeline";
+import { readRemoteFile } from "react-papaparse";
 
 export default function Page() {
   const [csvData, setCSVData] = useState([]);
-  const csvFilePath = "/kakao.csv";
-  const videoSrc = "./kakao3.mp4";
+  const csvFilePath = "/X_fv_0701_MX_0001.csv";
+  const videoSrc = "/0701_MX_0001.mp4";
+
+  const handleRemoteFile = () => {
+    readRemoteFile(csvFilePath, {
+      complete: (results: any) => {
+        console.log(csvData);
+        setCSVData(results.data);
+      },
+      download: true,
+      header: true,
+    });
+  };
+
   useEffect(() => {
-    async function fetchCSVData() {
-      const response = await fetch(csvFilePath);
-      const data = await response.text();
-      const rows = data.split("\n").map((row) => row.split(","));
-      setCSVData(rows);
-    }
-    fetchCSVData();
+    handleRemoteFile();
   }, []);
 
   const [currentModapts, setcurrentModapts] = useState("null");
@@ -26,16 +35,14 @@ export default function Page() {
     <div className="h-full flex flex-col">
       <div className="flex-grow flex flex-row h-1/2 max-h-1/2">
         <div className="flex-auto bg-slate-900 p-4 text-white w-[30rem]">
-        <div className="flex justify-between mb-3 pr-5">
-
-          <h5 className="my-1 text-sm font-bold">분석 영상</h5>
+          <div className="flex justify-between mb-3 pr-5">
+            <h5 className="my-1 text-sm font-bold">분석 영상</h5>
           </div>
           <VideoViewer currentModapts={currentModapts} videoSrc={videoSrc} />
         </div>
         <div className="flex-auto bg-slate-900 p-4 text-white">
-        <div className="flex justify-between mt-1 mb-3 pr-5">
-
-          <h5 className="my-1 text-sm font-bold">자세 정보</h5>
+          <div className="flex justify-between mt-1 mb-3 pr-5">
+            <h5 className="my-1 text-sm font-bold">자세 정보</h5>
           </div>
           <h6 className="text-xs my-1">전신 (Wholebody)</h6>
           <KeypointsDrawing position="wholeBody" />
@@ -64,7 +71,10 @@ export default function Page() {
           />
         </div>
       </div>
-      <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">Video Timeline</div>
+      <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">
+        <h5 className="my-1 text-sm font-bold">Video Timeline</h5>
+        <VideoTimeline />
+      </div>
     </div>
   );
 }
