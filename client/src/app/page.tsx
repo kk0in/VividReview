@@ -5,9 +5,13 @@ import Link from 'next/link'
 import { VideoCameraIcon, TableCellsIcon } from '@heroicons/react/24/solid'
 import { FormEvent } from 'react'
 import FileUpload from '@/components/FileUploader'
+import Papa from 'papaparse'
+import { useRecoilState } from 'recoil'
+import { csvDataState } from './recoil/csvDataState'
 
 export default function Home() {
 
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -15,8 +19,37 @@ export default function Home() {
   }
 
   const handleFileUploaded = (file: File) => {
-    console.log('File uploaded:', file);
+    if (file.type === 'video/mp4') {
+      console.log('mp4')
+      }
+    
+    else if (file.type === 'text/csv') {
+      console.log('csv')
+
+      // save file to /public folder of client
+      const reader = new FileReader()
+      reader.readAsText(file)
+      reader.onload = function () {
+        console.log(reader.result)
+        let results = Papa.parse(reader.result as string, {header: true})
+
+        console.log(results)
+
+        setCSVData(results.data)
+    }
+  }
   };
+
+  // const handleRemoteFile = () => {
+  //   readRemoteFile(csvFilePath, {
+  //     complete: (results: any) => {
+  //       console.log(csvData);
+  //       setCSVData(results.data);
+  //     },
+  //     download: true,
+  //     header: true,
+  //   });
+  // };
 
   return (
     <div className="flex h-full flex-col items-center justify-between px-24 py-8 bg-slate-700 overflow-auto">
@@ -167,8 +200,9 @@ export default function Home() {
                 <button
                   type="submit"
                   className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  onClick={() => {console.log(csvData)}}
                 >
-                  {/* <Link href="/dashboard">Go to dashboard</Link> */}
+                  {/* <Link href="/dashboard">Submit</Link> */}
                   Submit
                 </button>
               </div>

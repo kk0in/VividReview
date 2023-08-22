@@ -9,24 +9,29 @@ import { faFileExport } from "@fortawesome/free-solid-svg-icons";
 import VideoTimeline from "@/components/VideoTimeline";
 import { readRemoteFile } from "react-papaparse";
 
+import { useRecoilState } from "recoil";
+import { csvDataState } from "../recoil/csvDataState";
+
 export default function Page() {
-  const [csvData, setCSVData] = useState([]);
+  // const [csvData, setCSVData] = useState([]);
   const csvFilePath = "/X_fv_0701_MX_0001.csv";
   const videoSrc = "/0701_MX_0001.mp4";
+  // recoil csvDataState
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
 
-  const handleRemoteFile = () => {
-    readRemoteFile(csvFilePath, {
-      complete: (results: any) => {
-        console.log(csvData);
-        setCSVData(results.data);
-      },
-      download: true,
-      header: true,
-    });
-  };
+  // const handleRemoteFile = () => {
+  //   readRemoteFile(csvFilePath, {
+  //     complete: (results: any) => {
+  //       console.log(csvData);
+  //       setCSVData(results.data);
+  //     },
+  //     download: true,
+  //     header: true,
+  //   });
+  // };
 
   useEffect(() => {
-    handleRemoteFile();
+    console.log(csvData);
   }, []);
 
   const [currentModapts, setcurrentModapts] = useState("null");

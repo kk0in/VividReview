@@ -11,7 +11,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onFileUploaded,
   filetype,
 }) => {
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
     onDrop: (acceptedFiles) => {
       const file = acceptedFiles[0];
       onFileUploaded(file);
@@ -25,7 +25,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   });
 
   return (
-    <div {...getRootProps()} className="w-full h-full">
+    <div {...getRootProps()} className="w-full h-full px-6 py-12">
       <input {...getInputProps()} />
       {}
       <div className="text-center">
@@ -34,6 +34,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           aria-hidden="true"
         /> : <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
   }
+  {acceptedFiles.length > 0 && <p className="text-center mt-4 text-sm leading-6 text-gray-600">{acceptedFiles[0].name}</p>}
         {isDragActive ? (
         <p className="text-center mt-4 text-sm leading-6 text-gray-600">Drop your {filetype.toUpperCase()} file here...</p>
       ) : (

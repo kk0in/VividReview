@@ -2,27 +2,31 @@
 import { useEffect, useState } from "react";
 import { usePapaParse } from "react-papaparse";
 import { Resizable } from "re-resizable";
+import { useRecoilState, useRecoilValue } from "recoil";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
+import { csvDataState } from "@/app/recoil/csvDataState";
 
 export default function VideoTimeline() {
   const { readRemoteFile } = usePapaParse();
-  const [csvData, setCSVData] = useState([]);
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
+  const videoTime = useRecoilValue(currentTimeState);
 
-  const csvFilePath = "/X_fv_0701_MX_0001.csv";
+  // const csvFilePath = "/X_fv_0701_MX_0001.csv";
 
-  const handleRemoteFile = () => {
-    readRemoteFile(csvFilePath, {
-      complete: (results: any) => {
-        console.log(csvData);
-        setCSVData(results.data);
-      },
-      download: true,
-      header: true,
-    });
-  };
+  // const handleRemoteFile = () => {
+  //   readRemoteFile(csvFilePath, {
+  //     complete: (results: any) => {
+  //       console.log(csvData);
+  //       setCSVData(results.data);
+  //     },
+  //     download: true,
+  //     header: true,
+  //   });
+  // };
 
-  useEffect(() => {
-    handleRemoteFile();
-  }, []);
+  // useEffect(() => {
+  //   handleRemoteFile();
+  // }, []);
 
   function timeToMilliseconds(timeString: string): number {
     // time string format hh:mm:ss.frame
