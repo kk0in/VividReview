@@ -154,7 +154,7 @@ export default function Home() {
                   <label htmlFor="video" className="block text-sm font-medium leading-6 text-gray-900">
                     Video
                   </label>
-                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25">
                   <FileUpload onFileUploaded={handleFileUploaded} filetype='mp4'/>
 
                     {/* <div className="text-center">
@@ -177,7 +177,7 @@ export default function Home() {
                   <label htmlFor="csv" className="block text-sm font-medium leading-6 text-gray-900">
                     CSV
                   </label>
-                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25">
                     <FileUpload onFileUploaded={handleFileUploaded} filetype='csv'/>
                     {/* <div className="text-center">
                       <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
