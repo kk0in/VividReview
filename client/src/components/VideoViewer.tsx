@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { throttle } from 'lodash';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCirclePlay,
@@ -21,17 +22,35 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
+  const animationFrameRef = useRef(0);
 
-  const handleTimeUpdate = () => {
+
+  const handleTimeUpdate = (newTime) => {
     const video = videoRef.current;
     if (video) {
-      const newTime = video.currentTime;
+    //   const newTime = video.currentTime;
       setCurrentTime(newTime);
       const duration = video.duration;
       const calculatedProgress = (newTime / duration) * 100;
       setProgress(calculatedProgress);
     }
-  };
+  }
+
+  const updateTimestamp = () => {
+    const video = videoRef.current;
+    if (video){
+      // console.log(video.currentTime)
+      animationFrameRef.current = requestAnimationFrame(updateTimestamp);
+      handleTimeUpdate(video.currentTime)
+    }
+  }
+
+  useEffect(() => {
+    animationFrameRef.current = requestAnimationFrame(updateTimestamp);
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, []);
+
+  useEffect
 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) {
@@ -91,13 +110,14 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     const millisecs = Math.floor(
       (timeInSeconds - Math.floor(timeInSeconds)) * 1000
     );
+    // ms to 60frame rate
+    const msToFrame = Math.floor((millisecs * 60) / 1000);
 
     const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
       .toString()
-      .padStart(2, "0")}:${millisecs
+      .padStart(2, "0")}:${msToFrame
       .toString()
-      .padStart(3, "0")
-      .substring(0, 2)}`;
+      .padStart(2, "0")}`;
     return formattedTime;
   };
 
@@ -127,7 +147,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
 
   return (
     <div className="w-[90%]">
-      <video ref={videoRef} src={videoSrc} onTimeUpdate={handleTimeUpdate} />
+      <video ref={videoRef} src={videoSrc} />
       <div
         className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"
         ref={progressRef}
