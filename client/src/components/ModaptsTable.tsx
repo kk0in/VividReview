@@ -94,34 +94,22 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   return (
     <>
       <div
-        className="w-full max-h-80 overflow-y-scroll"
+        className="w-full h-full overflow-y-scroll"
         ref={tableContainerRef}
       >
         <table className="w-[80%] table-auto">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
-              {/* <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                No
-              </th> */}
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                Label
-              </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                From
-              </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                To
-              </th>
-              <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                Duration
-              </th>
-              {/* <th className="border-slate-600 font-medium py-3 px-4 text-slate-100 text-left">
-                End
-              </th> */}
+              {/* read object keys to generate header */}
+              {csvData[0] && Object. keys(csvData[0]).map((key, index) => (
+                <th key={key} className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left">
+                  {key}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {csvData.map((row, rowIndex) => (
+            {csvData.map((row: Object, rowIndex: number) => (
               <tr
                 key={rowIndex}
                 className={
@@ -133,7 +121,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                 {Object.entries(row).map(([key, value], cellIndex) => (
                   <td
                     key={cellIndex}
-                    className={`border-b border-slate-700 p-[0.5] pl-6 font-mono ${
+                    className={`border-b border-slate-700 px-3 py-2 font-mono ${
                       rowIndex === highlightedRow
                         ? "text-slate-800"
                         : "text-slate-200"

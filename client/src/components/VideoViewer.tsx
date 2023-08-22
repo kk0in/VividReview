@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { throttle } from 'lodash';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCirclePlay,
