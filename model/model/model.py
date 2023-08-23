@@ -1,22 +1,52 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from base import BaseModel
 
 
-class MnistModel(BaseModel):
-    def __init__(self, num_classes=10):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, num_classes)
+class SimpleNet(nn.Module):
+    def __init__(self, input_size=138, output_size=8, linear_layers=0, lstm_hidden=256, dropout_prob=0.3):
+        super(SimpleNet, self).__init__()
+        
+        self.lstm_layers = 1
+        self.lstm_hidden = lstm_hidden
+        self.lstm_input = 1024
+        self.input_size = input_size
 
+        pre_layers = [
+            [input_size, 2048],
+            [2048, 1024],
+        ] + [
+            [1024, 1024] for _ in range(linear_layers)
+        ] + [
+            [1024, self.lstm_input]
+        ]
+
+        self.pre = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(i, o),
+                nn.BatchNorm1d(o),
+                nn.GELU(),
+                nn.Dropout(p=dropout_prob)
+            )
+            for i, o in pre_layers
+        ])
+
+        self.lstm = nn.LSTM(self.lstm_input, self.lstm_hidden, num_layers=self.lstm_layers, batch_first=True)
+
+        self.last = nn.Sequential(
+            nn.Linear(self.lstm_hidden, 256),
+            nn.BatchNorm1d(256),
+            nn.GELU(),
+            nn.Dropout(p=dropout_prob),
+            nn.Linear(256, output_size)
+        )
+
+    
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        batch_size = x.shape[0]
+        x = x.view(-1, self.input_size)
+        for layer in self.pre:
+            x = layer(x)
+        x = x.view(batch_size, -1, self.lstm_input)
+        x, _ = self.lstm(x)
+        x = self.last(x[:, -1, :].squeeze(1)) 
+        return x 
