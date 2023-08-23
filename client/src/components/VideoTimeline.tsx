@@ -4,7 +4,7 @@ import { usePapaParse } from "react-papaparse";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
-import { csvDataState } from "@/app/recoil/csvDataState";
+import { csvDataState } from "@/app/recoil/DataState";
 
 export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);

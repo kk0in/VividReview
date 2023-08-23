@@ -1,7 +1,8 @@
 // "use client";
 import React, { useEffect, useRef } from "react";
-import keypointData from "../../public/keypoint.json";
+// import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
+import { keypointDataState } from "@/app/recoil/DataState"
 import { currentTimeState } from "../app/recoil/currentTimeState";
 
 interface TestProps {
@@ -19,6 +20,7 @@ function withCurrentTime<P>(
 
 function Test(props: TestProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const keypointData = useRecoilValue(keypointDataState);
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
 

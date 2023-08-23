@@ -15,3 +15,13 @@ export const csvDataState = atom({
 //     },
 //   ],
 });
+
+export const keypointDataState = atom({
+  key: "keypointDataState",
+  default: null,
+});
+
+export const videoDataState = atom({
+  key: "videoDataState",
+  default: '',
+});
