@@ -15,7 +15,8 @@ import { csvDataState } from "../recoil/csvDataState";
 export default function Page() {
   // const [csvData, setCSVData] = useState([]);
   const csvFilePath = "/X_fv_0701_MX_0001.csv";
-  const videoSrc = "/0701_MX_0001.mp4";
+  // const videoSrc = "/0701_MX_0001.mp4";
+  const videoSrc = "/kakao3.mp4";
   // recoil csvDataState
   const [csvData, setCSVData] = useRecoilState(csvDataState);
 

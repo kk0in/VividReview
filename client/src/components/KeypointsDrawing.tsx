@@ -22,6 +22,21 @@ function Test(props: TestProps): JSX.Element {
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
 
+  const total_skeleton_links = keypointData.meta_info.skeleton_links;
+  const total_skeleton_colors =
+    keypointData.meta_info.skeleton_link_colors["__ndarray__"];
+
+  const skeleton_color_dic = {};
+
+  // total_skeleton_links 배열의 각 요소와 total_skeleton_colors 배열의 각 요소를 연결하여 객체를 생성
+  for (let i = 0; i < total_skeleton_links.length; i++) {
+    const key = total_skeleton_links[i];
+    const value = total_skeleton_colors[i];
+    skeleton_color_dic[key] = value;
+    // console.log(key)
+    // console.log(skeleton_color_dic[key])
+  }
+
   const loadData = (instanceIndex: number) => {
     if (
       keypointData.instance_info[instanceIndex] &&
@@ -47,6 +62,7 @@ function Test(props: TestProps): JSX.Element {
     if (!context) return;
 
     let skeleton_links;
+
     if (position === "wholeBody") {
       skeleton_links = keypointData.meta_info.skeleton_links.filter(
         (link) =>
@@ -96,20 +112,11 @@ function Test(props: TestProps): JSX.Element {
       const scaledY1 = (y1 - centerY) * scale;
       const scaledX2 = (x2 - centerX) * scale;
       const scaledY2 = (y2 - centerY) * scale;
-
+      const color = skeleton_color_dic[link];
       context.beginPath();
       context.moveTo(scaledX1, scaledY1);
       context.lineTo(scaledX2, scaledY2);
-      context.strokeStyle =
-        (startIdx >= 91 && startIdx <= 111) ||
-        (startIdx == 5 && endIdx == 7) ||
-        startIdx == 7
-          ? "orange"
-          : (startIdx >= 112 && startIdx <= 132) ||
-            (startIdx == 6 && endIdx == 8) ||
-            startIdx == 8
-          ? "green"
-          : "blue";
+      context.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
       context.lineWidth = 2;
       context.stroke();
     });
