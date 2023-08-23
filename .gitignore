@@ -1,1 +1,6 @@
 model/preprocess/assets/*
+model/logs/*
+model/train_env/*
+model/wandb/*
+
+*.pth

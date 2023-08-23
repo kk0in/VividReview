@@ -1,11 +1,6 @@
-import os 
-import json
-import math
-import pickle
-import csv
-from glob import glob
-from tqdm import tqdm
-import parmap
+import numpy as np
+import torch
+
 
 NOSE = 0
 LEFT_EYE = 1
@@ -148,19 +143,20 @@ def get_dist(x1, y1, x2, y2):
     if x1==0 or x2==0:
         return 0.0
     else:
-        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 def get_deg(x1, y1, x2, y2):
     if x1==0 or x2==0:
         return 0.0
     dx = x2 - x1
     dy = y2 - y1
-    rad = math.atan2(dy, dx)
-    degree = (rad * 180) / math.pi
+    rad = np.arctan2(dy, dx)
+    degree = (rad * 180) / np.pi
     if degree < 0:
         degree += 360
 
     return degree
+
 
 change_part = [RIGHT_ELBOW, RIGHT_WRIST, RIGHT_HAND_ROOT, RIGHT_THUMB1, RIGHT_THUMB2, RIGHT_THUMB3, RIGHT_THUMB4, RIGHT_FOREFINGER1, RIGHT_FOREFINGER2, RIGHT_FOREFINGER3, RIGHT_FOREFINGER4, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER4, RIGHT_RING_FINGER1, RIGHT_RING_FINGER2, RIGHT_RING_FINGER3, RIGHT_RING_FINGER4, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER4, LEFT_ELBOW, LEFT_WRIST, LEFT_HAND_ROOT, LEFT_THUMB1, LEFT_THUMB2, LEFT_THUMB3, LEFT_THUMB4, LEFT_FOREFINGER1, LEFT_FOREFINGER2, LEFT_FOREFINGER3, LEFT_FOREFINGER4, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER4, LEFT_RING_FINGER1, LEFT_RING_FINGER2, LEFT_RING_FINGER3, LEFT_RING_FINGER4, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER4]
 change_pair = [RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_WRIST, RIGHT_HAND_ROOT, RIGHT_HAND_ROOT, RIGHT_THUMB1, RIGHT_THUMB1, RIGHT_THUMB2, RIGHT_THUMB2, RIGHT_THUMB3, RIGHT_THUMB3, RIGHT_THUMB4, RIGHT_HAND_ROOT, RIGHT_FOREFINGER1, RIGHT_FOREFINGER1, RIGHT_FOREFINGER2, RIGHT_FOREFINGER2, RIGHT_FOREFINGER3, RIGHT_FOREFINGER3, RIGHT_FOREFINGER4, RIGHT_HAND_ROOT, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER4, RIGHT_HAND_ROOT, RIGHT_RING_FINGER1, RIGHT_RING_FINGER1, RIGHT_RING_FINGER2, RIGHT_RING_FINGER2, RIGHT_RING_FINGER3, RIGHT_RING_FINGER3, RIGHT_RING_FINGER4, RIGHT_HAND_ROOT, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER4, LEFT_SHOULDER, LEFT_ELBOW, LEFT_ELBOW, LEFT_WRIST, LEFT_WRIST, LEFT_HAND_ROOT, LEFT_HAND_ROOT, LEFT_THUMB1, LEFT_THUMB1, LEFT_THUMB2, LEFT_THUMB2, LEFT_THUMB3, LEFT_THUMB3, LEFT_THUMB4, LEFT_HAND_ROOT, LEFT_FOREFINGER1, LEFT_FOREFINGER1, LEFT_FOREFINGER2, LEFT_FOREFINGER2, LEFT_FOREFINGER3, LEFT_FOREFINGER3, LEFT_FOREFINGER4, LEFT_HAND_ROOT, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER4, LEFT_HAND_ROOT, LEFT_RING_FINGER1, LEFT_RING_FINGER1, LEFT_RING_FINGER2, LEFT_RING_FINGER2, LEFT_RING_FINGER3, LEFT_RING_FINGER3, LEFT_RING_FINGER4, LEFT_HAND_ROOT, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER4]
@@ -168,123 +164,18 @@ change_pair = [RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_WRIS
 labels_mx_topk = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 labels_mx_topk_wo = ['M', 'G', 'P', 'R', 'A', 'BG']
 
-def run_feature_extraction(json_dir, target_path):
-    """_summary_
-
-        Extract features from json_dir and save them to target_path
-
-        json_dir = "/home/samsung/data_link/samsung/sec/FIN/Result"
-        target_path = './assets/feature/' 
-    """
-    
-    global DATA_PATH, RAW_PATH, X_FV_PKL_PATH, Y_FV_PKL_PATH, Y_FV_PKL_WO_PATH, X_FV_CSV_PATH, Y_FV_CSV_PATH, Y_FV_CSV_WO_PATH
-    DATA_PATH = target_path
-    RAW_PATH = DATA_PATH + 'raw/'
-    X_FV_PKL_PATH = DATA_PATH + 'X_pkl/'
-    Y_FV_PKL_PATH = DATA_PATH + 'Y_pkl/'
-    Y_FV_PKL_WO_PATH = DATA_PATH + 'Y_wo_pkl/'
-    X_FV_CSV_PATH = DATA_PATH + 'X_csv/'
-    Y_FV_CSV_PATH = DATA_PATH + 'Y_csv/'
-    Y_FV_CSV_WO_PATH = DATA_PATH + 'Y_wo_csv/'
-
-    PATH_LIST = [DATA_PATH, RAW_PATH, X_FV_PKL_PATH, Y_FV_PKL_PATH, Y_FV_PKL_WO_PATH, X_FV_CSV_PATH, Y_FV_CSV_PATH, Y_FV_CSV_WO_PATH]
-    for path in PATH_LIST:
-        os.makedirs(path, exist_ok=True)
-
-
-    ## json 파일 내 순서 보존 -> 영상 단위 유지
-    ## 0816_MX_0001_{index}_M3 -> index 기준 정렬
-    json_list = []
-    for (root, directories, files) in os.walk(json_dir):
-        for file in files:
-            file_path = os.path.join(root, file)
-            json_list.append(file_path)
-    json_list.sort(key=lambda path: int(os.path.basename(path).split("_")[0])*100000+int(os.path.basename(path).split("_")[3]))
-
-    results = map(_extract_feature_json, tqdm(json_list))
-    x_total, y_total, y_wo_total = zip(*results)
-    x_total = [item for sublist in x_total for item in sublist]
-    y_total = [item for sublist in y_total for item in sublist]
-    y_wo_total = [item for sublist in y_wo_total for item in sublist]
-
-    tp = open(os.path.join(RAW_PATH + 'X_raw.pkl'), 'wb')
-    yp = open(os.path.join(RAW_PATH + 'Y_raw.pkl'), 'wb')
-    yp_wo = open(os.path.join(RAW_PATH + 'Y_raw_wo.pkl'), 'wb')
-
-    tc = open(os.path.join(RAW_PATH + 'X_raw.csv'), 'w', newline='')
-    yc = open(os.path.join(RAW_PATH + 'Y_raw.csv'), 'w', newline='')
-    yc_wo = open(os.path.join(RAW_PATH + 'Y_raw_wo.csv'), 'w', newline='')
-
-
-    print(f"feature size = {len(x_total[0])}")
-    print(f"x_total: {len(x_total)}, y_total: {len(y_total)}")
-    pickle.dump(x_total, tp)
-    pickle.dump(y_total, yp)
-    pickle.dump(y_wo_total, yp_wo)
-    csv.writer(tc).writerows(x_total)
-    csv.writer(yc).writerows(y_total)
-    csv.writer(yc_wo).writerows(y_wo_total)      
-    tp.close()
-    yp.close()
-    yp_wo.close()
-    tc.close()
-    yc.close()
-    yc_wo.close()
-    
-    return os.path.join(RAW_PATH + 'X_raw.csv')
-
-
-
-def _extract_feature_json(file):
-    x_file = []
-    y_file = []
-    y_wo_file = []
-    
-    file_name = file.split('/')[-1].split('.')[0]
-    label = file.split('_')[-1].split('.')[0]
-
-    t1 = open(os.path.join(X_FV_PKL_PATH + f'X_fv_{file_name}.pkl'), 'wb')
-    y1 = open(os.path.join(Y_FV_PKL_PATH + f'Y_fv_{file_name}.pkl'), 'wb')
-    y1_wo = open(os.path.join(Y_FV_PKL_WO_PATH + f'Y_fv_wo_{file_name}.pkl'), 'wb')
-
-    t2 = open(os.path.join(X_FV_CSV_PATH + f'X_fv_{file_name}.csv'), 'w', newline='')
-    y2 = open(os.path.join(Y_FV_CSV_PATH + f'Y_fv_{file_name}.csv'), 'w', newline='')
-    y2_wo = open(os.path.join(Y_FV_CSV_WO_PATH + f'Y_fv_wo_{file_name}.csv'), 'w', newline='')
-
-    if label not in labels_mx_topk:
-        label = 'BG'
-
-    with open(file, 'r') as f:
-        try:
-            json_data = json.load(f)
-        except:
-            quit()
-    
-    instances = json_data["instance_info"]
-    for ins in range(len(instances)-1):
-        pos_list = []
+def extract_feature(keypoints):
+    ## keypoints: (frames, 2*kp) current frame and next frame's keypoints concatenated
+    features = []
+    for keypoint in keypoints:
+        j, n_j = np.array_split(keypoint, 2)
+        
         dist_list = []
         deg_list = []
         cur_deg_list = []
-        
-        j = []
-        n_j = []
-
-        try:
-            k = instances[ins]["instances"][0]["keypoints"]
-            n_k = instances[ins+1]["instances"][0]["keypoints"]
-        except:
-            continue
-
-        for i in range(len(k)):
-            j.append(k[i][0])
-            j.append(k[i][1])
-            n_j.append(n_k[i][0])
-            n_j.append(n_k[i][1])
-        
+    
         for i in range(len(change_part)):
             part = change_part[i]
-            # pos_list += [j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1]]
             dist_list.append(abs(get_dist(j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1])))
 
             pair_1 = change_pair[i * 2]
@@ -301,37 +192,7 @@ def _extract_feature_json(file):
                 deg_list.append(abs(deg-n_deg))
 
         # fv = pos_list
-        fv = []
-        for i in range(len(change_part)):
-            fv.append(dist_list[i])
-            fv.append(deg_list[i])
-            fv.append(cur_deg_list[i])
-            
-        x_file.append(fv)
-
-        y_file.append([labels_mx_topk.index(label)])
-        newstring = ''.join([i for i in label if not i.isdigit()])
-        y_wo_file.append([labels_mx_topk_wo.index(newstring)])
-
-    pickle.dump(x_file, t1)
-    pickle.dump(y_file, y1)
-    pickle.dump(y_wo_file, y1_wo)
-    csv.writer(t2).writerows(x_file)
-    csv.writer(y2).writerows(y_file)
-    csv.writer(y2_wo).writerows(y_wo_file)
-    
-    t1.close()
-    y1.close()
-    y1_wo.close()
-    t2.close()
-    y2.close()
-    y2_wo.close()
-    
-    return (x_file, y_file, y_wo_file)
-
-
-
-if __name__ == '__main__':
-    json_dir = "/home/samsung/data_link/samsung/sec/FIN/Result"
-    target_path = './assets/feature/' 
-    run_feature_extraction(json_dir, target_path)
+        fv = dist_list + deg_list + cur_deg_list
+        features.append(fv)
+    return features
+        
