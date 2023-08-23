@@ -5,3 +5,4 @@ client/public/X_fv_0701_MX_0001.csv
 .venv/
 server/metadata
 server/videos
+__pycache__/
