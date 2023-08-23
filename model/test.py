@@ -1,81 +1,270 @@
 import argparse
 import torch
 from tqdm import tqdm
-import data_loader.data_loaders as module_data
-import model.loss as module_loss
-import model.metric as module_metric
-import model.model as module_arch
-from parse_config import ConfigParser
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+from .preprocess import run_pipe
+import joblib
+import json
+from model.model import SimpleNet
+from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
+import os
 
+LABELS = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 
-def main(config):
-    logger = config.get_logger('test')
+# overlap rows to move the window (ex: 1 2 3 4 5 6 ->  1 2 3 4  2 3 4 5  3 4 5 6 ...)
+def overlap_rows(arr, window_size):
+    overlapped_rows = []
 
-    # setup data_loader instances
-    data_loader = getattr(module_data, config['data_loader']['type'])(
-        config['data_loader']['args']['data_dir'],
-        batch_size=512,
-        shuffle=False,
-        validation_split=0.0,
-        training=False,
-        num_workers=2
+    for i in range(len(arr) - window_size + 1):
+        window = arr[i:i + window_size]
+        overlapped_rows.extend(window)
+
+    overlapped_rows = np.array(overlapped_rows)
+    print(f"{arr.shape} overlapped: {overlapped_rows.shape}")
+
+    return overlapped_rows
+
+# Load the inference inputs
+def load_inf(path, window):
+    file = open(path, 'r')
+    X_ = np.array(
+        [elem for elem in [
+            row.split(',') for row in file
+        ]], 
+        dtype=np.float32
     )
+    file.close()
+    X_ = overlap_rows(X_, window)
+    blocks = int(len(X_) / window)
+    
+    X_ = np.array(np.split(X_,blocks))
 
-    # build model architecture
-    model = config.init_obj('arch', module_arch)
-    logger.info(model)
+    return X_ 
 
-    # get function handles of loss and metrics
-    loss_fn = getattr(module_loss, config['loss'])
-    metric_fns = [getattr(module_metric, met) for met in config['metrics']]
 
-    logger.info('Loading checkpoint: {} ...'.format(config.resume))
-    checkpoint = torch.load(config.resume)
-    state_dict = checkpoint['state_dict']
-    if config['n_gpu'] > 1:
-        model = torch.nn.DataParallel(model)
-    model.load_state_dict(state_dict)
+def scale_input(input_array, scaler_path, window):
+    scaler = joblib.load(scaler_path)
+    sample_count = len(input_array)
+    flattened = input_array.reshape((sample_count, -1))
+    scaled_input = scaler.transform(flattened)
+    return scaled_input.reshape((sample_count, window, -1))
 
-    # prepare model for testing
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    model.eval()
 
-    total_loss = 0.0
-    total_metrics = torch.zeros(len(metric_fns))
+def unpack_output(output):
+    softmax_output = torch.softmax(output, dim=1)
+    confidence_scores = softmax_output.max(dim=1)[0]  # Taking the maximum value from softmax as confidence
+    
+    top_n, top_i = output.topk(1, dim=1)  # Specify dim=1 for batch dimension
+    category_i = top_i.squeeze()  # Remove the singleton dimension
+    
+    labels = LABELS[category_i.item()]
+    confidence_scores = confidence_scores.item()
+    
+    #print(labels, confidence_scores, category_i.item())
+
+    return labels, confidence_scores, category_i.item()
+
+
+# transform output to collect y output for each frame (ex: 1 2 3 4 5 6 -> [_ _ _ 1] [_ _ 1 2] [_ 1 2 3] [1 2 3 4] [2 3 4 5] [3 4 5 6])
+def transform_output(arr, window, default_value=-1):
+    transformed_rows = []
+    
+    for i in range(-window+1, len(arr - 1)):
+        window = [arr[j] if 0 <= j < len(arr) else default_value for j in range(i, i + window)]
+        transformed_rows.append(window)
+    
+    return np.array(transformed_rows, dtype=arr.dtype)
+
+
+
+# Convert frame count(int) to timestamp(str, HH:MM:SS.FF)
+def frame_to_timestamp(frame_count, fps):
+    second_stamp = int(frame_count / fps)
+    frame_stamp = frame_count % fps
+    return (datetime.min + timedelta(seconds=second_stamp)).time().strftime('%M:%S') + ':' + str(frame_stamp).zfill(2)
+
+def confidence_to_label(confidence_scores):
+    # Convert confidence scores to labels
+    labels = []
+    for confidence_score in confidence_scores:
+        #print(confidence_score)
+        label = confidence_score.argmax()
+        labels.append(label)
+    return labels
+
+# Convert confidence scores to timestamps and save them as a CSV file
+# confidence_scores_array: (frame_count, n_steps, len(LABELS))
+def convert_timestamp_csv(label_array, output_csv_path):
+
+    # Merge consecutive labels and create timestamps
+    timestamps = []
+    current_label = None
+    start_time = "00:00:00"
+    start_frame = -1
+    end_time = "00:00:00"
+
+    for frame, label in enumerate(label_array):
+        if label != current_label:
+            if current_label is not None:
+                duration = frame_to_timestamp(frame - start_frame, 60)
+                end_time = frame_to_timestamp(frame, 60)
+                timestamps.append((LABELS[current_label], start_time, end_time, duration))
+            
+            current_label = label
+            start_time = end_time
+            start_frame = frame
+
+    # Append the last timestamp
+    if current_label is not None:
+        duration = frame_to_timestamp(frame - start_frame, 60)
+        end_time = frame_to_timestamp(frame, 60)
+        #print(start_time, end_time, current_label)
+        timestamps.append((LABELS[current_label], start_time, end_time, duration))
+
+    # Create a DataFrame
+    df = pd.DataFrame(timestamps, columns=['label', 'start', 'end', 'duration'])
+
+    # Save the DataFrame as a CSV file
+    df.to_csv(output_csv_path, index=False)
+
+# voting between inferences with different frame ranges, counting only the ones with confidence above a threshold
+
+confidence_threshold = 0.5
+
+def decide_label(label_array, confidence_array):
+    final_labels = []
+    
+    for i in range(label_array.shape[0]):
+        frame_labels = label_array[i]
+        frame_confidences = np.max(confidence_array[i], axis=1)
+        
+        # Collect votes for labels above the confidence threshold
+        votes = [(label, confidence) for label, confidence in zip(frame_labels, frame_confidences) if confidence >= confidence_threshold and label != -1]
+        
+        # If there are no votes above the threshold, choose the label with the highest confidence
+        if not votes:
+            max_confidence_index = np.argmax(frame_confidences)
+            final_label = frame_labels[max_confidence_index]
+        else:
+            # Choose the most frequent vote
+            vote_counts = np.bincount([label for label, _ in votes])
+            max_vote_count = np.max(vote_counts)
+            
+            # Check if there are ties in vote counts
+            tied_labels = np.where(vote_counts == max_vote_count)[0]
+            
+            if len(tied_labels) == 1:
+                final_label = tied_labels[0]
+            else:
+                # Choose the tied label with higher total confidence
+                total_confidences = [sum(confidence for label_vote, confidence in votes if label_vote == label) for label in tied_labels]
+                max_total_confidence_index = np.argmax(total_confidences)
+                final_label = tied_labels[max_total_confidence_index]
+        
+        final_labels.append(final_label)
+    
+    return np.array(final_labels)
+
+def inference(input_path, gt_path, config):
+
+    print(f"Inference on {input_path}, ground truth: {gt_path}")
+    
+    device = torch.device(config['device'])
+    
+    input_file_name, _ = os.path.splitext(os.path.basename(input_path))
+    inference_output_path = f"./results/test_inf_labels_{input_file_name}.txt"
+    inference_confidence_path = f"./results/test_inf_confidence_{input_file_name}.txt"
+    inference_csv_path = f"./results/{input_file_name}.csv"
+    gt_avail = True if gt_path else False
+    
+    scaler_path = config['scaler_path']
+    window = config['window']
+
+    inf_input = load_inf(input_path, window)
+    inf_input = scale_input(inf_input, scaler_path, window) # scale inputs
+
+    predictions = []   # top label
+    softmax_results = []   # confidence scores
+    
+    feature_size = inf_input.shape[2]
+
+    net = SimpleNet(feature_size, 8, config['linear_layers'], config['lstm_hidden'], config['dropout_prob'])
+    net.load_state_dict(torch.load('/data/samsung/TAD_models/model_checkpoint.pth'))
+    net.eval() 
+    net.to(device)
+
+    # Create a DataLoader
+    test_loader = DataLoader(inf_input, batch_size=4096, shuffle=False)
+    feature_size = inf_input.shape[2]
 
     with torch.no_grad():
-        for i, (data, target) in enumerate(tqdm(data_loader)):
-            data, target = data.to(device), target.to(device)
-            output = model(data)
+        for inputs in test_loader:
+            inputs = inputs.to(device)
+            outputs = net(inputs)
+            batch_softmax = F.softmax(outputs, dim=1)
+            softmax_results.append(batch_softmax)
+            prediction = torch.argmax(outputs, dim=1) 
+            predictions += prediction.tolist()
+        
 
-            #
-            # save sample images, or do something with output here
-            #
+    softmax_results = torch.cat(softmax_results, dim=0)
+    softmax_results = np.array(softmax_results.detach().cpu().tolist(), dtype=np.float32) 
 
-            # computing loss, metrics on test set
-            loss = loss_fn(output, target)
-            batch_size = data.shape[0]
-            total_loss += loss.item() * batch_size
-            for i, metric in enumerate(metric_fns):
-                total_metrics[i] += metric(output, target) * batch_size
+    indices_array = np.array(predictions, dtype=np.int32)
+    reorganized_indices = transform_output(indices_array, window)
+    np.savetxt(inference_output_path, reorganized_indices, fmt='%d', delimiter=' ')
 
-    n_samples = len(data_loader.sampler)
-    log = {'loss': total_loss / n_samples}
-    log.update({
-        met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
-    })
-    logger.info(log)
+    reorganized_confidence = transform_output(softmax_results, window, np.full(softmax_results[0].shape, 0))
+    np.savetxt(inference_confidence_path, reorganized_confidence.reshape(-1, reorganized_confidence.shape[-1]), fmt='%.3f', delimiter=' ')
 
+    final_labels = decide_label(reorganized_indices, reorganized_confidence)
+
+    convert_timestamp_csv(final_labels, inference_csv_path)
+
+    if (gt_avail):
+        ground_truth = []
+        with open(gt_path, "r") as f:
+            lines = f.readlines()
+            lines = [l.replace("\n", "") for l in lines]
+            for line in lines:
+                ground_truth.append(int(line))
+
+        #print(f"len(ground_truth): {len(ground_truth)}, len(final_labels): {len(final_labels)}")
+        assert len(final_labels) == len(ground_truth)
+
+        total_correct = np.sum(final_labels == ground_truth)
+
+        accuracy = total_correct / len(test_loader.dataset)
+        print("Accuracy: ", accuracy)
+
+
+def run_inference(input_video, gt_path=None, config={}):
+    
+    frame_rate = config['frame_rate']
+    window = config['window']
+    
+    csv_path = run_pipe(input_video, frame_rate, window, inference=True)
+    inference(csv_path, gt_path, config)
+    
+    
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default=None, type=str,
-                      help='config file path (default: None)')
-    args.add_argument('-r', '--resume', default=None, type=str,
-                      help='path to latest checkpoint (default: None)')
-    args.add_argument('-d', '--device', default=None, type=str,
-                      help='indices of GPUs to enable (default: all)')
+                      help='config path')
+    args.add_argument('-v', '--video', required=True, type=str,
+                      help='video path')
+    args.add_argument('-g', '--ground_truth', default=None, type=str,
+                      help='ground truth path')
+    
+    with open(args.config, 'r') as json_file:
+        json_data = json_file.read()
+    # Parse the JSON data into a Python dictionary
+    config = json.loads(json_data)
 
-    config = ConfigParser.from_args(args)
-    main(config)
+    run_inference(args.video, args.ground_truth, config)
+
+

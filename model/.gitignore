@@ -119,5 +119,6 @@ preprocess/assets/*
 logs/*
 train_env/*
 wandb/*
+model/rtmpose-trt/*
 
 *.pth
