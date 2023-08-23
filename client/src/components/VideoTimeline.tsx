@@ -2,83 +2,132 @@
 import { useEffect, useState } from "react";
 import { usePapaParse } from "react-papaparse";
 import { Resizable } from "re-resizable";
+import { useRecoilState, useRecoilValue } from "recoil";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
+import { csvDataState } from "@/app/recoil/csvDataState";
 
 export default function VideoTimeline() {
-  const { readRemoteFile } = usePapaParse();
-  const [csvData, setCSVData] = useState([]);
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
+  const videoTime = useRecoilValue(currentTimeState);
 
-  const csvFilePath = "/X_fv_0701_MX_0001.csv";
+  const adjustTimeline = (index: number, newWidth: number) => {
+    const newCsvData = JSON.parse(JSON.stringify(csvData));
+    const oldDuration = timeToMilliseconds(newCsvData[index].duration);
+    const oldWidth = oldDuration / 5;
+    const deltaWidth = newWidth - oldWidth;
+    const deltaDuration = deltaWidth * 5;
 
-  const handleRemoteFile = () => {
-    readRemoteFile(csvFilePath, {
-      complete: (results: any) => {
-        console.log(csvData);
-        setCSVData(results.data);
-      },
-      download: true,
-      header: true,
-    });
-  };
+    console.log("original newCsvData[index]: ", newCsvData[index])
 
-  useEffect(() => {
-    handleRemoteFile();
-  }, []);
+    if (deltaWidth < 0) {
+        // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
+        newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
+        newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
 
-  function timeToMilliseconds(timeString: string): number {
-    // time string format hh:mm:ss.frame
-    // fps = 60
-    // console.log(timeString)
-    if (timeString){
-      const timeArray = timeString.split(":");
-      const minute = parseInt(timeArray[0]);
-      const second = parseInt(timeArray[1].split(".")[0]);
-      const frame = parseInt(timeArray[1].split(".")[1]);
+        const blankSpace = {
+          label: "",
+          start: newCsvData[index].end,
+          end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
+          duration: MillisecondsTotime(-deltaDuration)
+        };
+        console.log("newCsvData[index]: ", newCsvData[index])
+        console.log("blankSpace: ", blankSpace);
+        newCsvData.splice(index + 1, 0, blankSpace);
 
-      const milliseconds =
-        minute * 60 * 1000 +
-        second * 1000 +
-        (frame * 1000) / 60;
+    } else {
+        // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
+        let remainingDuration = deltaDuration;
 
-      return milliseconds;
+        for (let i = index + 1; i < newCsvData.length && remainingDuration > 0; i++) { // need to optimize?
+            const nextDuration = timeToMilliseconds(newCsvData[i].duration);
+            
+            if (nextDuration <= remainingDuration) {
+                remainingDuration -= nextDuration;
+                newCsvData.splice(i, 1);
+                i--;
+            } else {
+                newCsvData[i].start = addTimes(newCsvData[i].start, MillisecondsTotime(remainingDuration));
+                newCsvData[i].duration = MillisecondsTotime(nextDuration - remainingDuration);
+                newCsvData[i].end = addTimes(newCsvData[i].start, newCsvData[i].duration);
+                remainingDuration = 0;
+            }
+        }
+        newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration - remainingDuration);
+        newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
+        console.log("newCsvData[index]: ", newCsvData[index])
+        console.log("newCsvData[index+1]: ", newCsvData[index+1])
     }
-    else return 0;
-  }
 
-  const colormap = (label: string) => {
-    if (label === "BG") return "#BAB0AC"
-    let label_alphabet = label[0]
-    switch (label_alphabet) {
-      case "M":
-        return "#4E79A7"
-      case "G":
-        return "#F28E2B"
-      case "P":
-        return "#E15759"
-      case "R":
-        return "#76B7B2"
-      case "A":
-        return "#59A14F"
-  }}
+    setCSVData(newCsvData);
+};
 
-
-  return (
-    <div className="flex flex-row overflow-auto" style={{gap: '2px'}}>
-      {csvData.map((row: any, rowIndex: number) => (
-        <Resizable 
-          key={rowIndex} 
-          defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 'auto' }}
-          minWidth={10} 
-          maxWidth={1000} 
-          enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
-        >
-          <div 
-              className={`rounded py-2 px-1 border flex items-center justify-center`}
-              style={{ width: '100%', backgroundColor: colormap(row['label']) }}
+return (
+  <div className="flex flex-row overflow-auto" style={{ gap: '2px' }}>
+      {csvData.map((row, rowIndex) => (
+          <Resizable 
+              key={`${rowIndex}-${timeToMilliseconds(row['duration'])}`} 
+              defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
+              minWidth={10} 
+              maxWidth={1000} 
+              enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
+              onResizeStop={(e, direction, ref) => {
+                  adjustTimeline(rowIndex, ref.offsetWidth);
+              }}
           >
-              {row["label"]}
-          </div>
-        </Resizable>
+              <div 
+                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'}`}
+                  style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
+              >
+                  {row["label"]}
+              </div>
+          </Resizable>
       ))}
-    </div>
-  );
-}  
+  </div>
+);
+}
+
+const colormap = (label: string) => {
+  let label_alphabet = label ? label[0] : "";
+  switch (label_alphabet) {
+    case "M":
+      return "#4E79A7";
+    case "G":
+      return "#F28E2B";
+    case "P":
+      return "#E15759";
+    case "R":
+      return "#76B7B2";
+    case "A":
+      return "#59A14F";
+    case "B": // BG
+      return "#BAB0AC";
+    default:  // Blank
+      return "transparent";
+  }
+};
+
+function addTimes(time1: string, time2: string): string {
+  let ms1 = timeToMilliseconds(time1);
+  let ms2 = timeToMilliseconds(time2);
+  return MillisecondsTotime(ms1 + ms2);
+}
+
+function MillisecondsTotime(duration: number): string {
+  let absoluteDuration = Math.abs(duration);
+
+  const frames = Math.round((absoluteDuration % 1000) * 60 / 1000);
+  const seconds = Math.floor((absoluteDuration / 1000) % 60);
+  const minutes = Math.floor((absoluteDuration / (1000 * 60)) % 60);
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(frames).padStart(2, '0')}`;
+}
+
+function timeToMilliseconds(timeString: string): number {
+  if (!timeString) return 0;
+  const timeArray = timeString.split(":");
+  const minute = parseInt(timeArray[0]);
+  const second = parseInt(timeArray[1].split(".")[0]);
+  const frame = parseInt(timeArray[1].split(".")[1]);
+  //console.log(minute, second, frame)
+  return minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+}
