@@ -110,3 +110,15 @@ datasets/
 .vscode/
 .idea/
 __MACOSX/
+
+
+
+## custom
+
+preprocess/assets/*
+logs/*
+train_env/*
+wandb/*
+model/rtmpose-trt/*
+
+*.pth

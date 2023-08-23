@@ -4,6 +4,7 @@ import joblib
 from glob import glob
 import pandas as pd
 import os
+import shutil
 
 
 DATA_PATH = "./assets/overlap/"
@@ -25,5 +26,9 @@ pd.DataFrame(scaled_X_test).to_csv(SCALED_PATH+"X_test.csv", index=False, header
 X_val = pd.read_csv(DATA_PATH+"X_val.csv", header=None)
 scaled_X_val = scaler.transform(X_val)
 pd.DataFrame(scaled_X_val).to_csv(SCALED_PATH+"X_val.csv", index=False, header=None)
+
+shutil.copy(DATA_PATH+"Y_train.csv", SCALED_PATH+"Y_train.csv")
+shutil.copy(DATA_PATH+"Y_test.csv", SCALED_PATH+"Y_test.csv")
+shutil.copy(DATA_PATH+"Y_val.csv", SCALED_PATH+"Y_val.csv")
 
 joblib.dump(scaler, scaler_save)

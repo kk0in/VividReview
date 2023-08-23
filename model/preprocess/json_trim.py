@@ -35,7 +35,7 @@ def validate_trimmed_data(trimmed_data, start_time, end_time, frame_rate):
             return False
     return True
 
-def main(input_path, output_dir, frame_rate):
+def run_json_trim(input_path, output_dir, frame_rate):
     # Handle directory or single file input
     files = [input_path] if os.path.isfile(input_path) else [os.path.join(input_path, f) for f in os.listdir(input_path) if f.endswith('.json')]
     
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     if args.output_dir is None:
         args.output_dir = os.path.join(args.input_path)
     
-    main(args.input_path, args.output_dir, args.frame_rate)
+    run_json_trim(args.input_path, args.output_dir, args.frame_rate)
 
 
 

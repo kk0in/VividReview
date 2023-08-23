@@ -1,0 +1,15 @@
+{
+    "device": "cuda:1",
+    "model": {
+        "input_size": 138,
+        "output_size": 8,
+        "linear_layers": 2,
+        "lstm_hidden": 1024,
+        "dropout_prob": 0.3
+    },
+    "frame_rate": 60,
+    "window": 8,
+
+    "checkpoint_path": "/data/samsung/TAD_models/model_copy_checkpoint.pth",
+    "scaler_path" : "/data/samsung/TAD_models/scaler_save.pkl"
+}
