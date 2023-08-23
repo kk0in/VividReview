@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, Form, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
+import zipfile
 import shutil
 import json
 import os
@@ -44,3 +46,11 @@ async def upload_file(gbm: str = Form(...), product: str = Form(...), plant: str
 
 
     return {"video_file": video_file_path, "metadata_file": metadata_file_path}
+
+@app.post('/test/upload_video/')
+async def upload_file(file: UploadFile = File(...)):
+    with zipfile.ZipFile('return.zip', 'w') as zf:
+        zf.write('./test_file/test.json')
+        zf.write('./test_file/test.csv')
+    os.remove('return.zip')
+    return FileResponse('return.zip', media_type='application/zip')
