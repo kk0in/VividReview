@@ -23,12 +23,24 @@ function Test(props: TestProps): JSX.Element {
   const currentTime = useRecoilValue(currentTimeState);
 
   const loadData = (instanceIndex: number) => {
-    const keypoints =
-      keypointData.instance_info[instanceIndex].instances[0].keypoints;
-    return keypoints;
+    if (
+      keypointData.instance_info[instanceIndex] &&
+      keypointData.instance_info[instanceIndex].instances &&
+      keypointData.instance_info[instanceIndex].instances[0]
+    ) {
+      const keypoints =
+        keypointData.instance_info[instanceIndex].instances[0].keypoints;
+      return keypoints;
+    } else {
+      // Handle the case where the required data is not available
+      return null; // Or throw an error, return a default value, etc.
+    }
   };
 
   const drawLines = (keypoints: number[][]) => {
+    if (keypoints == null) {
+      return;
+    }
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
 
