@@ -54,3 +54,19 @@ async def upload_file(file: UploadFile = File(...)):
         zf.write('./test_file/test.csv')
     os.remove('return.zip')
     return FileResponse('return.zip', media_type='application/zip')
+
+@app.get('/test/download_video')
+async def test_download_video():
+    return FileResponse('test_file/0707_MX_0002_TEST.mp4', media_type='video/mp4')
+
+@app.get('/test/download_csv')
+async def test_download_csv():
+    return FileResponse('test_file/X_fv_0701_MX_0001.csv', media_type='text/csv')
+
+@app.get('/test/get_json')
+async def test_get_json():
+    # return FileResponse('test_file/0707_MX_0002_TEST.json', media_type='application/json')
+    # jsonify
+    with open('test_file/0707_MX_0002_TEST.json') as f:
+        data = json.load(f)
+    return data
