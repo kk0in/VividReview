@@ -199,7 +199,7 @@ function Test(props: TestProps): JSX.Element {
         ref={canvasRef}
         width={canvasSizeWidth}
         height={canvasSizeHeight}
-        className="bg-indigo-300"
+        className="bg-white"
       />
     </div>
   );
