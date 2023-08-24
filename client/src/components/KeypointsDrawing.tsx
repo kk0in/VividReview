@@ -23,12 +23,18 @@ function Test(props: TestProps): JSX.Element {
   const keypointData = useRecoilValue(keypointDataState);
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
-  const canvasSize_wholeBody = 200;
-  const canvasSize_hand = 110;
+  const canvasSize_wholeBody_width = 200;
+  const canvasSize_wholeBody_height = 200;
+  const canvasSize_hand_width = 120;
+  const canvasSize_hand_height = 120;
   const canvasSizeWidth =
-    position === "wholeBody" ? canvasSize_wholeBody : canvasSize_hand;
+    position === "wholeBody"
+      ? canvasSize_wholeBody_width
+      : canvasSize_hand_width;
   const canvasSizeHeight =
-    position === "wholeBody" ? canvasSize_wholeBody : canvasSize_hand;
+    position === "wholeBody"
+      ? canvasSize_wholeBody_height
+      : canvasSize_hand_height;
 
   const total_skeleton_links = keypointData.meta_info.skeleton_links;
   const total_skeleton_colors =
@@ -61,8 +67,8 @@ function Test(props: TestProps): JSX.Element {
   size /= 10;
   const scale =
     position === "wholeBody"
-      ? 0.3 / (size / canvasSize_wholeBody)
-      : 0.5 / (size / canvasSize_wholeBody);
+      ? 0.3 / (size / canvasSize_wholeBody_width)
+      : 0.5 / (size / canvasSize_wholeBody_width);
 
   console.log(scale);
 
