@@ -30,6 +30,7 @@ export default function Home() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const mutation = useMutation(postNewProejct);
   const [isUploaded, setIsUploaded] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   const router = useRouter();
 
@@ -90,6 +91,7 @@ export default function Home() {
   }
 
   const fetchData = async () => {
+    setIsFetching(true);
     console.log("fetching data");
     // get csv
     await Promise.all([
@@ -100,7 +102,9 @@ export default function Home() {
         router.push("/dashboard");
       }).catch((err) => {
         console.log(err);
-      });
+      }).finally(() => { 
+        setIsFetching(false);
+      })
 
   };
 
@@ -159,7 +163,7 @@ export default function Home() {
                 </div>
                 <div className="flex mt-10">
                   <button className="mx-auto bg-slate-700 py-2 px-3 text-white rounded-md shadow-md hover:bg-slate-600" onClick={fetchData}>
-                    TEST MODE
+                    {isFetching ? "FETCHING..." : "TEST MODE"}
                   </button>
                 </div>
               </div>
@@ -292,7 +296,6 @@ export default function Home() {
                         onFileUploaded={handleFileUploaded}
                         filetype="mp4"
                       />
-
                       {/* <div className="text-center">
                       <VideoCameraIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                       <div className="mt-4 flex text-sm leading-6 text-gray-600">
@@ -328,7 +331,7 @@ export default function Home() {
                     // disabled={!isUploaded}
                     onClick={fetchData}
                   >
-                    FETCH DATA
+                    {isFetching ? "FETCHING..." : "FETCH TEST DATA"}
                   </button>
                 </div>
               </form>
