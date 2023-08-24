@@ -79,13 +79,10 @@ export default function Page() {
           />
         </div>
       </div>
-      
+      <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">
+        <h5 className="my-1 text-sm font-bold">Video Timeline</h5>
+        <VideoTimeline />
+      </div>
     </div>
   );
 }
-
-
-// <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">
-//         <h5 className="my-1 text-sm font-bold">Video Timeline</h5>
-//         <VideoTimeline />
-//       </div>
