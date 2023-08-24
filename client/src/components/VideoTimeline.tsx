@@ -10,6 +10,10 @@ export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const videoTime = useRecoilValue(currentTimeState);
 
+  function calculateLeftPosition(index: number) {
+    return timeToMilliseconds(csvData[index]['start']) / 5;
+  }
+
   const adjustTimeline = (index: number, newWidth: number) => {
     const newCsvData = JSON.parse(JSON.stringify(csvData));
     const oldDuration = timeToMilliseconds(newCsvData[index].duration);
@@ -17,22 +21,27 @@ export default function VideoTimeline() {
     const deltaWidth = newWidth - oldWidth;
     const deltaDuration = deltaWidth * 5;
 
-    console.log("original newCsvData[index]: ", newCsvData[index])
-
     if (deltaWidth < 0) {
-        // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
-        newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
-        newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
+        if (oldDuration+deltaDuration <= 60) { // less than half modapts (129ms)
+          const blankSpace = newCsvData[index]
+          blankSpace.label = "";
+          newCsvData[index] = blankSpace
+        }
+        else {
+          // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
+          newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
+          newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
 
-        const blankSpace = {
-          label: "",
-          start: newCsvData[index].end,
-          end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
-          duration: MillisecondsTotime(-deltaDuration)
-        };
-        console.log("newCsvData[index]: ", newCsvData[index])
-        console.log("blankSpace: ", blankSpace);
-        newCsvData.splice(index + 1, 0, blankSpace);
+          const blankSpace = {
+            label: "",
+            start: newCsvData[index].end,
+            end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
+            duration: MillisecondsTotime(-deltaDuration)
+          };
+          console.log("newCsvData[index]: ", newCsvData[index])
+          console.log("blankSpace: ", blankSpace);
+          newCsvData.splice(index + 1, 0, blankSpace);
+        }
 
     } else {
         // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
@@ -54,25 +63,28 @@ export default function VideoTimeline() {
         }
         newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration - remainingDuration);
         newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
-        console.log("newCsvData[index]: ", newCsvData[index])
-        console.log("newCsvData[index+1]: ", newCsvData[index+1])
     }
 
     setCSVData(newCsvData);
 };
 
 return (
-  <div className="flex flex-row overflow-auto" style={{ gap: '2px' }}>
+  <div className="flex flex-row overflow-auto">
       {csvData.map((row, rowIndex) => (
           <Resizable 
-              key={`${rowIndex}-${timeToMilliseconds(row['duration'])}`} 
+              key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
               defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
-              minWidth={10} 
+              minWidth={0} 
               maxWidth={1000} 
               enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
-              onResizeStop={(e, direction, ref) => {
-                  adjustTimeline(rowIndex, ref.offsetWidth);
+              onResizeStart={(e, direction, ref) => {
+                ref.style.zIndex = "10";
               }}
+              onResizeStop={(e, direction, ref) => {
+                adjustTimeline(rowIndex, ref.offsetWidth);
+                ref.style.zIndex = "1";
+              }}
+              style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
           >
               <div 
                   className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'}`}
