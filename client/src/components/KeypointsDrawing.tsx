@@ -1,8 +1,8 @@
 // "use client";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 // import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
-import { keypointDataState } from "@/app/recoil/DataState"
+import { keypointDataState } from "@/app/recoil/DataState";
 import { currentTimeState } from "../app/recoil/currentTimeState";
 
 interface TestProps {
@@ -23,6 +23,12 @@ function Test(props: TestProps): JSX.Element {
   const keypointData = useRecoilValue(keypointDataState);
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
+  const canvasSize_wholeBody = 200;
+  const canvasSize_hand = 110;
+  const canvasSizeWidth =
+    position === "wholeBody" ? canvasSize_wholeBody : canvasSize_hand;
+  const canvasSizeHeight =
+    position === "wholeBody" ? canvasSize_wholeBody : canvasSize_hand;
 
   const total_skeleton_links = keypointData.meta_info.skeleton_links;
   const total_skeleton_colors =
@@ -38,6 +44,27 @@ function Test(props: TestProps): JSX.Element {
     // console.log(key)
     // console.log(skeleton_color_dic[key])
   }
+  let size = 0;
+  if (
+    keypointData.instance_info[0] &&
+    keypointData.instance_info[0].instances &&
+    keypointData.instance_info[0].instances[0]
+  ) {
+    for (let i = 0; i < 10; i++) {
+      const keypoints_ = keypointData.instance_info[i].instances[0].keypoints;
+      const [x1, y1] = keypoints_[5];
+      const [x2, y2] = keypoints_[6];
+      size += x1 - x2;
+    }
+  }
+
+  size /= 10;
+  const scale =
+    position === "wholeBody"
+      ? 0.3 / (size / canvasSize_wholeBody)
+      : 0.5 / (size / canvasSize_wholeBody);
+
+  console.log(scale);
 
   const loadData = (instanceIndex: number) => {
     if (
@@ -47,11 +74,10 @@ function Test(props: TestProps): JSX.Element {
     ) {
       const keypoints =
         keypointData.instance_info[instanceIndex].instances[0].keypoints;
+
       return keypoints;
     } else {
-      // Handle the case where the required data is not available
-      // console.log("keypoint data is not available", instanceIndex)
-      return null; // Or throw an error, return a default value, etc.
+      return null;
     }
   };
 
@@ -70,6 +96,8 @@ function Test(props: TestProps): JSX.Element {
       skeleton_links = keypointData.meta_info.skeleton_links.filter(
         (link) =>
           !(
+            (link[0] >= 0 && link[0] <= 4) ||
+            (link[1] >= 0 && link[1] <= 4) ||
             (link[0] >= 13 && link[0] <= 22) ||
             (link[1] >= 13 && link[1] <= 22) ||
             (link[0] >= 23 && link[0] <= 90) ||
@@ -87,35 +115,59 @@ function Test(props: TestProps): JSX.Element {
           link[0] >= 112 && link[0] <= 132 && link[1] >= 112 && link[1] <= 132
       );
     } else {
-      skeleton_links = keypointData.meta_info.skeleton_links; // 기본값
+      skeleton_links = keypointData.meta_info.skeleton_links;
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    const scale = position === "wholeBody" ? 0.45 : 0.7;
-
+    let center_left_x = 0;
+    let center_left_y = 0;
+    for (let i = 91; i < 112; i++) {
+      center_left_x += keypoints[i][0];
+      center_left_y += keypoints[i][1];
+    }
+    center_left_x /= 21;
+    center_left_y /= 21;
+    let center_right_x = 0;
+    let center_right_y = 0;
+    for (let i = 112; i < 133; i++) {
+      center_right_x += keypoints[i][0];
+      center_right_y += keypoints[i][1];
+    }
+    center_right_x /= 21;
+    center_right_y /= 21;
     const centerX =
       position === "wholeBody"
-        ? keypoints[8][0] - 80
+        ? (keypoints[5][0] +
+            keypoints[6][0] +
+            keypoints[11][0] +
+            keypoints[12][0]) /
+          4
         : position === "LeftHand"
-        ? keypoints[91][0] - 80
-        : keypoints[112][0] - 80;
+        ? center_left_x
+        : center_right_x;
     const centerY =
       position === "wholeBody"
-        ? keypoints[1][1] - 50
+        ? (keypoints[11][1] +
+            keypoints[5][1] +
+            keypoints[12][1] +
+            keypoints[6][1]) /
+          4
         : position === "LeftHand"
-        ? keypoints[91][1] - 50
-        : keypoints[112][1] - 50;
+        ? center_left_y
+        : center_right_y;
 
     skeleton_links.forEach((link) => {
       const [startIdx, endIdx] = link;
       const [x1, y1] = keypoints[startIdx];
       const [x2, y2] = keypoints[endIdx];
 
-      const scaledX1 = (x1 - centerX) * scale;
-      const scaledY1 = (y1 - centerY) * scale;
-      const scaledX2 = (x2 - centerX) * scale;
-      const scaledY2 = (y2 - centerY) * scale;
+      const scaledX1 = (x1 - centerX) * scale + canvasSizeWidth / 2;
+      const scaledY1 = (y1 - centerY) * scale + canvasSizeHeight / 2;
+      const scaledX2 = (x2 - centerX) * scale + canvasSizeWidth / 2;
+      const scaledY2 = (y2 - centerY) * scale + canvasSizeHeight / 2;
+
       const color = skeleton_color_dic[link];
+
       context.beginPath();
       context.moveTo(scaledX1, scaledY1);
       context.lineTo(scaledX2, scaledY2);
@@ -141,16 +193,13 @@ function Test(props: TestProps): JSX.Element {
     return () => clearInterval(drawInterval);
   }, [currentTime, position]);
 
-  const canvasSizeWidth = position === "wholeBody" ? 200 : 110;
-  const canvasSizeHeight = position === "wholeBody" ? 180 : 110;
-
   return (
     <div style={{}}>
       <canvas
         ref={canvasRef}
         width={canvasSizeWidth}
         height={canvasSizeHeight}
-        className="bg-white"
+        className="bg-indigo-300"
       />
     </div>
   );
