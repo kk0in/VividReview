@@ -50,6 +50,7 @@ function Test(props: TestProps): JSX.Element {
       return keypoints;
     } else {
       // Handle the case where the required data is not available
+      // console.log("keypoint data is not available", instanceIndex)
       return null; // Or throw an error, return a default value, etc.
     }
   };
@@ -125,7 +126,9 @@ function Test(props: TestProps): JSX.Element {
   };
 
   useEffect(() => {
-    const instanceIndex = Math.ceil((currentTime * 1000) / 33.33);
+    // current time to frame (instance) index
+    const instanceIndex = Math.ceil(currentTime * 60);
+    //const instanceIndex = Math.ceil((currentTime * 1000) / 33.33);
     const keypoints = loadData(instanceIndex);
     drawLines(keypoints);
 
