@@ -34,6 +34,35 @@ export default function Home() {
 
   const router = useRouter();
 
+  const formFieldbyGBM = {
+    "MX(S)": {
+      "product": ["MOBILE", "APS", "PC", "TNP", "PKG"],
+      "plant": ["GUMI", "SEIL(N)", "SEV", "SEVT", "SEIN"],
+      "route": ["1000", "3000", "5000", "9000", "9100"],
+    },
+    "MX(P)": {
+      "product": ["CAMERA", "CNC", "GLASS", "INJ ASSY"],
+      "plant": ["SEV"],
+      "route": ["MC01", "MN01", "MLU1", "MI01", "MS01"]
+    },
+    "VD": {
+      "product": ["TV", "LCM", "MONITOR", "AV"],
+      "plant": ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
+      "route": ["2260", "2660", "3560", "4260", "7160"]
+    },
+    "DA": {
+      "product": ["REF", "A/C", "W/M", "MWO", "COMP"],
+      "plant": ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
+      "route": ["2260", "2660", "3560", "4260", "7160"]
+    },
+    "NET_SYS": {
+      "proudct": ["SYSTEM", "PBX"],
+      "plant": ["SUWON", "SEV", "SEIN"],
+      "route": ["2260", "2660", "3560", "4260", "7160"]
+    }
+  };
+
+
   const { data: videoBlob, refetch: refetchVideo } = useQuery(["videoData"], getTestVideo, {
     onSuccess: (data) => {
       const videoUrl = URL.createObjectURL(data);
