@@ -8,7 +8,35 @@ import { csvDataState } from "@/app/recoil/DataState";
 
 export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
-  const videoTime = useRecoilValue(currentTimeState);
+  const currentTime = useRecoilValue(currentTimeState);
+
+  useEffect(() => {
+    const element = document.querySelector(".highlighted");
+    const container = document.getElementById("scrollableTimelineContainer");
+
+    if (element && container) {
+        const elementRect = element.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        console.log("Element Rect:", elementRect);
+        console.log("Container Rect:", containerRect);
+
+        const scrollLeftPosition = 
+            elementRect.left - 
+            containerRect.left + 
+            container.scrollLeft - 
+            (containerRect.width / 2) + 
+            (elementRect.width / 2);  // Centers the highlighted section
+
+        container.scrollLeft = scrollLeftPosition;
+        container.scrollTo({
+          left: scrollLeftPosition,
+          behavior: 'smooth'
+       });
+    }
+}, [currentTime]);
+
+
 
   function calculateLeftPosition(index: number) {
     return timeToMilliseconds(csvData[index]['start']) / 5;
@@ -68,8 +96,17 @@ export default function VideoTimeline() {
     setCSVData(newCsvData);
 };
 
+const isInCurrentTime = (start: string, end: string) => {
+  const startTimeMillis = timeToMilliseconds(start);
+  const endTimeMillis = timeToMilliseconds(end);
+  const _currentTime = currentTime * 1000;
+  console.log("currentTime: ", _currentTime, "startTimeMillis: ", startTimeMillis, "endTimeMillis: ", endTimeMillis)
+  return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
+};
+
 return (
-  <div className="flex flex-row overflow-auto">
+<div className="w-full overflow-x-scroll overflow-y-hidden" id="scrollableTimelineContainer" style={{ height: "50px", position: 'relative' }}>
+    <div className="flex">
       {csvData.map((row, rowIndex) => (
           <Resizable 
               key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
@@ -87,13 +124,15 @@ return (
               style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
           >
               <div 
-                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'}`}
+                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''}`}
                   style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
               >
-                  {row["label"]}
+                {row["label"]}
               </div>
           </Resizable>
+        
       ))}
+    </div>
   </div>
 );
 }
