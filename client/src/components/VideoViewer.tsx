@@ -3,27 +3,31 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCirclePlay,
   faCirclePause,
-  faClockRotateLeft,
+  faReply,
   faCircle,
+  faRepeat,
 } from "@fortawesome/free-solid-svg-icons";
 import { useRecoilState } from "recoil";
 import { currentTimeState } from "../app/recoil/currentTimeState";
+import { csvDataState } from "@/app/recoil/DataState";
 
 interface VideoViewerProps {
-  currentModapts: string;
   videoSrc: string;
 }
 
-const VideoViewer: React.FC<VideoViewerProps> = ({
-  currentModapts,
-  videoSrc,
-}) => {
+const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
+  // console.log(csvDataState);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
-  const animationFrameRef = useRef(0);
+  const [currentModapts, setCurrentModapts] = useState(null);
+  const [currentModaptsTime, setCurrentModaptsTime] = useState<
+    [number, number]
+  >([0, 0]);
 
+  const animationFrameRef = useRef(0);
   const handleTimeUpdate = (newTime) => {
     const video = videoRef.current;
     if (video) {
@@ -35,6 +39,34 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (csvData.length > 0) {
+      csvData.forEach((row, index) => {
+        const startTime = timeToMilliseconds(row["start"]);
+        const endTime = timeToMilliseconds(row["end"]);
+        const current = currentTime * 1000;
+        if (current >= startTime && current <= endTime) {
+          setCurrentModapts(row["label"]);
+          setCurrentModaptsTime([startTime / 1000, endTime / 1000]);
+          return;
+        }
+      });
+    }
+  }, [currentTime, csvData]);
+  function timeToMilliseconds(timeString: string): number {
+    if (timeString) {
+      const timeArray = timeString.split(":");
+      // const hour = parseInt(timeArray[0]);
+      const minute = parseInt(timeArray[0]);
+      const second = parseInt(timeArray[1].split(".")[0]);
+      const frame = parseInt(timeArray[1].split(".")[1]);
+
+      const milliseconds =
+        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+
+      return milliseconds;
+    }
+  }
   const updateTimestamp = () => {
     const video = videoRef.current;
     if (video) {
@@ -47,8 +79,6 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     animationFrameRef.current = requestAnimationFrame(updateTimestamp);
     return () => cancelAnimationFrame(animationFrameRef.current);
   }, []);
-
-  useEffect;
 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) {
@@ -108,7 +138,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     const millisecs = Math.floor(
       (timeInSeconds - Math.floor(timeInSeconds)) * 1000
     );
-    // ms to 60frame rate
+
     const msToFrame = Math.floor((millisecs * 60) / 1000);
 
     const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
@@ -117,10 +147,31 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
     return formattedTime;
   };
 
+  const [isPlayingRange, setIsPlayingRange] = useState<boolean>(false);
+  const [playingRange, setPlayingRange] = useState<[number, number]>();
+
   const rewind = (seconds: number) => {
     if (videoRef.current) {
-      videoRef.current.currentTime -= seconds;
-      setCurrentTime(videoRef.current.currentTime);
+      const newCurrentTime = videoRef.current.currentTime - seconds;
+      videoRef.current.currentTime = newCurrentTime;
+      setCurrentTime(newCurrentTime);
+      // setCurrentTime(videoRef.current.currentTime);
+      if (isPlayingRange) {
+        csvData.forEach((row, index) => {
+          const startTime = timeToMilliseconds(row["start"]);
+          const endTime = timeToMilliseconds(row["end"]);
+          const current = newCurrentTime * 1000;
+          if (current >= startTime && current <= endTime) {
+            setPlayingRange([startTime / 1000, endTime / 1000]);
+            setCurrentModaptsTime([
+              startTime / 1000 + 0.001,
+              endTime / 1000 - 0.001,
+            ]);
+
+            return;
+          }
+        });
+      }
     }
   };
 
@@ -224,6 +275,9 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
   };
 
   const colormap = (label: string) => {
+    if (!label) {
+      return;
+    }
     if (label === "BG") return "#BAB0AC";
     let label_alphabet = label[0];
     switch (label_alphabet) {
@@ -239,6 +293,26 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
         return "#59A14F";
     }
   };
+
+  const handlePlayRangeToggle = () => {
+    if (isPlayingRange) {
+      setIsPlayingRange(false);
+    } else {
+      setIsPlayingRange(true);
+      setPlayingRange([
+        currentModaptsTime[0] + 0.001,
+        currentModaptsTime[1] - 0.001,
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (isPlayingRange && video && currentTime >= playingRange[1]) {
+      video.currentTime = playingRange[0];
+      setCurrentTime(playingRange[0]);
+    }
+  }, [isPlayingRange, currentTime, playingRange]);
 
   return (
     <div className="w-[90%]">
@@ -265,12 +339,13 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
       </div>
       <div className=" flex">
         <div className="h-10 w-3/4 pl-20 flex justify-center items-center">
-          <button className="m-2" onClick={() => rewind(5)}>
-            <FontAwesomeIcon icon={faClockRotateLeft} size="lg" />
+          <button className={`m-2`} onClick={() => rewind(1)}>
+            <FontAwesomeIcon icon={faReply} size="lg" />
           </button>
           <button className="m-2" onClick={handlePlayPause}>
             <FontAwesomeIcon icon={getPlayPauseIcon()} size="xl" />
           </button>
+
           <span
             className={`m-2 font-mono ${isInputMode ? "hidden" : "block"}`}
             onClick={handleTimeSpanClick}
@@ -288,17 +363,23 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
               autoFocus
             />
           )}
-          <button className="m-2" onClick={() => rewind(-5)}>
-            <FontAwesomeIcon
-              icon={faClockRotateLeft}
-              size="lg"
-              flip="horizontal"
-            />
+          <button className={`m-2`} onClick={() => rewind(-1)}>
+            <FontAwesomeIcon icon={faReply} size="lg" flip="horizontal" />
           </button>
+
+          <div
+            className={`ml-5 ${
+              isPlayingRange ? "bg-white rounded bg-opacity-50" : ""
+            }`}
+          >
+            <button onClick={handlePlayRangeToggle}>
+              <FontAwesomeIcon icon={faRepeat} size="lg" />
+            </button>
+          </div>
         </div>
 
         <div
-          className={`w-14 ml-5 rounded-lg flex items-center justify-center`}
+          className={`w-14 ml-2 rounded-lg flex items-center justify-center`}
           style={{ backgroundColor: colormap(currentModapts) }}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
