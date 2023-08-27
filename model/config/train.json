@@ -7,26 +7,27 @@
         "args": {
             "input_size": 138,
             "output_size": 8,
-            "linear_layers": 1,
-            "lstm_hidden": 512,
-            "dropout_prob": 0.3
+            "linear_layers": 0,
+            "lstm_hidden": 1024,
+            "dropout_prob": 0.4
         }
     },
     "data_loader": {
-        "type": "FullDataLoader",
+        "type": "BaseDataLoader",
         "args":{
             "data_dir": "./preprocess/assets/train/overlap/features/",
             "scaler_dir": "./preprocess/assets/scalers/",
-            "batch_size": 512,
+            "batch_size": 256,
             "shuffle": true,
             "window": 8,
-            "num_workers": 2
+            "num_workers": 2,
+            "augment": false
         }
     },
     "optimizer": {
         "type": "Adam",
         "args":{
-            "lr": 0.001
+            "lr": 0.0001
         }
     },
     "loss": "cross_entropy",

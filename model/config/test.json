@@ -3,7 +3,7 @@
     "model": {
         "input_size": 138,
         "output_size": 8,
-        "linear_layers": 2,
+        "linear_layers": 1,
         "lstm_hidden": 1024,
         "dropout_prob": 0.3
     },

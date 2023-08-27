@@ -120,5 +120,7 @@ logs/*
 train_env/*
 wandb/*
 model/rtmpose-trt/*
+results/*
 
 *.pth
+*.png
