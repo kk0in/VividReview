@@ -20,8 +20,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [videoData, setVideoData] = useRecoilState(videoDataState);
   const [keypointData, setKeypointData] = useRecoilState(keypointDataState);
 
-  const [projectMetadata, setProjectMetadata] = useState<Object>({});
-
   // GET Project List
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -46,26 +44,28 @@ export default function Page({ params }: { params: { id: string } }) {
       refetchVideo();
       refetchCSV();
       refetchKeypoint();
+    //   setIsLoaded(true);
     }
   }, [data]);
 
 
-  const { data: videoBlob, refetch: refetchVideo } = useQuery(
+  const { refetch: refetchVideo, isLoading: loadingVideo } = useQuery(
     ["videoData", params.id],
     getVideo,
     {
       onSuccess: (data) => {
         const videoUrl = URL.createObjectURL(data);
-        console.log(videoUrl)
-        setVideoData(videoUrl); // Assuming you have a Recoil state or local state to store this URL
+        // console.log(videoUrl)
+        setVideoData(videoUrl);
       },
       enabled: false,
     }
   );
 
-  const { refetch: refetchCSV } = useQuery(["csvData", params.id], getResult, {
+  const { refetch: refetchCSV, isLoading: loadingCSV } = useQuery(["csvData", params.id], getResult, {
     onSuccess: (data) => {
-        console.log(data)
+        // console.log(data)
+        setCSVData(data.result)
     //   const reader = new FileReader();
     //   reader.readAsText(data);
     //   reader.onload = function () {
@@ -77,13 +77,13 @@ export default function Page({ params }: { params: { id: string } }) {
     enabled: false,
   });
 
-  const { refetch: refetchKeypoint } = useQuery(
+  const { refetch: refetchKeypoint, isLoading: loadingKeypoint } = useQuery(
     ["keypointData", params.id],
     getKeypoint,
     {
       onSuccess: (data) => {
         console.log(data)
-        setKeypointData(data);
+        setKeypointData(data.keypoint);
       },
       enabled: false,
     }
@@ -104,7 +104,18 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex">
-      {data?.project?.done === "done" && <>div</>}
+        {isLoading && (
+        <div>
+            Loading Project Info...
+        </div>
+        )}
+      {(data?.project?.done === "done") && (
+        <div>
+            {loadingVideo && "Loading Video..."}<br/>
+            {loadingCSV && "Loading CSV..."}<br/>
+            {loadingKeypoint && "Loading Keypoint..."}<br/>
+        </div>
+      )}
       {isError && (
         <div className="mx-auto my-auto">
           <div className="flex flex-col">
