@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { VideoCameraIcon, TableCellsIcon } from "@heroicons/react/24/solid";
 import { FormEvent, Fragment, useState } from "react";
 import FileUpload from "@/components/FileUploader";
 import Papa from "papaparse";
@@ -14,13 +13,14 @@ import {
 } from "./recoil/DataState";
 import { QueryKey, useMutation, useQuery } from "@tanstack/react-query";
 import {
-  postNewProejct,
+  getProjectList,
+  postProject,
   getTestCSV,
   getTestKeypoint,
   getTestVideo,
 } from "@/utils/api";
 import { useRouter } from "next/navigation";
-import { Listbox, Transition } from "@headlessui/react";
+import { Listbox, Transition, Dialog } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 
 export default function Home() {
@@ -30,7 +30,7 @@ export default function Home() {
   const [videoData, setVideoData] = useRecoilState(videoDataState);
   const [keypointData, setKeypointData] = useRecoilState(keypointDataState);
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const mutation = useMutation(postNewProejct);
+  const mutation = useMutation(postProject);
   const [isUploaded, setIsUploaded] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
@@ -39,6 +39,8 @@ export default function Home() {
   const [selectedProduct, setSeletedProduct] = useState<string | null>(null);
   const [selectedPlant, setSeletedPlant] = useState<string | null>(null);
   const [selectedRoute, setSeletedRoute] = useState<string | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const router = useRouter();
 
@@ -53,22 +55,29 @@ export default function Home() {
       plant: ["SEV"],
       route: ["MC01", "MN01", "MLU1", "MI01", "MS01"],
     },
-    "VD": {
+    VD: {
       product: ["TV", "LCM", "MONITOR", "AV"],
       plant: ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
-    "DA": {
+    DA: {
       product: ["REF", "A/C", "W/M", "MWO", "COMP"],
       plant: ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
-    "NET_SYS": {
+    NET_SYS: {
       proudct: ["SYSTEM", "PBX"],
       plant: ["SUWON", "SEV", "SEIN"],
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
   };
+
+  // GET Project List
+  const { data: projectListData } = useQuery(["projectList"], getProjectList, {
+    onSuccess: (data) => {
+      console.log(data);
+    },
+  });
 
   const { data: videoBlob, refetch: refetchVideo } = useQuery(
     ["videoData"],
@@ -109,12 +118,14 @@ export default function Home() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
+    setIsModalOpen(true);
+
     const metadata = {
-      gbm: "X",
-      product: "X",
-      plant: "X",
-      route: "X",
-      description: "X",
+      gbm: selectedGBM,
+      product: selectedProduct,
+      plant: selectedPlant,
+      route: selectedRoute,
+      description: e.currentTarget.description.value,
     };
 
     if (videoFile) {
@@ -123,9 +134,12 @@ export default function Home() {
         .then((res) => {
           console.log(res);
           setIsUploaded(true);
+          setView("existing");
+          setIsModalOpen(false);
         })
         .catch((err) => {
           console.log(err);
+          setIsModalOpen(false);
         });
     }
   }
@@ -210,7 +224,47 @@ export default function Home() {
               </div>
             )}
             {view === "existing" && (
-              <div>
+              <div className="min-w-[50rem]">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Existing Projects
+                  </h3>
+                  <h4 className="text-sm font-medium text-gray-500">
+                    Project information
+                  </h4>
+                </div>
+                <div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>GBM</th>
+                        <th>Product</th>
+                        <th>Plant</th>
+                        <th>Route</th>
+                        <th>Description</th>
+                        <th>Done</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectListData &&
+                        projectListData.projects.map((project) => (
+                          <tr key={project.id}>
+                            <td>{project.id}</td>
+                            <td>{project.gbm}</td>
+                            <td>{project.product}</td>
+                            <td>{project.plant}</td>
+                            <td>{project.route}</td>
+                            <td>{project.description}</td>
+                            <td>{project.done ===  "done" ? 
+                            <Link href={`/dashboard/${project.id}`}>Go to dashboard</Link>
+                            : "NOT DONE"  
+                          }</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
                 <button onClick={() => setView("select")}>go back</button>
               </div>
             )}
@@ -235,41 +289,53 @@ export default function Home() {
                     <div className="mt-2">
                       <div className="flex w-full rounded-md ring-gray-300">
                         <Listbox value={selectedGBM} onChange={setSeletedGBM}>
-                        <div className="relative w-full mt-1">
-                          <input
-                            type="text"
-                            name="GBM"
-                            value={selectedGBM ? selectedGBM : undefined}
-                            hidden
-                            required
-                          />
-                          <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
-                          <span className={`block truncate ${selectedGBM ? "" : "text-gray-500"}`}>{selectedGBM ? selectedGBM : "GBM"}</span>
-                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
+                          <div className="relative w-full mt-1">
+                            <input
+                              type="text"
+                              name="GBM"
+                              value={selectedGBM ? selectedGBM : undefined}
+                              hidden
+                              required
                             />
-                            </span>
-                          </Listbox.Button>
-                          <Transition
-                            as={Fragment}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                          >
-                            <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                              {Object.keys(formFieldbyGBM).map((gbm) => (
-                                <Listbox.Option key={gbm} value={gbm} className={({ active }) =>
-                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                  active ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-gray-900'
-                                }`
-                              }>
-                                  {gbm}
-                                </Listbox.Option>
-                              ))}
-                            </Listbox.Options>
-                          </Transition>
+                            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                              <span
+                                className={`block truncate ${
+                                  selectedGBM ? "" : "text-gray-500"
+                                }`}
+                              >
+                                {selectedGBM ? selectedGBM : "GBM"}
+                              </span>
+                              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                <ChevronUpDownIcon
+                                  className="h-5 w-5 text-gray-400"
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            </Listbox.Button>
+                            <Transition
+                              as={Fragment}
+                              leave="transition ease-in duration-100"
+                              leaveFrom="opacity-100"
+                              leaveTo="opacity-0"
+                            >
+                              <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                                {Object.keys(formFieldbyGBM).map((gbm) => (
+                                  <Listbox.Option
+                                    key={gbm}
+                                    value={gbm}
+                                    className={({ active }) =>
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                        active
+                                          ? "bg-slate-100 text-slate-900 font-semibold"
+                                          : "text-gray-900"
+                                      }`
+                                    }
+                                  >
+                                    {gbm}
+                                  </Listbox.Option>
+                                ))}
+                              </Listbox.Options>
+                            </Transition>
                           </div>
                         </Listbox>
                       </div>
@@ -284,44 +350,63 @@ export default function Home() {
                     </label>
                     <div className="mt-2">
                       <div className="flex w-full rounded-md ring-gray-300">
-                      <Listbox value={selectedProduct} onChange={setSeletedProduct} disabled={!selectedGBM}>
-                        <div className="relative w-full mt-1">
-                          <input
-                            type="text"
-                            name="product"
-                            value={selectedProduct ? selectedProduct : undefined}
-                            hidden
-                            required
-                          />
-                          <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
-                          <span className={`block truncate ${selectedProduct ? "" : "text-gray-500"}`}>{selectedProduct ? selectedProduct : "Product"}</span>
-                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
-                            />
-                            </span>
-                          </Listbox.Button>
-                          <Transition
-                            as={Fragment}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                          >
-                            <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                              {
-                                selectedGBM && formFieldbyGBM[selectedGBM as keyof Object].product.map((product) => (
-                                  <Listbox.Option key={product} value={product} className={({ active }) =>
-                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                    active ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-gray-900'
-                                  }`
-                                }>
-                                    {product}
-                                  </Listbox.Option>
-                                ))
+                        <Listbox
+                          value={selectedProduct}
+                          onChange={setSeletedProduct}
+                          disabled={!selectedGBM}
+                        >
+                          <div className="relative w-full mt-1">
+                            <input
+                              type="text"
+                              name="product"
+                              value={
+                                selectedProduct ? selectedProduct : undefined
                               }
-                            </Listbox.Options>
-                          </Transition>
+                              hidden
+                              required
+                            />
+                            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                              <span
+                                className={`block truncate ${
+                                  selectedProduct ? "" : "text-gray-500"
+                                }`}
+                              >
+                                {selectedProduct ? selectedProduct : "Product"}
+                              </span>
+                              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                <ChevronUpDownIcon
+                                  className="h-5 w-5 text-gray-400"
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            </Listbox.Button>
+                            <Transition
+                              as={Fragment}
+                              leave="transition ease-in duration-100"
+                              leaveFrom="opacity-100"
+                              leaveTo="opacity-0"
+                            >
+                              <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                                {selectedGBM &&
+                                  formFieldbyGBM[
+                                    selectedGBM as keyof Object
+                                  ].product.map((product) => (
+                                    <Listbox.Option
+                                      key={product}
+                                      value={product}
+                                      className={({ active }) =>
+                                        `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                          active
+                                            ? "bg-slate-100 text-slate-900 font-semibold"
+                                            : "text-gray-900"
+                                        }`
+                                      }
+                                    >
+                                      {product}
+                                    </Listbox.Option>
+                                  ))}
+                              </Listbox.Options>
+                            </Transition>
                           </div>
                         </Listbox>
                       </div>
@@ -335,45 +420,62 @@ export default function Home() {
                       Plant
                     </label>
                     <div className="mt-2">
-                    <div className="flex w-full rounded-md ring-gray-300">
-                      <Listbox value={selectedPlant} onChange={setSeletedPlant} disabled={!selectedGBM}>
-                        <div className="relative w-full mt-1">
-                          <input
-                            type="text"
-                            name="plant"
-                            value={selectedPlant ? selectedPlant : undefined}
-                            hidden
-                            required
-                          />
-                          <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
-                          <span className={`block truncate ${selectedPlant ? "" : "text-gray-500"}`}>{selectedPlant ? selectedPlant : "Plant"}</span>
-                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
+                      <div className="flex w-full rounded-md ring-gray-300">
+                        <Listbox
+                          value={selectedPlant}
+                          onChange={setSeletedPlant}
+                          disabled={!selectedGBM}
+                        >
+                          <div className="relative w-full mt-1">
+                            <input
+                              type="text"
+                              name="plant"
+                              value={selectedPlant ? selectedPlant : undefined}
+                              hidden
+                              required
                             />
-                            </span>
-                          </Listbox.Button>
-                          <Transition
-                            as={Fragment}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                          >
-                            <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                              {
-                                selectedGBM && formFieldbyGBM[selectedGBM as keyof Object].plant.map((plant) => (
-                                  <Listbox.Option key={plant} value={plant} className={({ active }) =>
-                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                    active ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-gray-900'
-                                  }`
-                                }>
-                                    {plant}
-                                  </Listbox.Option>
-                                ))
-                              }
-                            </Listbox.Options>
-                          </Transition>
+                            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                              <span
+                                className={`block truncate ${
+                                  selectedPlant ? "" : "text-gray-500"
+                                }`}
+                              >
+                                {selectedPlant ? selectedPlant : "Plant"}
+                              </span>
+                              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                <ChevronUpDownIcon
+                                  className="h-5 w-5 text-gray-400"
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            </Listbox.Button>
+                            <Transition
+                              as={Fragment}
+                              leave="transition ease-in duration-100"
+                              leaveFrom="opacity-100"
+                              leaveTo="opacity-0"
+                            >
+                              <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                                {selectedGBM &&
+                                  formFieldbyGBM[
+                                    selectedGBM as keyof Object
+                                  ].plant.map((plant) => (
+                                    <Listbox.Option
+                                      key={plant}
+                                      value={plant}
+                                      className={({ active }) =>
+                                        `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                          active
+                                            ? "bg-slate-100 text-slate-900 font-semibold"
+                                            : "text-gray-900"
+                                        }`
+                                      }
+                                    >
+                                      {plant}
+                                    </Listbox.Option>
+                                  ))}
+                              </Listbox.Options>
+                            </Transition>
                           </div>
                         </Listbox>
                       </div>
@@ -387,45 +489,62 @@ export default function Home() {
                       Route
                     </label>
                     <div className="mt-2">
-                    <div className="flex w-full rounded-md ring-gray-300">
-                      <Listbox value={selectedRoute} onChange={setSeletedRoute} disabled={!selectedGBM}>
-                        <div className="relative w-full mt-1">
-                          <input
-                            type="text"
-                            name="route"
-                            value={selectedRoute ? selectedRoute : undefined}
-                            hidden
-                            required
-                          />
-                          <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
-                          <span className={`block truncate ${selectedRoute ? "" : "text-gray-500"}`}>{selectedRoute ? selectedRoute : "route"}</span>
-                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
+                      <div className="flex w-full rounded-md ring-gray-300">
+                        <Listbox
+                          value={selectedRoute}
+                          onChange={setSeletedRoute}
+                          disabled={!selectedGBM}
+                        >
+                          <div className="relative w-full mt-1">
+                            <input
+                              type="text"
+                              name="route"
+                              value={selectedRoute ? selectedRoute : undefined}
+                              hidden
+                              required
                             />
-                            </span>
-                          </Listbox.Button>
-                          <Transition
-                            as={Fragment}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                          >
-                            <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                              {
-                                selectedGBM && formFieldbyGBM[selectedGBM as keyof Object].route.map((route) => (
-                                  <Listbox.Option key={route} value={route} className={({ active }) =>
-                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                    active ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-gray-900'
-                                  }`
-                                }>
-                                    {route}
-                                  </Listbox.Option>
-                                ))
-                              }
-                            </Listbox.Options>
-                          </Transition>
+                            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                              <span
+                                className={`block truncate ${
+                                  selectedRoute ? "" : "text-gray-500"
+                                }`}
+                              >
+                                {selectedRoute ? selectedRoute : "route"}
+                              </span>
+                              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                <ChevronUpDownIcon
+                                  className="h-5 w-5 text-gray-400"
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            </Listbox.Button>
+                            <Transition
+                              as={Fragment}
+                              leave="transition ease-in duration-100"
+                              leaveFrom="opacity-100"
+                              leaveTo="opacity-0"
+                            >
+                              <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                                {selectedGBM &&
+                                  formFieldbyGBM[
+                                    selectedGBM as keyof Object
+                                  ].route.map((route) => (
+                                    <Listbox.Option
+                                      key={route}
+                                      value={route}
+                                      className={({ active }) =>
+                                        `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                          active
+                                            ? "bg-slate-100 text-slate-900 font-semibold"
+                                            : "text-gray-900"
+                                        }`
+                                      }
+                                    >
+                                      {route}
+                                    </Listbox.Option>
+                                  ))}
+                              </Listbox.Options>
+                            </Transition>
                           </div>
                         </Listbox>
                       </div>
@@ -433,7 +552,7 @@ export default function Home() {
                   </div>
                   <div className="sm:col-span-2">
                     <label
-                      htmlFor="work-description"
+                      htmlFor="description"
                       className="block text-sm font-medium leading-6 text-gray-900"
                     >
                       작업내용
@@ -442,15 +561,14 @@ export default function Home() {
                       <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
                         <input
                           type="text"
-                          name="work-description"
-                          id="work-description"
-                          autoComplete="work-description"
+                          name="description"
+                          id="description"
+                          // autoComplete="description"
                           placeholder="Description"
                           className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
                         />
                       </div>
-                      <div>
-                    </div>
+                      <div></div>
                     </div>
                   </div>
                   <div className="col-span-full">
@@ -470,23 +588,68 @@ export default function Home() {
                 </div>
                 <div className="mt-6 flex items-center justify-end gap-x-6">
                   <button
-                    type="submit"
-                    className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-                    onClick={() => {
-                      console.log(csvData);
-                    }}
-                    disabled={mutation.isLoading}
-                  >
-                    {/* <Link href="/dashboard">Submit</Link> */}
-                    {mutation.isLoading ? "Uploading..." : "Upload"}
-                  </button>
-                  <button
                     type="button"
                     className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
                     // disabled={!isUploaded}
                     onClick={fetchData}
                   >
                     {isFetching ? "FETCHING..." : "FETCH TEST DATA"}
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
+                    // onClick={() => {                    }}
+                    disabled={mutation.isLoading}
+                  >
+                    {/* <Link href="/dashboard">Submit</Link> */}
+                    {mutation.isLoading ? "Uploading..." : "Upload"}
+                    <Transition appear show={isModalOpen} as={Fragment}>
+                      <Dialog
+                        as="div"
+                        className="relative z-10"
+                        onClose={() => setIsModalOpen(false)}
+                      >
+                        <Transition.Child
+                          as={Fragment}
+                          enter="ease-out duration-300"
+                          enterFrom="opacity-0"
+                          enterTo="opacity-100"
+                          leave="ease-in duration-200"
+                          leaveFrom="opacity-100"
+                          leaveTo="opacity-0"
+                        >
+                          <div className="fixed inset-0 bg-black bg-opacity-25" />
+                        </Transition.Child>
+
+                        <div className="fixed inset-0 overflow-y-auto">
+                          <div className="flex min-h-full items-center justify-center p-4 text-center">
+                            <Transition.Child
+                              as={Fragment}
+                              enter="ease-out duration-300"
+                              enterFrom="opacity-0 scale-95"
+                              enterTo="opacity-100 scale-100"
+                              leave="ease-in duration-200"
+                              leaveFrom="opacity-100 scale-100"
+                              leaveTo="opacity-0 scale-95"
+                            >
+                              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title
+                                  as="h3"
+                                  className="text-lg font-medium leading-6 text-gray-900"
+                                >
+                                  Add new project
+                                </Dialog.Title>
+                                <div className="mt-2">
+                                  <p className="text-sm text-gray-500">
+                                    Uploading Files...
+                                  </p>
+                                </div>
+                              </Dialog.Panel>
+                            </Transition.Child>
+                          </div>
+                        </div>
+                      </Dialog>
+                    </Transition>
                   </button>
                 </div>
               </form>
