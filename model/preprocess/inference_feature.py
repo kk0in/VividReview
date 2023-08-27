@@ -1,6 +1,12 @@
+import os 
+import json
+import math
+import pickle
+import csv
+from glob import glob
+from tqdm import tqdm
+import parmap
 import numpy as np
-import torch
-
 
 NOSE = 0
 LEFT_EYE = 1
@@ -143,20 +149,38 @@ def get_dist(x1, y1, x2, y2):
     if x1==0 or x2==0:
         return 0.0
     else:
-        return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 def get_deg(x1, y1, x2, y2):
     if x1==0 or x2==0:
         return 0.0
     dx = x2 - x1
     dy = y2 - y1
-    rad = np.arctan2(dy, dx)
-    degree = (rad * 180) / np.pi
+    rad = math.atan2(dy, dx)
+    degree = (rad * 180) / math.pi
     if degree < 0:
         degree += 360
 
     return degree
 
+def get_meanDist(json_file, j1=LEFT_SHOULDER, j2=RIGHT_SHOULDER):
+    dist = []
+    with open(json_file, 'r') as f:
+        json_data = json.load(f)
+        frames = json_data["instance_info"]
+
+        for i in range(len(frames)):
+            try:
+                kp = frames[i]["instances"][0]["keypoints"]
+            except:
+                continue
+            
+            xls, yls = kp[j1][0], kp[j1][1]
+            xrs, yrs = kp[j2][0], kp[j2][1]
+            
+            dist.append(get_dist(xls, yls, xrs, yrs))
+
+    return np.mean(np.mean(dist))
 
 change_part = [RIGHT_ELBOW, RIGHT_WRIST, RIGHT_HAND_ROOT, RIGHT_THUMB1, RIGHT_THUMB2, RIGHT_THUMB3, RIGHT_THUMB4, RIGHT_FOREFINGER1, RIGHT_FOREFINGER2, RIGHT_FOREFINGER3, RIGHT_FOREFINGER4, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER4, RIGHT_RING_FINGER1, RIGHT_RING_FINGER2, RIGHT_RING_FINGER3, RIGHT_RING_FINGER4, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER4, LEFT_ELBOW, LEFT_WRIST, LEFT_HAND_ROOT, LEFT_THUMB1, LEFT_THUMB2, LEFT_THUMB3, LEFT_THUMB4, LEFT_FOREFINGER1, LEFT_FOREFINGER2, LEFT_FOREFINGER3, LEFT_FOREFINGER4, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER4, LEFT_RING_FINGER1, LEFT_RING_FINGER2, LEFT_RING_FINGER3, LEFT_RING_FINGER4, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER4]
 change_pair = [RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_WRIST, RIGHT_HAND_ROOT, RIGHT_HAND_ROOT, RIGHT_THUMB1, RIGHT_THUMB1, RIGHT_THUMB2, RIGHT_THUMB2, RIGHT_THUMB3, RIGHT_THUMB3, RIGHT_THUMB4, RIGHT_HAND_ROOT, RIGHT_FOREFINGER1, RIGHT_FOREFINGER1, RIGHT_FOREFINGER2, RIGHT_FOREFINGER2, RIGHT_FOREFINGER3, RIGHT_FOREFINGER3, RIGHT_FOREFINGER4, RIGHT_HAND_ROOT, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER1, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER2, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER3, RIGHT_MIDDLE_FINGER4, RIGHT_HAND_ROOT, RIGHT_RING_FINGER1, RIGHT_RING_FINGER1, RIGHT_RING_FINGER2, RIGHT_RING_FINGER2, RIGHT_RING_FINGER3, RIGHT_RING_FINGER3, RIGHT_RING_FINGER4, RIGHT_HAND_ROOT, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER1, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER2, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER3, RIGHT_PINKY_FINGER4, LEFT_SHOULDER, LEFT_ELBOW, LEFT_ELBOW, LEFT_WRIST, LEFT_WRIST, LEFT_HAND_ROOT, LEFT_HAND_ROOT, LEFT_THUMB1, LEFT_THUMB1, LEFT_THUMB2, LEFT_THUMB2, LEFT_THUMB3, LEFT_THUMB3, LEFT_THUMB4, LEFT_HAND_ROOT, LEFT_FOREFINGER1, LEFT_FOREFINGER1, LEFT_FOREFINGER2, LEFT_FOREFINGER2, LEFT_FOREFINGER3, LEFT_FOREFINGER3, LEFT_FOREFINGER4, LEFT_HAND_ROOT, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER1, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER2, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER3, LEFT_MIDDLE_FINGER4, LEFT_HAND_ROOT, LEFT_RING_FINGER1, LEFT_RING_FINGER1, LEFT_RING_FINGER2, LEFT_RING_FINGER2, LEFT_RING_FINGER3, LEFT_RING_FINGER3, LEFT_RING_FINGER4, LEFT_HAND_ROOT, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER1, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER2, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER3, LEFT_PINKY_FINGER4]
@@ -164,19 +188,67 @@ change_pair = [RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_WRIS
 labels_mx_topk = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 labels_mx_topk_wo = ['M', 'G', 'P', 'R', 'A', 'BG']
 
-def extract_feature(keypoints):
-    ## keypoints: (frames, 2*kp) current frame and next frame's keypoints concatenated
-    features = []
-    for keypoint in keypoints:
-        j, n_j = np.array_split(keypoint, 2)
-        
+def run_feature_extraction(json_file:str, target_folder:str)->str:
+    """ Extract features from json_file and save it to target_folder
+
+    :param json_file: pose extracted json file
+    :type json_file: str
+    :param target_folder: temporary folder
+    :type target_folder: str
+    :return: extracted feature's csv path
+    :rtype: str
+    """
+    video_name = os.path.basename(json_file).split(".")[0]
+    global DATA_PATH, TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH
+    TXT_PATH = DATA_PATH = target_folder
+    X_FV_PKL_PATH = TXT_PATH + 'X_pkl/'
+    X_FV_CSV_PATH = TXT_PATH + 'X_csv/'
+
+    PATH_LIST = [TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH]
+    for path in PATH_LIST:
+        os.makedirs(path, exist_ok=True)
+    
+    x_file = []
+    
+    feature_csv_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
+    ## REMOVE
+    return feature_csv_path
+    feature_pkl_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
+    t1 = open(feature_pkl_path, 'wb')
+    t2 = open(feature_csv_path, 'w', newline='')
+    
+    mean_dist = get_meanDist(json_file)
+    
+    with open(json_file, 'r') as f:
+        try:
+            json_data = json.load(f)
+        except:
+            print("ERROR: json data parsing error")
+    
+    instances = json_data["instance_info"]
+    for ins in range(len(instances)-1):
         dist_list = []
         deg_list = []
         cur_deg_list = []
-    
+        
+        j = []
+        n_j = []
+
+        try:
+            k = instances[ins]["instances"][0]["keypoints"]
+            n_k = instances[ins+1]["instances"][0]["keypoints"]
+        except:
+            continue
+
+        for i in range(len(k)):
+            j.append(k[i][0])
+            j.append(k[i][1])
+            n_j.append(n_k[i][0])
+            n_j.append(n_k[i][1])
+        
         for i in range(len(change_part)):
             part = change_part[i]
-            dist_list.append(abs(get_dist(j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1])))
+            dist_list.append(abs(get_dist(j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1]) / mean_dist))
 
             pair_1 = change_pair[i * 2]
             pair_2 = change_pair[i * 2 + 1]
@@ -191,8 +263,24 @@ def extract_feature(keypoints):
             else:
                 deg_list.append(abs(deg-n_deg))
 
-        # fv = pos_list
-        fv = dist_list + deg_list + cur_deg_list
-        features.append(fv)
-    return features
-        
+        fv = []
+        for i in range(len(change_part)):
+            fv.append(dist_list[i])
+            fv.append(deg_list[i])
+            fv.append(cur_deg_list[i])
+
+        x_file.append(fv)
+
+    pickle.dump(x_file, t1)
+    csv.writer(t2).writerows(x_file)
+
+    t1.close()
+    t2.close()
+    
+    return feature_csv_path
+
+
+if __name__ == '__main__':
+    json_path = "~~~.json"
+    target_folder = './assets/feature/' 
+    run_feature_extraction(json_path, target_folder)

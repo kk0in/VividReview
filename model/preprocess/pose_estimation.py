@@ -48,6 +48,7 @@ typedef struct mmdeploy_pose_tracker_param_t (
 ) mmdeploy_pose_tracker_param_t;
 """
 
+from typing import Union, List
 import argparse
 import os
 import json
@@ -140,7 +141,7 @@ def get_total_frames(video):
 
 #     return cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
-def run(output_path, video, tracker, state):
+def run(output_file_path, video, tracker, state):
     cap = cv2.VideoCapture(video)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
@@ -170,8 +171,8 @@ def run(output_path, video, tracker, state):
 
     # print(f"Elapsed time: {fps.elapsed():.2f}")  
     # print(f"Approx. FPS: {fps.fps():.2f}")  
-
-    with open(os.path.join(output_path, f"{os.path.splitext(os.path.basename(video))[0]}.json"), "w") as f:
+    
+    with open(output_file_path, "w") as f:
         json.dump(video_info, f, indent=4)
 
 def main():
@@ -179,8 +180,16 @@ def main():
     run_pose_estimation(args.input_video, args.output_path)
 
 
-def run_pose_estimation(input_video, output_path):
+def run_pose_estimation(input_video:Union[str, List], output_path:Union[str, List])->Union[str, List]:
+    """_summary_
 
+    :param input_video: input video path(s)
+    :type input_video: Union[str, List]
+    :param output_path: output folder(s)
+    :type output_path: Union[str, List]
+    :return: output json path(s)
+    :rtype: Union[str, List]
+    """
     video_files = input_process(input_video)
 
     os.makedirs(output_path, exist_ok=True)
@@ -335,12 +344,18 @@ def run_pose_estimation(input_video, output_path):
     )
 
     video_files_tqdm = tqdm(video_files, position=0)
-
-    for idx, file in enumerate(video_files_tqdm):
+    output_file_paths = []
+    for idx, video in enumerate(video_files_tqdm):
         # print(f"[INFO] Processing {idx+1}/{len(video_files)}: {file}")
-        run(output_path, file, tracker, state)
+        output_file_path = os.path.join(output_path, f"{os.path.splitext(os.path.basename(video))[0]}.json")
+        # run(output_file_path, video, tracker, state)
+        output_file_paths.append(output_file_path)
 
     video_files_tqdm.close()
+    if len(output_file_paths) == 1:
+        return output_file_paths[0]
+    else:
+        return output_file_paths
     
 if __name__ == '__main__':
     main()
