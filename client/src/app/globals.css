@@ -25,3 +25,8 @@ body {
     )
     rgb(var(--background-start-rgb));
 } */
+
+.highlighted {
+  border: 3px solid rgb(255, 242, 0); /* Adjust as per your design requirements */
+  background-color: rgba(255, 0, 0, 0.1); /* Optional: Add a slight red background */
+}

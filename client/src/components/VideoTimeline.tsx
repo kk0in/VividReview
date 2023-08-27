@@ -4,11 +4,43 @@ import { usePapaParse } from "react-papaparse";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
-import { csvDataState } from "@/app/recoil/csvDataState";
+import { csvDataState } from "@/app/recoil/DataState";
 
 export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
-  const videoTime = useRecoilValue(currentTimeState);
+  const currentTime = useRecoilValue(currentTimeState);
+
+  useEffect(() => {
+    const element = document.querySelector(".highlighted");
+    const container = document.getElementById("scrollableTimelineContainer");
+
+    if (element && container) {
+        const elementRect = element.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        console.log("Element Rect:", elementRect);
+        console.log("Container Rect:", containerRect);
+
+        const scrollLeftPosition = 
+            elementRect.left - 
+            containerRect.left + 
+            container.scrollLeft - 
+            (containerRect.width / 2) + 
+            (elementRect.width / 2);  // Centers the highlighted section
+
+        container.scrollLeft = scrollLeftPosition;
+        container.scrollTo({
+          left: scrollLeftPosition,
+          behavior: 'smooth'
+       });
+    }
+}, [currentTime]);
+
+
+
+  function calculateLeftPosition(index: number) {
+    return timeToMilliseconds(csvData[index]['start']) / 5;
+  }
 
   const adjustTimeline = (index: number, newWidth: number) => {
     const newCsvData = JSON.parse(JSON.stringify(csvData));
@@ -17,22 +49,27 @@ export default function VideoTimeline() {
     const deltaWidth = newWidth - oldWidth;
     const deltaDuration = deltaWidth * 5;
 
-    console.log("original newCsvData[index]: ", newCsvData[index])
-
     if (deltaWidth < 0) {
-        // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
-        newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
-        newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
+        if (oldDuration+deltaDuration <= 60) { // less than half modapts (129ms)
+          const blankSpace = newCsvData[index]
+          blankSpace.label = "";
+          newCsvData[index] = blankSpace
+        }
+        else {
+          // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
+          newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
+          newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
 
-        const blankSpace = {
-          label: "",
-          start: newCsvData[index].end,
-          end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
-          duration: MillisecondsTotime(-deltaDuration)
-        };
-        console.log("newCsvData[index]: ", newCsvData[index])
-        console.log("blankSpace: ", blankSpace);
-        newCsvData.splice(index + 1, 0, blankSpace);
+          const blankSpace = {
+            label: "",
+            start: newCsvData[index].end,
+            end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
+            duration: MillisecondsTotime(-deltaDuration)
+          };
+          console.log("newCsvData[index]: ", newCsvData[index])
+          console.log("blankSpace: ", blankSpace);
+          newCsvData.splice(index + 1, 0, blankSpace);
+        }
 
     } else {
         // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
@@ -54,34 +91,48 @@ export default function VideoTimeline() {
         }
         newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration - remainingDuration);
         newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
-        console.log("newCsvData[index]: ", newCsvData[index])
-        console.log("newCsvData[index+1]: ", newCsvData[index+1])
     }
 
     setCSVData(newCsvData);
 };
 
+const isInCurrentTime = (start: string, end: string) => {
+  const startTimeMillis = timeToMilliseconds(start);
+  const endTimeMillis = timeToMilliseconds(end);
+  const _currentTime = currentTime * 1000;
+  console.log("currentTime: ", _currentTime, "startTimeMillis: ", startTimeMillis, "endTimeMillis: ", endTimeMillis)
+  return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
+};
+
 return (
-  <div className="flex flex-row overflow-auto" style={{ gap: '2px' }}>
+<div className="w-full overflow-x-scroll overflow-y-hidden" id="scrollableTimelineContainer" style={{ height: "50px", position: 'relative' }}>
+    <div className="flex">
       {csvData.map((row, rowIndex) => (
           <Resizable 
-              key={`${rowIndex}-${timeToMilliseconds(row['duration'])}`} 
+              key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
               defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
-              minWidth={10} 
+              minWidth={0} 
               maxWidth={1000} 
               enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
-              onResizeStop={(e, direction, ref) => {
-                  adjustTimeline(rowIndex, ref.offsetWidth);
+              onResizeStart={(e, direction, ref) => {
+                ref.style.zIndex = "10";
               }}
+              onResizeStop={(e, direction, ref) => {
+                adjustTimeline(rowIndex, ref.offsetWidth);
+                ref.style.zIndex = "1";
+              }}
+              style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
           >
               <div 
-                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'}`}
+                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''}`}
                   style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
               >
-                  {row["label"]}
+                {row["label"]}
               </div>
           </Resizable>
+        
       ))}
+    </div>
   </div>
 );
 }

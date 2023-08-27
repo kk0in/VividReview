@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRecoilState } from "recoil";
 import { currentTimeState } from "../app/recoil/currentTimeState";
 
-const ModaptsTable = ({ csvData, setCurrentModapts }) => {
+const ModaptsTable = ({ csvData }) => {
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [highlightedRow, setHighlightedRow] = useState(-1);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
@@ -31,7 +31,6 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
         const current = currentTime * 1000;
         if (current >= startTime && current <= endTime) {
           setHighlightedRow(index);
-          setCurrentModapts(row["label"]);
           return;
         }
       });
@@ -61,18 +60,16 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
     // time string format hh:mm:ss.frame
     // fps = 60
     // console.log(timeString)
-    if (timeString){
+    if (timeString) {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
       const second = parseInt(timeArray[1].split(".")[0]);
       const frame = parseInt(timeArray[1].split(".")[1]);
-  
+
       const milliseconds =
-        minute * 60 * 1000 +
-        second * 1000 +
-        (frame * 1000) / 60;
-  
+        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+
       return milliseconds;
     }
   }
@@ -93,19 +90,20 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
 
   return (
     <>
-      <div
-        className="w-full h-full overflow-y-scroll"
-        ref={tableContainerRef}
-      >
+      <div className="w-full h-full overflow-y-scroll" ref={tableContainerRef}>
         <table className="w-[80%] table-auto">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
               {/* read object keys to generate header */}
-              {csvData[0] && Object. keys(csvData[0]).map((key, index) => (
-                <th key={key} className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left">
-                  {key}
-                </th>
-              ))}
+              {csvData[0] &&
+                Object.keys(csvData[0]).map((key, index) => (
+                  <th
+                    key={key}
+                    className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left"
+                  >
+                    {key}
+                  </th>
+                ))}
             </tr>
           </thead>
           <tbody>
