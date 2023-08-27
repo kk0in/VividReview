@@ -20,27 +20,31 @@ export async function postProject({ metadata, file }) {
     return response.data;
 }
 
-export async function getProject(project_id: number) {
+export async function getProject({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_project/${project_id}`);
     return response.data;
 }
 
-export async function getVideo(project_id: number) {
+export async function getVideo({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_video/${project_id}`, { responseType: 'blob' });
     return response.data;
 }
 
-export async function getKeypoint(project_id: number) {
+export async function getKeypoint({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_keypoint/${project_id}`);
     return response.data;
 }
 
-export async function getResult(project_id: number) {
+export async function getResult({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_result/${project_id}`);
     return response.data;
 }
 
-export async function updateResult(project_id: number, result: any) {
+export async function updateResult(project_id: string, result: any) {
     const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, result);
     return response.data;
 }
