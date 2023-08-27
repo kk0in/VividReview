@@ -82,7 +82,7 @@ export default function Page() {
                   Export
                 </button>
               </div>
-              <ModaptsTable csvData={csvData} setCSVData={setCSVData} />
+              <ModaptsTable csvData={csvData}/>
             </div>
           </div>
           <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">
