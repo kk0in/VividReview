@@ -9,38 +9,38 @@ interface FileUploadProps {
 
 const FileUpload: React.FC<FileUploadProps> = ({
   onFileUploaded,
-  filetype,
+  // filetype,
 }) => {
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      const file = acceptedFiles[0];
-      onFileUploaded(file);
-    },
-    accept:
-      filetype === "mp4"
-        ? {
-            "video/mp4": [".mp4"],
-          }
-        : { "text/csv": [".csv"] },
-  });
+  const { getRootProps, getInputProps, acceptedFiles } =
+    useDropzone({
+      onDrop: (acceptedFiles) => {
+        const file = acceptedFiles[0];
+        onFileUploaded(file);
+      },
+      accept: {
+        "video/mp4": [".mp4"],
+      },
+      maxFiles: 1
+    });
 
   return (
     <div {...getRootProps()} className="w-full h-full px-6 py-12">
       <input {...getInputProps()} />
       {}
       <div className="text-center">
-        {filetype === 'mp4' ? <VideoCameraIcon
+        <VideoCameraIcon
           className="mx-auto h-12 w-12 text-gray-300"
           aria-hidden="true"
-        /> : <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-  }
-  {acceptedFiles.length > 0 && <p className="text-center mt-4 text-sm leading-6 text-gray-600">{acceptedFiles[0].name}</p>}
-        {isDragActive ? (
-        <p className="text-center mt-4 text-sm leading-6 text-gray-600">Drop your {filetype.toUpperCase()} file here...</p>
-      ) : (
-        <p className="text-center mt-4 text-sm leading-6 text-gray-600">Drag & drop your {filetype.toUpperCase()} file here, or click to select a file</p>
-      )}
-        {/* <p className="text-xs leading-5 text-gray-600">MP4 File</p> */}
+        />
+        {acceptedFiles.length > 0 ? (
+          <p className="text-center mt-4 text-sm leading-6 text-gray-600">
+            {acceptedFiles[0].name}
+          </p>
+        ) : 
+        <p className="text-center mt-4 text-sm leading-6 text-gray-600">
+          Drag & drop your MP4 file here, or click to select a file
+        </p>
+        }
       </div>
     </div>
   );
