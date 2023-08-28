@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 from datetime import datetime
 from tqdm import tqdm
+from typing import List, Tuple
 
 
 
@@ -14,7 +15,16 @@ from tqdm import tqdm
 # labels = labels_mx_topk
 
 
-def cut_btw_modaps(x_raw_path, y_raw_path):
+def cut_btw_modaps(x_raw_path:str, y_raw_path:str)->Tuple[List, List]:
+    """ cut between modaps for overlap
+
+    :param x_raw_path: x csv file path
+    :type x_raw_path: str
+    :param y_raw_path: y csv file path
+    :type y_raw_path: str
+    :return: x, y list which is grouped by continuous modaps action
+    :rtype: Tuple[List, List]
+    """
     label_before = ""
     x_this_modapts = []
 
@@ -39,12 +49,17 @@ def cut_btw_modaps(x_raw_path, y_raw_path):
 
 
 def main():
-    for folder in ['features', "keypoints"]:
+    for folder in ['features']:
         for type in tqdm(["train", "val", "test"]):
-            prev_X_path = f"./assets/train/{folder}/{type}/X_{type}.csv"
-            prev_Y_path = f"./assets/train/{folder}/{type}/Y_{type}.csv"
-            new_X_path =  f"./assets/train/overlap/{folder}/X_{type}.csv"
-            new_Y_path =  f"./assets/train/overlap/{folder}/Y_{type}.csv"
+            prev_X_path = f"./assets/train/BG/{folder}/X_{type}.csv"
+            prev_Y_path = f"./assets/train/BG/{folder}/Y_{type}.csv"
+            new_X_path =  f"./assets/train/BG/overlap/X_{type}.csv"
+            new_Y_path =  f"./assets/train/BG/overlap/Y_{type}.csv"
+            
+            os.makedirs(os.path.dirname(prev_X_path), exist_ok=True)
+            os.makedirs(os.path.dirname(prev_Y_path), exist_ok=True)
+            os.makedirs(os.path.dirname(new_X_path), exist_ok=True)
+            os.makedirs(os.path.dirname(new_Y_path), exist_ok=True)
             
             frame_count = 8 # the number of frames in each overlapped video clips
             overlap = 6 # how many frames be overlapped between two adjacent video clips
@@ -53,12 +68,23 @@ def main():
             run_overlap(prev_X_path, prev_Y_path, new_X_path, new_Y_path, frame_count, overlap)
             
 
-def run_overlap(prev_X_path, prev_Y_path, new_X_path, new_Y_path, frame_count, overlap):
-    """_summary_ 
-        overlap frames and generate training data.
+def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str, frame_count:int, overlap:int):
+    """overlap frames and generate training data.
+
+    :param prev_X_path: prev_X_path
+    :type prev_X_path: str
+    :param prev_Y_path: prev_Y_path
+    :type prev_Y_path: str
+    :param new_X_path: new_X_path
+    :type new_X_path: str
+    :param new_Y_path: new_Y_path
+    :type new_Y_path: str
+    :param frame_count: window size
+    :type frame_count: int
+    :param overlap: overlapped window size
+    :type overlap: int
     """
     
-
     x_list, y_list = cut_btw_modaps(prev_X_path, prev_Y_path)
         
     for path in [new_X_path, new_Y_path]:

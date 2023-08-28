@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import *
+from collections import defaultdict, Counter
 
 
 class Trainer():
@@ -19,6 +20,7 @@ class Trainer():
         self.model = model
         self.optimizer = optimizer
         self.config = config['trainer']
+        self.window_size = config['data_loader']['args']['window']
         self.wandb_config = config['wandb']
         self.device = device
         self.criterion = criterion
@@ -27,6 +29,7 @@ class Trainer():
         self.test_loader = test_loader
         self.lr_scheduler = lr_scheduler
         self.tta = tta
+        self.num_classes = config['arch']['args']['output_size']
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         os.makedirs("checkpoints", exist_ok=True)
         self.model_save_path = f"checkpoints/model_{timestamp}.pth"
@@ -117,17 +120,13 @@ class Trainer():
                             val_loss += loss.item()
                             targets += labels.cpu().tolist()
                     test_accuracy = accuracy_score(targets, predictions)
+                    if self.window_size == 180:
+                        overlap_test = overlap_accuracy(targets, predictions, self.window_size, 10)
+                        print(f"Overlap Accuracy: {overlap_test:.4f}")
                     f1 = f1_score(targets, predictions, average='macro')
-                    print(f"Test Accuracy: {test_accuracy:.4f}, F1-score: {f1:.4f}")
-                    cm = confusion_matrix(targets, predictions, labels=range(8))
-                    classes = ["M3", "G1", "M1", "M2", "P2", "R2", "A2", "BG"]
-                    cm_percent = cm.astype('float') / len(predictions) * 100
-
-                    # Plot confusion matrix with percentages
-                    disp = ConfusionMatrixDisplay(confusion_matrix=cm_percent, display_labels=classes)
-                    disp.plot(cmap=plt.cm.Blues, values_format=".2f")
-
-                    plt.savefig("confusion_matrix.png")
+                    precision = precision_score(targets, predictions, average='macro')
+                    print(f"Test Accuracy: {test_accuracy:.4f}, F1-score: {f1:.4f}, precision: {precision:.4f}")
+                    self.plot_and_save_information(targets, predictions)
                 wandb.log({
                     "epoch": epoch,
                     "train_loss": average_train_loss,
@@ -138,3 +137,62 @@ class Trainer():
                 
                 scheduler.step()  # Update the learning rate
             
+
+    def plot_and_save_information(self, targets, predictions, folder='confusion_matrix/'):
+        os.makedirs(folder, exist_ok=True)
+        
+        test_accuracy = accuracy_score(targets, predictions)
+        f1 = f1_score(targets, predictions, average='macro')
+        precision = precision_score(targets, predictions, average='macro')
+        
+        with open(folder+"metrics.txt", "w") as f:
+            f.write(f"Accuracy: {test_accuracy}\n")
+            f.write(f"F1 score(macro): {f1}\n")
+            f.write(f"Precision(macro): {precision}\n")
+        
+        cm = confusion_matrix(targets, predictions, labels=range(self.num_classes))
+        classes = ["M3", "G1", "M1", "M2", "P2", "R2", "A2", "BG"][:self.num_classes]
+        cm_percent = cm.astype('float') / len(predictions) * 100
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm_percent, display_labels=classes)
+        disp.plot(cmap=plt.cm.Blues, values_format=".2f")
+        plt.savefig(folder+"percent_conf_mat.png")
+        plt.close()
+        
+        cm = confusion_matrix(targets, predictions, normalize='true', labels=range(self.num_classes))
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
+        disp.plot(cmap=plt.cm.Blues, values_format=".2f")
+        plt.savefig(folder+"normal_conf_mat.png")
+        plt.close()
+
+
+def overlap_accuracy(labels, predictions, window_size, interval):
+    merged_predictions = defaultdict(list)
+    merged_labels = defaultdict(list)
+    
+    assert len(labels) % window_size == 0
+    length = len(labels)//window_size 
+    
+    for i in range(length):
+        start = i*window_size
+        global_start = i*interval
+        
+        for j in range(window_size):
+            merged_predictions[global_start+j].append(predictions[start+j])
+            merged_labels[global_start+j].append(labels[start+j])
+    
+    score = 0
+    total = 0
+    for idx in merged_predictions.keys():
+        _labels = merged_labels[idx]
+        _predictions = merged_predictions[idx]
+        assert all(l == _labels[0] for l in _labels), f"{_labels}"
+        counter = Counter(_predictions)
+        most_common = counter.most_common(1)[0][0]
+        if _labels[0] == most_common:
+            score += 1
+        total += 1
+    return score / total
+            
+            
+        
+        

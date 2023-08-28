@@ -121,6 +121,7 @@ train_env/*
 wandb/*
 model/rtmpose-trt/*
 results/*
+confusion_matrix/*
 
 *.pth
 *.png

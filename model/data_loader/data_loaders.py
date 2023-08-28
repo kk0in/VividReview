@@ -67,8 +67,6 @@ class BaseDataLoader():
         scaler_save = scaler_dir+f"scaler_{timestamp}.joblib"
         joblib.dump(scaler, scaler_save)
 
-
-
 class LargeDataLoader():
     def __init__(self, data_dir, scaler_dir, batch_size=256, shuffle=True, window=64, num_workers=1, augment=False):
         scaler = StandardScaler()

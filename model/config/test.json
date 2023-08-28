@@ -3,13 +3,13 @@
     "model": {
         "input_size": 138,
         "output_size": 8,
-        "linear_layers": 1,
+        "linear_layers": 0,
         "lstm_hidden": 1024,
-        "dropout_prob": 0.3
+        "dropout_prob": 0.2
     },
     "frame_rate": 60,
     "window": 8,
 
-    "checkpoint_path": "/data/samsung/TAD_models/model_copy_checkpoint.pth",
-    "scaler_path" : "/data/samsung/TAD_models/scaler_save.pkl"
+    "checkpoint_path": "/data/minsuk/SEC-ST/model/checkpoints/model_2023-08-28_14-52-18.pth",
+    "scaler_path" : "/data/minsuk/SEC-ST/model/preprocess/assets/scalers/scaler_2023-08-28_14-52-17.joblib"
 }

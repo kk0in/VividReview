@@ -6,16 +6,16 @@
         "type": "SimpleNet",
         "args": {
             "input_size": 138,
-            "output_size": 8,
+            "output_size": 7,
             "linear_layers": 0,
             "lstm_hidden": 1024,
-            "dropout_prob": 0.4
+            "dropout_prob": 0.2
         }
     },
     "data_loader": {
         "type": "BaseDataLoader",
         "args":{
-            "data_dir": "./preprocess/assets/train/overlap/features/",
+            "data_dir": "./preprocess/assets/train/BG/mixed_overlap/",
             "scaler_dir": "./preprocess/assets/scalers/",
             "batch_size": 256,
             "shuffle": true,
@@ -42,7 +42,7 @@
         }
     },
     "trainer": {
-        "epochs": 50,
+        "epochs": 10,
         "save_dir": "logs/"
     },
     "wandb": {
