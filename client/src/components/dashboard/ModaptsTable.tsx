@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useRecoilState } from "recoil";
+import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
+import { videoRefState } from "@/app/recoil/videoRefState";
 
 const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
@@ -10,6 +11,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const headerRef = useRef<HTMLTableSectionElement | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [editedCell, setEditedCell] = useState<Object | null>(null);
+  const videoElement = useRecoilValue(videoRefState)
 
 
   useEffect(() => {
@@ -92,17 +94,32 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
     };
   }, []);
 
+  const handleRowClick = (rowIndex: number) => {
+    // move to the time of the row['start']
+    console.log(rowIndex)
+    const row = csvData[rowIndex];
+    const startTime = timeToMilliseconds(row["start"]);
+    if (videoElement){
+      videoElement.currentTime = startTime / 1000;
+      setCurrentTime(startTime);
+    }
+  }
+
   const handleCellClick = (rowIndex: number, key: string) => {
     setEditedCell({ rowIndex, key });
   };
 
-  const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
-    if (!event.target) return;
-    const newData = [...csvData];
-    newData[rowIndex][key] = event.target.value;
-    setCSVData(newData);
-    setEditedCell(null);
-  };
+  const handleCellHover = (rowIndex: number, key: string) => {
+    // setHighlightedRow(rowIndex);
+  }
+
+  // const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
+  //   if (!event.target) return;
+  //   const newData = [...csvData];
+  //   newData[rowIndex][key] = event.target.value;
+  //   setCSVData(newData);
+  //   setEditedCell(null);
+  // };
 
   return (
     <>
@@ -130,6 +147,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                   rowIndex === highlightedRow ? "bg-yellow-200" : "bg-slate-800"
                 }
                 ref={rowIndex === highlightedRow ? rowRef : null}
+                onClick={() => handleRowClick(rowIndex)}
               >
                 {/* {console.log(Object.entries(row))} */}
                 {Object.entries(row).map(([key, value], cellIndex) => (
@@ -140,9 +158,10 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                         ? "text-slate-800"
                         : "text-slate-200"
                     }`}
-                    onClick={() => handleCellClick(rowIndex, key)}
+                    onMouseOver={() => handleCellHover(rowIndex, key)}
+                    // onClick={() => handleCellClick(rowIndex, key)}
                   >
-                    {editedCell &&
+                    {/* {editedCell &&
                     editedCell.rowIndex === rowIndex &&
                     editedCell.key === key ? (
                       <input
@@ -152,7 +171,8 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                       />
                     ) : (
                       value
-                    )}
+                    )} */}
+                    {value}
                   </td>
                 ))}
                 {/* {row.entries().map((cell, cellIndex) => (

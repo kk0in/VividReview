@@ -7,9 +7,10 @@ import {
   faCircle,
   faRepeat,
 } from "@fortawesome/free-solid-svg-icons";
-import { useRecoilState } from "recoil";
+import { useRecoilState, useSetRecoilState } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { csvDataState } from "@/app/recoil/DataState";
+import { videoRefState } from "@/app/recoil/videoRefState";
 
 interface VideoViewerProps {
   videoSrc: string;
@@ -26,6 +27,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   const [currentModaptsTime, setCurrentModaptsTime] = useState<
     [number, number]
   >([0, 0]);
+  const setVideoRef = useSetRecoilState(videoRefState);
 
   const animationFrameRef = useRef(0);
   const handleTimeUpdate = (newTime) => {
@@ -74,6 +76,11 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       handleTimeUpdate(video.currentTime);
     }
   };
+
+  useEffect(() => {
+    setVideoRef(videoRef.current);
+  }, [videoRef, setVideoRef]);
+
 
   useEffect(() => {
     animationFrameRef.current = requestAnimationFrame(updateTimestamp);
