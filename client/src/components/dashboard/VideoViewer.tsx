@@ -8,7 +8,7 @@ import {
   faRepeat,
 } from "@fortawesome/free-solid-svg-icons";
 import { useRecoilState } from "recoil";
-import { currentTimeState } from "../app/recoil/currentTimeState";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { csvDataState } from "@/app/recoil/DataState";
 
 interface VideoViewerProps {
@@ -78,7 +78,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   useEffect(() => {
     animationFrameRef.current = requestAnimationFrame(updateTimestamp);
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, []);
+  }, [currentTime]);
 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) {
@@ -248,6 +248,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   };
 
   const handleProgressBarMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    // refresh speed control
     if (isDragging) {
       updateProgressWidth(e.clientX);
     }
@@ -315,7 +316,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   }, [isPlayingRange, currentTime, playingRange]);
 
   return (
-    <div className="w-[90%]">
+    <div className="w-[80%]">
       <video ref={videoRef} src={videoSrc} />
       <div
         className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"

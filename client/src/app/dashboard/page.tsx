@@ -1,12 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import VideoViewer from "../../components/VideoViewer";
-import ModaptsTable from "../../components/ModaptsTable";
-import KeypointsDrawing from "../../components/KeypointsDrawing";
+import VideoViewer from "@/components/dashboard/VideoViewer";
+import ModaptsTable from "@/components/dashboard/ModaptsTable";
+import KeypointsDrawing from "../../components/dashboard/KeypointsDrawing";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExport } from "@fortawesome/free-solid-svg-icons";
-import VideoTimeline from "@/components/VideoTimeline";
+import VideoTimeline from "@/components/dashboard/VideoTimeline";
 import { readRemoteFile } from "react-papaparse";
 
 import { useRecoilState, useRecoilValue } from "recoil";
