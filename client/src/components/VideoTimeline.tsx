@@ -39,7 +39,9 @@ export default function VideoTimeline() {
 
 
   function calculateLeftPosition(index: number) {
-    return timeToMilliseconds(csvData[index]['start']) / 5;
+    const base = timeToMilliseconds(csvData[index]['start']) / 5;
+    const margin = index * 2; // 2px margin between each timeline
+    return base + margin;
   }
 
   const adjustTimeline = (index: number, newWidth: number) => {
@@ -106,33 +108,33 @@ const isInCurrentTime = (start: string, end: string) => {
 
 return (
 <div className="w-full overflow-x-scroll overflow-y-hidden" id="scrollableTimelineContainer" style={{ height: "50px", position: 'relative' }}>
-    <div className="flex">
-      {csvData.map((row, rowIndex) => (
-          <Resizable 
-              key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
+      <div className="flex">
+          {csvData.map((row, rowIndex) => (
+              <Resizable 
+                  key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
               defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
-              minWidth={0} 
-              maxWidth={1000} 
+                  minWidth={0} 
+                  maxWidth={1000} 
               enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
-              onResizeStart={(e, direction, ref) => {
-                ref.style.zIndex = "10";
-              }}
-              onResizeStop={(e, direction, ref) => {
-                adjustTimeline(rowIndex, ref.offsetWidth);
-                ref.style.zIndex = "1";
-              }}
+                  onResizeStart={(e, direction, ref) => {
+                      ref.style.zIndex = "10";
+                  }}
+                  onResizeStop={(e, direction, ref) => {
+                      adjustTimeline(rowIndex, ref.offsetWidth);
+                      ref.style.zIndex = "1";
+                  }}
               style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
-          >
-              <div 
-                  className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''}`}
-                  style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
               >
-                {row["label"]}
-              </div>
-          </Resizable>
+                  <div 
+                      className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''}`}
+                  style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
+                  >
+                      {row["label"]}
+                  </div>
+              </Resizable>
         
-      ))}
-    </div>
+          ))}
+      </div>
   </div>
 );
 }
