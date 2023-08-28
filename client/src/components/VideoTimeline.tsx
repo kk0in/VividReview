@@ -1,14 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { usePapaParse } from "react-papaparse";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
-import { currentTimeState } from "@/app/recoil/currentTimeState";
+import { currentTimeState } from "../app/recoil/currentTimeState";
 import { csvDataState } from "@/app/recoil/DataState";
 
 export default function VideoTimeline() {
-  const [csvData, setCSVData] = useRecoilState(csvDataState);
-  const currentTime = useRecoilValue(currentTimeState);
+  const [csvData, setCSVData]         = useRecoilState(csvDataState);
+  const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
 
   useEffect(() => {
     const element = document.querySelector(".highlighted");
@@ -102,37 +101,63 @@ const isInCurrentTime = (start: string, end: string) => {
   const startTimeMillis = timeToMilliseconds(start);
   const endTimeMillis = timeToMilliseconds(end);
   const _currentTime = currentTime * 1000;
-  console.log("currentTime: ", _currentTime, "startTimeMillis: ", startTimeMillis, "endTimeMillis: ", endTimeMillis)
+  //console.log("currentTime: ", _currentTime, "startTimeMillis: ", startTimeMillis, "endTimeMillis: ", endTimeMillis)
   return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
 };
 
 return (
-<div className="w-full overflow-x-scroll overflow-y-hidden" id="scrollableTimelineContainer" style={{ height: "50px", position: 'relative' }}>
+  <div className="w-full overflow-x-scroll overflow-y-hidden" id="scrollableTimelineContainer" style={{ height: "50px", position: 'relative' }}>
       <div className="flex">
           {csvData.map((row, rowIndex) => (
               <Resizable 
                   key={`${rowIndex}-${row['label']}-${timeToMilliseconds(row['duration'])}`}
-              defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
+                  defaultSize={{ width: timeToMilliseconds(row['duration']) / 5, height: 30 }}
                   minWidth={0} 
                   maxWidth={1000} 
-              enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
+                  enable={{ top:false, right:true, bottom:false, left:false, topRight:false, bottomRight:false, bottomLeft:false, topLeft:false }}
+                  onResize={(e, direction, ref) => {
+                      // During resizing, check for overlaps
+                      const currentEnd = calculateLeftPosition(rowIndex) + ref.offsetWidth;
+                      //const midpoint = calculateLeftPosition(rowIndex) + (ref.offsetWidth / 2);
+                      //const newCurrentTime = midpoint * 5 / 1000;
+                      //console.log("currentEnd: ", currentEnd, "newCurrentTime: ", newCurrentTime);
+                      //setCurrentTime(newCurrentTime);
+                      csvData.slice(rowIndex + 1).forEach((nextRow, nextIndex) => {
+                          const nextStart = calculateLeftPosition(rowIndex + 1 + nextIndex);
+                          const nextElement = document.querySelector(`.timeline-item-${rowIndex + 1 + nextIndex}`);
+                          
+                          // If overlap occurs
+                          if (currentEnd > nextStart && nextElement) {
+                              ref.style.opacity = "0.65";
+                              nextElement.style.opacity = "0.5";
+                          } else if (nextElement) {
+                              nextElement.style.opacity = "1";
+                          }
+                      });
+                  }}
                   onResizeStart={(e, direction, ref) => {
                       ref.style.zIndex = "10";
                   }}
                   onResizeStop={(e, direction, ref) => {
                       adjustTimeline(rowIndex, ref.offsetWidth);
                       ref.style.zIndex = "1";
+                      // Reset the opacity after resize
+                      csvData.forEach((_, idx) => {
+                          const element = document.querySelector(`.timeline-item-${idx}`);
+                          if (element) {
+                              element.style.opacity = "1";
+                          }
+                      });
                   }}
-              style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
+                  style={{ left: `${calculateLeftPosition(rowIndex)}px`, position: 'absolute' }}
               >
                   <div 
-                      className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''}`}
-                  style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
+                      className={`rounded py-2 px-1 border flex items-center justify-center ${!row['label'] ? '' : 'border-opacity-0'} ${isInCurrentTime(row['start'], row['end']) ? 'highlighted' : ''} timeline-item-${rowIndex}`}
+                      style={{ width: '100%', height: '100%', backgroundColor: colormap(row['label']) }}
                   >
                       {row["label"]}
                   </div>
               </Resizable>
-        
           ))}
       </div>
   </div>
