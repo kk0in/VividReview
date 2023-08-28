@@ -1,14 +1,16 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useRecoilState } from "recoil";
-import { currentTimeState } from "../app/recoil/currentTimeState";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
 
-const ModaptsTable = ({ csvData }) => {
+const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [highlightedRow, setHighlightedRow] = useState(-1);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const headerRef = useRef<HTMLTableSectionElement | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editedCell, setEditedCell] = useState<Object | null>(null);
+
 
   useEffect(() => {
     // for (let i = 1; i < csvData.length; i++) {
@@ -25,7 +27,7 @@ const ModaptsTable = ({ csvData }) => {
 
     // iterate through each csvdata, and check if current time is between start and end time
     if (csvData.length > 0) {
-      csvData.forEach((row, index) => {
+      csvData.forEach((row: any, index: number) => {
         const startTime = timeToMilliseconds(row["start"]);
         const endTime = timeToMilliseconds(row["end"]);
         const current = currentTime * 1000;
@@ -60,16 +62,18 @@ const ModaptsTable = ({ csvData }) => {
     // time string format hh:mm:ss.frame
     // fps = 60
     // console.log(timeString)
-    if (timeString) {
+    if (timeString){
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
       const second = parseInt(timeArray[1].split(".")[0]);
       const frame = parseInt(timeArray[1].split(".")[1]);
-
+  
       const milliseconds =
-        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
-
+        minute * 60 * 1000 +
+        second * 1000 +
+        (frame * 1000) / 60;
+  
       return milliseconds;
     }
   }
@@ -87,6 +91,18 @@ const ModaptsTable = ({ csvData }) => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  const handleCellClick = (rowIndex: number, key: string) => {
+    setEditedCell({ rowIndex, key });
+  };
+
+  const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
+    if (!event.target) return;
+    const newData = [...csvData];
+    newData[rowIndex][key] = event.target.value;
+    setCSVData(newData);
+    setEditedCell(null);
+  };
 
   return (
     <>
@@ -124,8 +140,19 @@ const ModaptsTable = ({ csvData }) => {
                         ? "text-slate-800"
                         : "text-slate-200"
                     }`}
+                    onClick={() => handleCellClick(rowIndex, key)}
                   >
-                    {value}
+                    {editedCell &&
+                    editedCell.rowIndex === rowIndex &&
+                    editedCell.key === key ? (
+                      <input
+                        type="text"
+                        defaultValue={row[key]}
+                        onBlur={(event) => handleInputChange(event, rowIndex, key)}
+                      />
+                    ) : (
+                      value
+                    )}
                   </td>
                 ))}
                 {/* {row.entries().map((cell, cellIndex) => (

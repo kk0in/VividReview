@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 // import keypointData from "../../public/keypoint.json";
 import { useRecoilValue } from "recoil";
 import { keypointDataState } from "@/app/recoil/DataState";
-import { currentTimeState } from "../app/recoil/currentTimeState";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
 
 interface TestProps {
   position: string;
@@ -70,7 +70,7 @@ function Test(props: TestProps): JSX.Element {
       ? 0.3 / (size / canvasSize_wholeBody_width)
       : 0.5 / (size / canvasSize_wholeBody_width);
 
-  console.log(scale);
+  // console.log(scale);
 
   const loadData = (instanceIndex: number) => {
     if (

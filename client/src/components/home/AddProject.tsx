@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, FormEvent, Fragment } from "react";
-import FileUpload from "@/components/FileUploader";
+import FileUpload from "@/components/home/FileUploader";
 import { useRecoilState } from "recoil";
 import {
   csvDataState,

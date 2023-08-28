@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
-import { currentTimeState } from "../app/recoil/currentTimeState";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { csvDataState } from "@/app/recoil/DataState";
 
 export default function VideoTimeline() {
@@ -17,8 +17,8 @@ export default function VideoTimeline() {
         const elementRect = element.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
 
-        console.log("Element Rect:", elementRect);
-        console.log("Container Rect:", containerRect);
+        // console.log("Element Rect:", elementRect);
+        // console.log("Container Rect:", containerRect);
 
         const scrollLeftPosition = 
             elementRect.left - 
