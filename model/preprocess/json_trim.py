@@ -35,7 +35,16 @@ def validate_trimmed_data(trimmed_data, start_time, end_time, frame_rate):
             return False
     return True
 
-def run_json_trim(input_path, output_dir, frame_rate):
+def run_json_trim(input_path:str, output_dir:str, frame_rate:int):
+    """Split json file into separate files which correspond to each modaps
+
+    :param input_path: input file path
+    :type input_path: str
+    :param output_dir: output directory
+    :type output_dir: str
+    :param frame_rate: frame rate (60fps)
+    :type frame_rate: int
+    """
     # Handle directory or single file input
     files = [input_path] if os.path.isfile(input_path) else [os.path.join(input_path, f) for f in os.listdir(input_path) if f.endswith('.json')]
     

@@ -1,14 +1,18 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useRecoilState } from "recoil";
-import { currentTimeState } from "../app/recoil/currentTimeState";
+import { useRecoilState, useRecoilValue } from "recoil";
+import { currentTimeState } from "@/app/recoil/currentTimeState";
+import { videoRefState } from "@/app/recoil/videoRefState";
 
-const ModaptsTable = ({ csvData }) => {
+const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [highlightedRow, setHighlightedRow] = useState(-1);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const headerRef = useRef<HTMLTableSectionElement | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editedCell, setEditedCell] = useState<Object | null>(null);
+  const videoElement = useRecoilValue(videoRefState)
+
 
   useEffect(() => {
     // for (let i = 1; i < csvData.length; i++) {
@@ -25,7 +29,7 @@ const ModaptsTable = ({ csvData }) => {
 
     // iterate through each csvdata, and check if current time is between start and end time
     if (csvData.length > 0) {
-      csvData.forEach((row, index) => {
+      csvData.forEach((row: any, index: number) => {
         const startTime = timeToMilliseconds(row["start"]);
         const endTime = timeToMilliseconds(row["end"]);
         const current = currentTime * 1000;
@@ -60,16 +64,18 @@ const ModaptsTable = ({ csvData }) => {
     // time string format hh:mm:ss.frame
     // fps = 60
     // console.log(timeString)
-    if (timeString) {
+    if (timeString){
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
       const second = parseInt(timeArray[1].split(".")[0]);
       const frame = parseInt(timeArray[1].split(".")[1]);
-
+  
       const milliseconds =
-        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
-
+        minute * 60 * 1000 +
+        second * 1000 +
+        (frame * 1000) / 60;
+  
       return milliseconds;
     }
   }
@@ -87,6 +93,33 @@ const ModaptsTable = ({ csvData }) => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  const handleRowClick = (rowIndex: number) => {
+    // move to the time of the row['start']
+    console.log(rowIndex)
+    const row = csvData[rowIndex];
+    const startTime = timeToMilliseconds(row["start"]);
+    if (videoElement){
+      videoElement.currentTime = startTime / 1000;
+      setCurrentTime(startTime);
+    }
+  }
+
+  const handleCellClick = (rowIndex: number, key: string) => {
+    setEditedCell({ rowIndex, key });
+  };
+
+  const handleCellHover = (rowIndex: number, key: string) => {
+    // setHighlightedRow(rowIndex);
+  }
+
+  // const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
+  //   if (!event.target) return;
+  //   const newData = [...csvData];
+  //   newData[rowIndex][key] = event.target.value;
+  //   setCSVData(newData);
+  //   setEditedCell(null);
+  // };
 
   return (
     <>
@@ -114,6 +147,7 @@ const ModaptsTable = ({ csvData }) => {
                   rowIndex === highlightedRow ? "bg-yellow-200" : "bg-slate-800"
                 }
                 ref={rowIndex === highlightedRow ? rowRef : null}
+                onClick={() => handleRowClick(rowIndex)}
               >
                 {/* {console.log(Object.entries(row))} */}
                 {Object.entries(row).map(([key, value], cellIndex) => (
@@ -124,7 +158,20 @@ const ModaptsTable = ({ csvData }) => {
                         ? "text-slate-800"
                         : "text-slate-200"
                     }`}
+                    onMouseOver={() => handleCellHover(rowIndex, key)}
+                    // onClick={() => handleCellClick(rowIndex, key)}
                   >
+                    {/* {editedCell &&
+                    editedCell.rowIndex === rowIndex &&
+                    editedCell.key === key ? (
+                      <input
+                        type="text"
+                        defaultValue={row[key]}
+                        onBlur={(event) => handleInputChange(event, rowIndex, key)}
+                      />
+                    ) : (
+                      value
+                    )} */}
                     {value}
                   </td>
                 ))}

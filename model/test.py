@@ -7,10 +7,13 @@ from datetime import datetime, timedelta
 from .preprocess import run_pipe
 import joblib
 import json
-from model.model import SimpleNet
+from .model.model import SimpleNet
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 import os
+from typing import Dict
+import shutil
+
 
 LABELS = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 
@@ -69,11 +72,11 @@ def unpack_output(output):
 
 
 # transform output to collect y output for each frame (ex: 1 2 3 4 5 6 -> [_ _ _ 1] [_ _ 1 2] [_ 1 2 3] [1 2 3 4] [2 3 4 5] [3 4 5 6])
-def transform_output(arr, window, default_value=-1):
+def transform_output(arr, window_size, default_value=-1):
     transformed_rows = []
     
-    for i in range(-window+1, len(arr - 1)):
-        window = [arr[j] if 0 <= j < len(arr) else default_value for j in range(i, i + window)]
+    for i in range(-window_size+1, len(arr - 1)):
+        window = [arr[j] if 0 <= j < len(arr) else default_value for j in range(i, i + window_size)]
         transformed_rows.append(window)
     
     return np.array(transformed_rows, dtype=arr.dtype)
@@ -168,16 +171,28 @@ def decide_label(label_array, confidence_array):
     
     return np.array(final_labels)
 
-def inference(input_path, gt_path, config):
+def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
+    """run inference
 
+    :param input_path: input feature file path
+    :type input_path: str
+    :param gt_path: ground truth path, defaults to None
+    :type gt_path: str, optional
+    :param config: config dictionary, defaults to {}
+    :type config: _type_, optional
+    :return: result folder
+    :rtype: str
+    """
+    
     print(f"Inference on {input_path}, ground truth: {gt_path}")
     
     device = torch.device(config['device'])
-    
     input_file_name, _ = os.path.splitext(os.path.basename(input_path))
-    inference_output_path = f"./results/test_inf_labels_{input_file_name}.txt"
-    inference_confidence_path = f"./results/test_inf_confidence_{input_file_name}.txt"
-    inference_csv_path = f"./results/{input_file_name}.csv"
+    output_folder = os.path.dirname(os.path.realpath(__file__)) + f"/results/{input_file_name}/"
+    os.makedirs(output_folder, exist_ok=True)
+    inference_output_path = output_folder + f"test_inf_labels_{input_file_name}.txt"
+    inference_confidence_path = output_folder + f"test_inf_confidence_{input_file_name}.txt"
+    inference_csv_path = output_folder + f"{input_file_name}.csv"
     gt_avail = True if gt_path else False
     
     scaler_path = config['scaler_path']
@@ -190,9 +205,9 @@ def inference(input_path, gt_path, config):
     softmax_results = []   # confidence scores
     
     feature_size = inf_input.shape[2]
-
-    net = SimpleNet(feature_size, 8, config['linear_layers'], config['lstm_hidden'], config['dropout_prob'])
-    net.load_state_dict(torch.load('/data/samsung/TAD_models/model_checkpoint.pth'))
+    model_config = config['model']
+    net = SimpleNet(feature_size, 8, model_config['linear_layers'], model_config['lstm_hidden'], model_config['dropout_prob'])
+    net.load_state_dict(torch.load(config['checkpoint_path']))
     net.eval() 
     net.to(device)
 
@@ -239,32 +254,51 @@ def inference(input_path, gt_path, config):
 
         accuracy = total_correct / len(test_loader.dataset)
         print("Accuracy: ", accuracy)
+    
+    abs_output_folder = os.path.abspath(output_folder)
+    return abs_output_folder
 
 
-def run_inference(input_video, gt_path=None, config={}):
+def run_inference(input_video:str, gt_path:str=None, config_path:str=None)->str:
+    """_summary_
+
+    :param input_video: video_path
+    :type input_video: str
+    :param gt_path: ground truth csv path, defaults to None
+    :type gt_path: str, optional
+    :param config_path: path to config json file, defaults to None
+    :type config_path: str, optional
+    :return: directory where the results are stored
+    :rtype: str
+    """
+    
+    if config_path is None:
+        config_path = os.path.dirname(os.path.realpath(__file__))+"/config/test.json"
+    
+    with open(config_path, 'r') as json_file:
+        json_data = json_file.read()
+    config = json.loads(json_data)
     
     frame_rate = config['frame_rate']
     window = config['window']
     
-    csv_path = run_pipe(input_video, frame_rate, window, inference=True)
-    inference(csv_path, gt_path, config)
+    json_path, csv_path = run_pipe(input_video, frame_rate, window, inference=True)
+    result_folder = inference(csv_path, gt_path, config)
+    shutil.copy(json_path, result_folder)
+    return result_folder
     
     
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
-    args.add_argument('-c', '--config', default=None, type=str,
+    args.add_argument('-c', '--config', default="test_config.json", type=str,
                       help='config path')
     args.add_argument('-v', '--video', required=True, type=str,
                       help='video path')
     args.add_argument('-g', '--ground_truth', default=None, type=str,
                       help='ground truth path')
     
-    with open(args.config, 'r') as json_file:
-        json_data = json_file.read()
-    # Parse the JSON data into a Python dictionary
-    config = json.loads(json_data)
 
-    run_inference(args.video, args.ground_truth, config)
+    run_inference(args.video, args.ground_truth, args.config)
 
 

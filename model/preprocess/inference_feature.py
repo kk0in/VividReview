@@ -198,6 +198,7 @@ def run_feature_extraction(json_file:str, target_folder:str)->str:
     :return: extracted feature's csv path
     :rtype: str
     """
+    
     video_name = os.path.basename(json_file).split(".")[0]
     global DATA_PATH, TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH
     TXT_PATH = DATA_PATH = target_folder
@@ -211,8 +212,6 @@ def run_feature_extraction(json_file:str, target_folder:str)->str:
     x_file = []
     
     feature_csv_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
-    ## REMOVE
-    return feature_csv_path
     feature_pkl_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
     t1 = open(feature_pkl_path, 'wb')
     t2 = open(feature_csv_path, 'w', newline='')
