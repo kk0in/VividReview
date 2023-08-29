@@ -18,7 +18,7 @@ export default function VideoTimeline() {
   let initialWidth = 0;
 
   useEffect(() => {
-    console.log(csvData);
+    // console.log(csvData);
     const element = document.querySelector(".highlighted");
     const container = document.getElementById("scrollableTimelineContainer");
 
@@ -356,7 +356,7 @@ function MillisecondsTotime(duration: number): string {
   return `${String(minutes).padStart(1, "0")}:${String(seconds).padStart(
     2,
     "0"
-  )}.${String(frames).padStart(2, "0")}`;
+  )}:${String(frames).padStart(2, "0")}`;
 }
 
 function timeToMilliseconds(timeString: string): number {
