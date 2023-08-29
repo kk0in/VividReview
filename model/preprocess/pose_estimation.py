@@ -5,6 +5,7 @@ import cv2
 import mmcv
 import mmengine
 import numpy as np
+from typing import Union, List
 import argparse
 
 from tqdm import tqdm
@@ -176,6 +177,8 @@ def rtmpose(i_path, o_path, device_, f_idx=0):
             f,
             indent='\t'
         )
+
+    return keypoints_name
     
 if __name__ == '__main__':
     main()
