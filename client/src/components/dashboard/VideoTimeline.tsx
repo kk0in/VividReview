@@ -18,28 +18,43 @@ export default function VideoTimeline() {
   let initialWidth = 0;
 
   useEffect(() => {
-    // console.log(csvData);
+
     const element = document.querySelector(".highlighted");
     const container = document.getElementById("scrollableTimelineContainer");
   
     if (element && container) {
-      const elementRect = element.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-
-      const scrollLeftPosition =
-        elementRect.left -
-        containerRect.left +
-        container.scrollLeft -
-        containerRect.width / 2 +
-        elementRect.width / 2; // Centers the highlighted section
-
-      container.scrollLeft = scrollLeftPosition;
-      container.scrollTo({
-        left: scrollLeftPosition,
-        behavior: "smooth",
-      });
+      const indexMatch = element.className.match(/timeline-item-(\d+)/);
+      if (indexMatch && indexMatch[1]) {
+        const rowIndex = parseInt(indexMatch[1]);
+        // Get time info from your csvData using rowIndex
+        const row = csvData[rowIndex];
+        if (row) {
+          const startTime = timeToMilliseconds(row["In"]); 
+          const endTime = timeToMilliseconds(row["Out"]); 
+          const duration = endTime - startTime;
+          
+          // Find out where the currentTime falls within the highlighted Modapts
+          const normalizedTime = ((currentTime*1000) - startTime) / duration;
+  
+          const elementRect = element.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+  
+          const scrollLeftPosition = 
+            elementRect.left - 
+            containerRect.left + 
+            container.scrollLeft - 
+            (containerRect.width / 2) + 
+            (elementRect.width * normalizedTime); // ratio of the current time to the duration of the highlighted modapts
+  
+          container.scrollLeft = scrollLeftPosition;
+          container.scrollTo({
+            left: scrollLeftPosition,
+            behavior: "smooth",
+          });
+        }
+      }
     }
-  }, [currentTime]);
+  }, [currentTime, csvData]);
   
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
@@ -270,7 +285,7 @@ export default function VideoTimeline() {
                       className={`rounded py-5 px-1 border flex items-center justify-center ${
                         !row["Modapts"] ? "" : "border-opacity-0"
                       } ${
-                        isInCurrentTime(row["In"], row["Out"])
+                        isInCurrentTime(row["In"], row["Out"]) 
                           ? "highlighted"
                           : ""
                       } timeline-item-${rowIndex}`}
