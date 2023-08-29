@@ -45,10 +45,9 @@ export default function Page({ params }: { params: { id: string } }) {
       refetchVideo();
       refetchCSV();
       refetchKeypoint();
-    //   setIsLoaded(true);
+      //   setIsLoaded(true);
     }
   }, [data]);
-
 
   const { refetch: refetchVideo, isLoading: loadingVideo } = useQuery(
     ["videoData", params.id],
@@ -63,40 +62,44 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   );
 
-  const { refetch: refetchCSV, isLoading: loadingCSV } = useQuery(["csvData", params.id], getResult, {
-    onSuccess: (data) => {
+  const { refetch: refetchCSV, isLoading: loadingCSV } = useQuery(
+    ["csvData", params.id],
+    getResult,
+    {
+      onSuccess: (data) => {
         // console.log(data)
-        setCSVData(data.result)
-    //   const reader = new FileReader();
-    //   reader.readAsText(data);
-    //   reader.onload = function () {
-    //     console.log(reader.result);
-    //     let results = Papa.parse(reader.result as string, { header: true });
-    //     setCSVData(results.data);
-    //   };
-    },
-    enabled: false,
-  });
+        setCSVData(data.result);
+        //   const reader = new FileReader();
+        //   reader.readAsText(data);
+        //   reader.onload = function () {
+        //     console.log(reader.result);
+        //     let results = Papa.parse(reader.result as string, { header: true });
+        //     setCSVData(results.data);
+        //   };
+      },
+      enabled: false,
+    }
+  );
 
   const { refetch: refetchKeypoint, isLoading: loadingKeypoint } = useQuery(
     ["keypointData", params.id],
     getKeypoint,
     {
       onSuccess: (data) => {
-        console.log(data)
+        console.log(data);
         setKeypointData(data.keypoint);
       },
       enabled: false,
     }
   );
 
-    useEffect(() => {
-      if (csvData.length === 0 || videoData === "" || keypointData == null) {
-        setIsLoaded(false);
-      } else {
-        setIsLoaded(true);
-      }
-    }, [csvData, videoData, keypointData]);
+  useEffect(() => {
+    if (csvData.length === 0 || videoData === "" || keypointData == null) {
+      setIsLoaded(false);
+    } else {
+      setIsLoaded(true);
+    }
+  }, [csvData, videoData, keypointData]);
 
   useEffect(() => {
     // get project status, if it is not ready, then redirect to home
@@ -105,16 +108,15 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-        {isLoading && (
+      {isLoading && <div>Loading Project Info...</div>}
+      {data?.project?.done === "done" && !isLoaded && (
         <div>
-            Loading Project Info...
-        </div>
-        )}
-      {((data?.project?.done === "done") && (!isLoaded)) && (
-        <div>
-            {loadingVideo && "Loading Video..."}<br/>
-            {loadingKeypoint && "Loading Keypoint..."}<br/>
-            {loadingCSV && "Loading Result..."}<br/>
+          {loadingVideo && "Loading Video..."}
+          <br />
+          {loadingKeypoint && "Loading Keypoint..."}
+          <br />
+          {loadingCSV && "Loading Result..."}
+          <br />
         </div>
       )}
       {isError && (
@@ -173,7 +175,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   Export
                 </button>
               </div>
-              <ModaptsTable csvData={csvData}/>
+              <ModaptsTable csvData={csvData} />
             </div>
           </div>
           <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">

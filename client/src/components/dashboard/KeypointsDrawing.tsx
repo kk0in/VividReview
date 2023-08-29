@@ -23,8 +23,8 @@ function Test(props: TestProps): JSX.Element {
   const keypointData = useRecoilValue(keypointDataState);
   const { position } = props;
   const currentTime = useRecoilValue(currentTimeState);
-  const canvasSize_wholeBody_width = 200;
-  const canvasSize_wholeBody_height = 200;
+  const canvasSize_wholeBody_width = 250;
+  const canvasSize_wholeBody_height = 250;
   const canvasSize_hand_width = 120;
   const canvasSize_hand_height = 120;
   const canvasSizeWidth =

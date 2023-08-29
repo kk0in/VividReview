@@ -81,7 +81,6 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     setVideoRef(videoRef.current);
   }, [videoRef, setVideoRef]);
 
-
   useEffect(() => {
     animationFrameRef.current = requestAnimationFrame(updateTimestamp);
     return () => cancelAnimationFrame(animationFrameRef.current);
@@ -282,6 +281,15 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     }
   };
 
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const playbackRates = [0.1, 0.5, 1, 2];
+  const handlePlaybackRateChange = (rate: number) => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+      setPlaybackRate(rate);
+    }
+  };
+
   const colormap = (label: string) => {
     if (!label) {
       return;
@@ -383,6 +391,24 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
             <button onClick={handlePlayRangeToggle}>
               <FontAwesomeIcon icon={faRepeat} size="lg" />
             </button>
+          </div>
+          <div className="ml-3">
+            <div>
+              <select
+                className="px-3 py-2 bg-transparent text-white w-20"
+                id="playbackRate"
+                value={playbackRate}
+                onChange={(e) =>
+                  handlePlaybackRateChange(parseFloat(e.target.value))
+                }
+              >
+                {playbackRates.map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate}x
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
