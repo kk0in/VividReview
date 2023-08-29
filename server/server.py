@@ -49,9 +49,17 @@ confidence_threshold = 0.5
 labels = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 
 def process_video(metadata_file_path, video_file_path):
-    print(f"Processing video - {video_file_path}")
     run_inference(video_file_path)
-    print("Done")
+
+    with open(metadata_file_path, 'r') as f:
+        data = json.load(f)
+
+    data['done'] = True
+
+    with open(metadata_file_path, 'w') as file:
+        json.dump(data, file)
+
+    print("done")
 
 def issue_id():
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
@@ -82,10 +90,6 @@ def get_filename(id):
     else:
         return None
 
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 @app.get('/api/get_project', status_code=200)
 async def get_project():
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
@@ -179,7 +183,7 @@ async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: 
         'plant': plant,  
         'route': route,  
         'description': description,
-        'done': 0
+        'done': False
     }
 
     video_filename = os.path.splitext(file.filename)[0]
