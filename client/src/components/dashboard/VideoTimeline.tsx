@@ -122,6 +122,10 @@ export default function VideoTimeline() {
           newCsvData.splice(index, 0, blankSpace);
         }
       }
+      if (index - 1 >= 0 && newCsvData[index-1].Out !== newCsvData[index].In) { // adjust the previous timeline's out time to the current timeline's in time
+        newCsvData[index - 1].Out = newCsvData[index].In;
+        newCsvData[index - 1].Duration = subtractTimes(newCsvData[index - 1].Out, newCsvData[index - 1].In);
+      }
     } else if (direction == "right") {
       if (deltaWidth >= 0) {
         // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
@@ -188,6 +192,10 @@ export default function VideoTimeline() {
           newCsvData.splice(index + 1, 0, blankSpace);
         }
       }
+    }
+    if (index+1 < newCsvData.length && newCsvData[index].Out !== newCsvData[index+1].In) { // adjust the next timeline's in time to the current timeline's out time
+      newCsvData[index + 1].In = newCsvData[index].Out;
+      newCsvData[index + 1].Duration = subtractTimes(newCsvData[index + 1].Out, newCsvData[index + 1].In);
     }
     setCSVData(newCsvData);
   };
