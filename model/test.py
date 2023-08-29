@@ -1,4 +1,6 @@
 import argparse
+import csv
+
 import torch
 from tqdm import tqdm
 import numpy as np
@@ -16,6 +18,8 @@ import shutil
 
 
 LABELS = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
+confidence_threshold = 0.5
+
 
 # overlap rows to move the window (ex: 1 2 3 4 5 6 ->  1 2 3 4  2 3 4 5  3 4 5 6 ...)
 def overlap_rows(arr, window_size):
@@ -29,6 +33,7 @@ def overlap_rows(arr, window_size):
     print(f"{arr.shape} overlapped: {overlapped_rows.shape}")
 
     return overlapped_rows
+
 
 # Load the inference inputs
 def load_inf(path, window):
@@ -82,12 +87,12 @@ def transform_output(arr, window_size, default_value=-1):
     return np.array(transformed_rows, dtype=arr.dtype)
 
 
-
 # Convert frame count(int) to timestamp(str, HH:MM:SS.FF)
 def frame_to_timestamp(frame_count, fps):
     second_stamp = int(frame_count / fps)
     frame_stamp = frame_count % fps
     return (datetime.min + timedelta(seconds=second_stamp)).time().strftime('%M:%S') + ':' + str(frame_stamp).zfill(2)
+
 
 def confidence_to_label(confidence_scores):
     # Convert confidence scores to labels
@@ -98,9 +103,70 @@ def confidence_to_label(confidence_scores):
         labels.append(label)
     return labels
 
+
+def convert_frame(datetime):
+    minute = int(datetime.split(':')[0])
+    second = int(datetime.split(':')[1].split('.')[0])
+    frame = int(datetime.split(':')[1].split('.')[1])
+
+    total_frame = frame + 60 * second + 3600 * minute
+
+    return total_frame
+
+
+def get_topk(start, end, dic):
+    topk = []
+    votes = []
+    rank = {}
+
+    start_frame = start + 1
+    end_frame = end
+
+    for k, v in dic.items():
+        k_int = int(k)
+        if start_frame <= k_int <= end_frame:
+            if v["votes"]:
+                votes.extend(v["votes"])
+            else:
+                votes.append([v["final_label"], confidence_threshold])
+        elif k_int > end_frame:
+            break
+
+    for i in votes:
+        if i[0] in rank.keys():
+            rank[i[0]] += 1
+        else:
+            rank[i[0]] = 1
+
+    total = sum(rank.values())
+
+    for k in rank.keys():
+        rank[k] /= total
+
+    rank = dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[:3])
+    for k, v in rank.items():
+        topk.append({'Modapts': LABELS[int(k)], 'Score': v})
+
+    return topk
+
+
+def convert_json2csv(json_file_path, csv_file_path):
+    with open(json_file_path, 'r') as input_file, open(csv_file_path, 'w', newline='') as output_file:
+        data = json.load(input_file)
+
+        for d in data:
+            d.pop('Topk', None)
+
+        f = csv.writer(output_file)
+        f.writerow(['Modapts', 'In', 'Out', 'Duration'])
+
+        for d in data:
+            f.writerow([d['Modapts'], d['In'], d['Out'], d['Duration']])
+
+
 # Convert confidence scores to timestamps and save them as a CSV file
 # confidence_scores_array: (frame_count, n_steps, len(LABELS))
-def convert_timestamp_csv(label_array, output_csv_path):
+def convert_timestamp(label_array, dic, output_csv_path, output_json_path):
 
     # Merge consecutive labels and create timestamps
     timestamps = []
@@ -114,7 +180,8 @@ def convert_timestamp_csv(label_array, output_csv_path):
             if current_label is not None:
                 duration = frame_to_timestamp(frame - start_frame, 60)
                 end_time = frame_to_timestamp(frame, 60)
-                timestamps.append((LABELS[current_label], start_time, end_time, duration))
+                topk = get_topk(start_frame, frame, dic)
+                timestamps.append((LABELS[current_label], start_time, end_time, duration, topk))
             
             current_label = label
             start_time = end_time
@@ -125,22 +192,25 @@ def convert_timestamp_csv(label_array, output_csv_path):
         duration = frame_to_timestamp(frame - start_frame, 60)
         end_time = frame_to_timestamp(frame, 60)
         #print(start_time, end_time, current_label)
-        timestamps.append((LABELS[current_label], start_time, end_time, duration))
+        topk = get_topk(start_frame, frame, dic)
+        timestamps.append((LABELS[current_label], start_time, end_time, duration, topk))
 
     # Create a DataFrame
-    df = pd.DataFrame(timestamps, columns=['label', 'start', 'end', 'duration'])
-
+    df = pd.DataFrame(timestamps, columns=['Modapts', 'In', 'Out', 'Duration', 'Topk'])
+    df.to_json(output_json_path, orient="records")
     # Save the DataFrame as a CSV file
-    df.to_csv(output_csv_path, index=False)
+    # df.to_csv(output_csv_path, index=False)
+    convert_json2csv(output_json_path, output_csv_path)
 
 # voting between inferences with different frame ranges, counting only the ones with confidence above a threshold
 
-confidence_threshold = 0.5
 
 def decide_label(label_array, confidence_array):
     final_labels = []
-    
+    dic = {}
+
     for i in range(label_array.shape[0]):
+        d = {}
         frame_labels = label_array[i]
         frame_confidences = np.max(confidence_array[i], axis=1)
         
@@ -166,10 +236,16 @@ def decide_label(label_array, confidence_array):
                 total_confidences = [sum(confidence for label_vote, confidence in votes if label_vote == label) for label in tied_labels]
                 max_total_confidence_index = np.argmax(total_confidences)
                 final_label = tied_labels[max_total_confidence_index]
-        
+
+        d["votes"] = votes
+        d["final_label"] = int(final_label)
+
+        dic[i + 1] = d
+
         final_labels.append(final_label)
     
-    return np.array(final_labels)
+    return np.array(final_labels), dic
+
 
 def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
     """run inference
@@ -193,6 +269,7 @@ def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
     inference_output_path = output_folder + f"test_inf_labels_{input_file_name}.txt"
     inference_confidence_path = output_folder + f"test_inf_confidence_{input_file_name}.txt"
     inference_csv_path = output_folder + f"{input_file_name}.csv"
+    inference_json_path = output_folder + f"{input_file_name}.json"
     gt_avail = True if gt_path else False
     
     scaler_path = config['scaler_path']
@@ -223,7 +300,6 @@ def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
             softmax_results.append(batch_softmax)
             prediction = torch.argmax(outputs, dim=1) 
             predictions += prediction.tolist()
-        
 
     softmax_results = torch.cat(softmax_results, dim=0)
     softmax_results = np.array(softmax_results.detach().cpu().tolist(), dtype=np.float32) 
@@ -235,9 +311,9 @@ def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
     reorganized_confidence = transform_output(softmax_results, window, np.full(softmax_results[0].shape, 0))
     np.savetxt(inference_confidence_path, reorganized_confidence.reshape(-1, reorganized_confidence.shape[-1]), fmt='%.3f', delimiter=' ')
 
-    final_labels = decide_label(reorganized_indices, reorganized_confidence)
+    final_labels, final_dic = decide_label(reorganized_indices, reorganized_confidence)
 
-    convert_timestamp_csv(final_labels, inference_csv_path)
+    convert_timestamp(final_labels, final_dic, inference_csv_path, inference_json_path)
 
     if (gt_avail):
         ground_truth = []
@@ -286,8 +362,7 @@ def run_inference(input_video:str, gt_path:str=None, config_path:str=None)->str:
     result_folder = inference(csv_path, gt_path, config)
     shutil.copy(json_path, result_folder)
     return result_folder
-    
-    
+
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
@@ -297,7 +372,6 @@ if __name__ == '__main__':
                       help='video path')
     args.add_argument('-g', '--ground_truth', default=None, type=str,
                       help='ground truth path')
-    
 
     run_inference(args.video, args.ground_truth, args.config)
 
