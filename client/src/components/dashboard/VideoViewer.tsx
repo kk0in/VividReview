@@ -44,11 +44,11 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   useEffect(() => {
     if (csvData.length > 0) {
       csvData.forEach((row, index) => {
-        const startTime = timeToMilliseconds(row["start"]);
-        const endTime = timeToMilliseconds(row["end"]);
+        const startTime = timeToMilliseconds(row["In"]);
+        const endTime = timeToMilliseconds(row["Out"]);
         const current = currentTime * 1000;
         if (current >= startTime && current <= endTime) {
-          setCurrentModapts(row["label"]);
+          setCurrentModapts(row["Modapts"]);
           setCurrentModaptsTime([startTime / 1000, endTime / 1000]);
           return;
         }
@@ -60,8 +60,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
-      const second = parseInt(timeArray[1].split(".")[0]);
-      const frame = parseInt(timeArray[1].split(".")[1]);
+      const second = parseInt(timeArray[1]);
+      const frame = parseInt(timeArray[2]);
 
       const milliseconds =
         minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
@@ -147,7 +147,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
 
     const msToFrame = Math.floor((millisecs * 60) / 1000);
 
-    const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
+    const formattedTime = `${mins.toString().padStart(1, "0")}:${secs
       .toString()
       .padStart(2, "0")}:${msToFrame.toString().padStart(2, "0")}`;
     return formattedTime;
@@ -164,8 +164,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       // setCurrentTime(videoRef.current.currentTime);
       if (isPlayingRange) {
         csvData.forEach((row, index) => {
-          const startTime = timeToMilliseconds(row["start"]);
-          const endTime = timeToMilliseconds(row["end"]);
+          const startTime = timeToMilliseconds(row["In"]);
+          const endTime = timeToMilliseconds(row["Out"]);
           const current = newCurrentTime * 1000;
           if (current >= startTime && current <= endTime) {
             setPlayingRange([startTime / 1000, endTime / 1000]);

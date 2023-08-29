@@ -41,7 +41,7 @@ export default function Page({ params }: { params: { id: string } }) {
   }, []);
 
   useEffect(() => {
-    if (data?.project?.done === "done") {
+    if (data?.project?.done) {
       refetchVideo();
       refetchCSV();
       refetchKeypoint();
@@ -67,7 +67,7 @@ export default function Page({ params }: { params: { id: string } }) {
     getResult,
     {
       onSuccess: (data) => {
-        // console.log(data)
+        console.log(data)
         setCSVData(data.result);
         //   const reader = new FileReader();
         //   reader.readAsText(data);
@@ -130,7 +130,7 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {!isLoading && !isError && data?.project?.done !== "done" && (
+      {!isLoading && !isError && !data?.project?.done && (
         <div className="mx-auto my-auto">
           <div className="flex flex-col">
             Data is not processed yet.

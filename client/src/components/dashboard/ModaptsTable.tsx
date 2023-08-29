@@ -30,8 +30,8 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
     // iterate through each csvdata, and check if current time is between start and end time
     if (csvData.length > 0) {
       csvData.forEach((row: any, index: number) => {
-        const startTime = timeToMilliseconds(row["start"]);
-        const endTime = timeToMilliseconds(row["end"]);
+        const startTime = timeToMilliseconds(row["In"]);
+        const endTime = timeToMilliseconds(row["Out"]);
         const current = currentTime * 1000;
         if (current >= startTime && current <= endTime) {
           setHighlightedRow(index);
@@ -68,8 +68,8 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
-      const second = parseInt(timeArray[1].split(".")[0]);
-      const frame = parseInt(timeArray[1].split(".")[1]);
+      const second = parseInt(timeArray[1]);
+      const frame = parseInt(timeArray[2]);
   
       const milliseconds =
         minute * 60 * 1000 +
@@ -98,7 +98,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
     // move to the time of the row['start']
     console.log(rowIndex)
     const row = csvData[rowIndex];
-    const startTime = timeToMilliseconds(row["start"]);
+    const startTime = timeToMilliseconds(row["In"]);
     if (videoElement){
       videoElement.currentTime = startTime / 1000;
       setCurrentTime(startTime);
@@ -111,6 +111,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
 
   const handleCellHover = (rowIndex: number, key: string) => {
     // setHighlightedRow(rowIndex);
+    console.log(rowIndex, key)
   }
 
   // const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
@@ -129,14 +130,16 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
             <tr>
               {/* read object keys to generate header */}
               {csvData[0] &&
-                Object.keys(csvData[0]).map((key, index) => (
+                Object.keys(csvData[0]).map((key, index) => {
+                  if (key === "Topk") return;
+                  return (
                   <th
                     key={key}
                     className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left"
                   >
                     {key}
                   </th>
-                ))}
+                )})}
             </tr>
           </thead>
           <tbody>
@@ -150,7 +153,9 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                 onClick={() => handleRowClick(rowIndex)}
               >
                 {/* {console.log(Object.entries(row))} */}
-                {Object.entries(row).map(([key, value], cellIndex) => (
+                {Object.entries(row).map(([key, value], cellIndex) => {
+                  if (key === "Topk") return;
+                  return (
                   <td
                     key={cellIndex}
                     className={`border-b border-slate-700 px-3 py-2 font-mono ${
@@ -174,7 +179,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
                     )} */}
                     {value}
                   </td>
-                ))}
+                )})}
                 {/* {row.entries().map((cell, cellIndex) => (
                   <td
                     key={cellIndex}

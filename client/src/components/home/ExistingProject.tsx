@@ -49,7 +49,7 @@ const ExistingProject: React.FC<ExistingrojectProps> = ({ setView }) => {
                   <td>{project.route}</td>
                   <td>{project.description}</td>
                   <td>
-                    {project.done === "done" ? (
+                    {project.done ? (
                       <Link href={`/dashboard/${project.id}`}>
                         Go to dashboard
                       </Link>
