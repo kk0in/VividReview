@@ -9,6 +9,8 @@ import { Popover, Transition } from "@headlessui/react";
 export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
+  let initialLeft = 0;
+  let initialWidth = 0;
 
   useEffect(() => {
     const element = document.querySelector(".highlighted");
@@ -17,9 +19,6 @@ export default function VideoTimeline() {
     if (element && container) {
       const elementRect = element.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
-
-      // console.log("Element Rect:", elementRect);
-      // console.log("Container Rect:", containerRect);
 
       const scrollLeftPosition =
         elementRect.left -
@@ -38,94 +37,113 @@ export default function VideoTimeline() {
 
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["start"]) / 5;
-    const margin = index * 2; // 2px margin between each timeline
-    return base + margin;
+    const margin = index * 4; // 2px margin between each timeline
+    return base + margin;//+ margin;
   }
 
-  const adjustTimeline = (index: number, newWidth: number) => {
+ 
+ const adjustTimeline = (index: number, newWidth: number, direction: string) => {
     const newCsvData = JSON.parse(JSON.stringify(csvData));
     const oldDuration = timeToMilliseconds(newCsvData[index].duration);
     const oldWidth = oldDuration / 5;
     const deltaWidth = newWidth - oldWidth;
     const deltaDuration = deltaWidth * 5;
 
-    if (deltaWidth < 0) {
-      if (oldDuration + deltaDuration <= 60) {
-        // less than half modapts (129ms)
-        const blankSpace = newCsvData[index];
-        blankSpace.label = "";
-        newCsvData[index] = blankSpace;
-      } else {
-        // Left resize logic, while moving the timeline to the left, all other timelines are moving together.. need to improve
-        newCsvData[index].duration = MillisecondsTotime(
-          oldDuration + deltaDuration
-        );
-        newCsvData[index].end = addTimes(
-          newCsvData[index].start,
-          newCsvData[index].duration
-        );
-
-        const blankSpace = {
-          label: "",
-          start: newCsvData[index].end,
-          end: addTimes(
-            newCsvData[index].end,
-            MillisecondsTotime(-deltaDuration)
-          ),
-          duration: MillisecondsTotime(-deltaDuration),
-        };
-        console.log("newCsvData[index]: ", newCsvData[index]);
-        console.log("blankSpace: ", blankSpace);
-        newCsvData.splice(index + 1, 0, blankSpace);
-      }
-    } else {
-      // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
-      let remainingDuration = deltaDuration;
-
-      for (
-        let i = index + 1;
-        i < newCsvData.length && remainingDuration > 0;
-        i++
-      ) {
-        // need to optimize?
-        const nextDuration = timeToMilliseconds(newCsvData[i].duration);
-
-        if (nextDuration <= remainingDuration) {
-          remainingDuration -= nextDuration;
-          newCsvData.splice(i, 1);
-          i--;
-        } else {
-          newCsvData[i].start = addTimes(
-            newCsvData[i].start,
-            MillisecondsTotime(remainingDuration)
-          );
-          newCsvData[i].duration = MillisecondsTotime(
-            nextDuration - remainingDuration
-          );
-          newCsvData[i].end = addTimes(
-            newCsvData[i].start,
-            newCsvData[i].duration
-          );
-          remainingDuration = 0;
+    if (direction == 'left') {
+      if (deltaWidth >= 0) {
+          // when resizing to the left, it should overlap the previous timelines
+            const _deltaDuration = deltaDuration
+            const _oldDuration = timeToMilliseconds(newCsvData[index].duration);
+            let remainingDuration = _deltaDuration;
+            
+            for (let i = index - 1; i >= 0 && remainingDuration > 0; i--) {
+                const prevDuration = timeToMilliseconds(newCsvData[i].duration);
+                if (prevDuration <= remainingDuration) {
+                    remainingDuration -= prevDuration;
+                    newCsvData.splice(i, 1);
+                    index--;
+                } else {
+                    newCsvData[i].end = subtractTimes(newCsvData[i].end, MillisecondsTotime(remainingDuration));
+                    newCsvData[i].duration = MillisecondsTotime(prevDuration - remainingDuration);
+                    newCsvData[i].start = subtractTimes(newCsvData[i].end, newCsvData[i].duration);
+                    remainingDuration = 0;
+                }
+            }
+            newCsvData[index].duration = MillisecondsTotime(_oldDuration + _deltaDuration - remainingDuration);
+            newCsvData[index].start = subtractTimes(newCsvData[index].end, newCsvData[index].duration);
+          }
+          else { 
+            const _oldDuration = timeToMilliseconds(newCsvData[index].duration);
+            if (_oldDuration+deltaDuration <= 60) { // less than half modapts (129ms)
+              const blankSpace = newCsvData[index]
+              blankSpace.label = "";
+              newCsvData[index] = blankSpace
+            }
+            else {
+              // Right reducing logic
+              newCsvData[index].duration = MillisecondsTotime(_oldDuration + deltaDuration);
+              newCsvData[index].start = subtractTimes(newCsvData[index].end, newCsvData[index].duration);
+    
+              const blankSpace = {
+                label: "",
+                start: subtractTimes(newCsvData[index].start, MillisecondsTotime(deltaDuration)),
+                end: newCsvData[index].start,
+                duration: MillisecondsTotime(deltaDuration)
+              };
+              newCsvData.splice(index, 0, blankSpace);
+            }
         }
       }
-      newCsvData[index].duration = MillisecondsTotime(
-        oldDuration + deltaDuration - remainingDuration
-      );
-      newCsvData[index].end = addTimes(
-        newCsvData[index].start,
-        newCsvData[index].duration
-      );
+      else if (direction == 'right') {
+        if (deltaWidth >= 0) {
+          // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
+          let remainingDuration = deltaDuration;
+
+          for (let i = index + 1; i < newCsvData.length && remainingDuration > 0; i++) { // need to optimize?
+              const nextDuration = timeToMilliseconds(newCsvData[i].duration);
+              
+              if (nextDuration <= remainingDuration) {
+                  remainingDuration -= nextDuration;
+                  newCsvData.splice(i, 1);
+                  i--;
+              } else {
+                  newCsvData[i].start = addTimes(newCsvData[i].start, MillisecondsTotime(remainingDuration));
+                  newCsvData[i].duration = MillisecondsTotime(nextDuration - remainingDuration);
+                  newCsvData[i].end = addTimes(newCsvData[i].start, newCsvData[i].duration);
+                  remainingDuration = 0;
+              }
+          }
+          newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration - remainingDuration);
+          newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
+        }
+        else {
+          if (oldDuration+deltaDuration <= 60) { // less than half modapts (129ms)
+            const blankSpace = newCsvData[index]
+            blankSpace.label = "";
+            newCsvData[index] = blankSpace
+          }
+          else {
+            newCsvData[index].duration = MillisecondsTotime(oldDuration + deltaDuration);
+            newCsvData[index].end = addTimes(newCsvData[index].start, newCsvData[index].duration);
+  
+            const blankSpace = {
+              label: "",
+              start: newCsvData[index].end,
+              end: addTimes(newCsvData[index].end, MillisecondsTotime(-deltaDuration)),
+              duration: MillisecondsTotime(-deltaDuration)
+            };
+            newCsvData.splice(index + 1, 0, blankSpace);
+          }
+        }        
+
     }
-
     setCSVData(newCsvData);
-  };
-
+};  
   const isInCurrentTime = (start: string, end: string) => {
     const startTimeMillis = timeToMilliseconds(start);
     const endTimeMillis = timeToMilliseconds(end);
     const _currentTime = currentTime * 1000;
-    //console.log("currentTime: ", _currentTime, "startTimeMillis: ", startTimeMillis, "endTimeMillis: ", endTimeMillis)
+    
     return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
   };
 
@@ -133,9 +151,10 @@ export default function VideoTimeline() {
     <div
       className="flex w-full overflow-x-auto h-full"
       id="scrollableTimelineContainer"
-      style={{ position: "relative" }}
     >
-      <div className="flex w-full h-full">
+      <div className="flex w-full h-full flex-row">
+        <div className="flex w-1/2">a</div>
+        <div className="flex w-1/2">
         {csvData.map((row, rowIndex) => (
           <Popover key={row}>
             <Popover.Button>
@@ -147,56 +166,34 @@ export default function VideoTimeline() {
                 width: timeToMilliseconds(row["duration"]) / 5,
                 height: 30,
               }}
-              minWidth={0}
-              maxWidth={1000}
               enable={{
                 top: false,
                 right: true,
                 bottom: false,
-                left: false,
+                left: true,
                 topRight: false,
                 bottomRight: false,
                 bottomLeft: false,
                 topLeft: false,
               }}
-              onResize={(e, direction, ref) => {
-                // During resizing, check for overlaps
-                const currentEnd =
-                  calculateLeftPosition(rowIndex) + ref.offsetWidth;
-                //const midpoint = calculateLeftPosition(rowIndex) + (ref.offsetWidth / 2);
-                //const newCurrentTime = midpoint * 5 / 1000;
-                //console.log("currentEnd: ", currentEnd, "newCurrentTime: ", newCurrentTime);
-                //setCurrentTime(newCurrentTime);
-                csvData.slice(rowIndex + 1).forEach((nextRow, nextIndex) => {
-                  const nextStart = calculateLeftPosition(
-                    rowIndex + 1 + nextIndex
-                  );
-                  const nextElement = document.querySelector(
-                    `.timeline-item-${rowIndex + 1 + nextIndex}`
-                  );
-
-                  // If overlap occurs
-                  if (currentEnd > nextStart && nextElement) {
-                    ref.style.opacity = "0.65";
-                    nextElement.style.opacity = "0.5";
-                  } else if (nextElement) {
-                    nextElement.style.opacity = "1";
-                  }
-                });
-              }}
               onResizeStart={(e, direction, ref) => {
+                initialLeft = parseFloat(ref.style.left);
+                initialWidth = parseFloat(ref.style.width);
                 ref.style.zIndex = "10";
+                ref.style.opacity = "0.65";
+              }}
+              onResize={(e, direction, ref, d) => {
+                if (direction === 'left') {
+                  ref.style.left = `${initialLeft - d.width}px`; // 이동한 만큼 left position을 늘려주기
+                  ref.style.width = `${initialWidth + d.width}px`; // 이동한 만큼 width를 줄여주기
+                } else if (direction === 'right') {
+                  ref.style.width = `${initialWidth + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
+                }
               }}
               onResizeStop={(e, direction, ref) => {
-                adjustTimeline(rowIndex, ref.offsetWidth);
                 ref.style.zIndex = "1";
-                // Reset the opacity after resize
-                csvData.forEach((_, idx) => {
-                  const element = document.querySelector(`.timeline-item-${idx}`);
-                  if (element) {
-                    element.style.opacity = "1";
-                  }
-                });
+                ref.style.opacity = "1";
+                adjustTimeline(rowIndex, ref.offsetWidth, direction);
               }}
               style={{
                 left: `${calculateLeftPosition(rowIndex)}px`,
@@ -240,6 +237,9 @@ export default function VideoTimeline() {
             </Transition>
           </Popover>
         ))}
+        </div>
+        <div className="flex w-1/2">a</div>
+
       </div>
     </div>
   );
@@ -271,6 +271,12 @@ function addTimes(time1: string, time2: string): string {
   return MillisecondsTotime(ms1 + ms2);
 }
 
+function subtractTimes(time1: string, time2: string): string {
+  let ms1 = timeToMilliseconds(time1);
+  let ms2 = timeToMilliseconds(time2);
+  return MillisecondsTotime(ms1 - ms2);
+}
+
 function MillisecondsTotime(duration: number): string {
   let absoluteDuration = Math.abs(duration);
 
@@ -278,10 +284,7 @@ function MillisecondsTotime(duration: number): string {
   const seconds = Math.floor((absoluteDuration / 1000) % 60);
   const minutes = Math.floor((absoluteDuration / (1000 * 60)) % 60);
 
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}.${String(frames).padStart(2, "0")}`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(frames).padStart(2, "0")}`;
 }
 
 function timeToMilliseconds(timeString: string): number {
