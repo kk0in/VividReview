@@ -1,64 +1,35 @@
-"""
-typedef struct mmdeploy_pose_tracker_param_t (
-  // detection interval, default = 1
-  int32_t det_interval;
-  // detection label use for pose estimation, default = 0
-  int32_t det_label;
-  // detection score threshold, default = 0.5
-  float det_thr;
-  // detection minimum bbox size (compute as sqrt(area)), default = -1
-  float det_min_bbox_size;
-  // nms iou threshold for merging detected bboxes and bboxes from tracked targets, default = 0.7
-  float det_nms_thr;
-
-  // max number of bboxes used for pose estimation per frame, default = -1
-  int32_t pose_max_num_bboxes;
-  // threshold for visible key-points, default = 0.5
-  float pose_kpt_thr;
-  // min number of key-points for valid poses (-1 indicates ceil(n_kpts/2)), default = -1
-  int32_t pose_min_keypoints;
-  // scale for expanding key-points to bbox, default = 1.25
-  float pose_bbox_scale;
-  // min pose bbox size, tracks with bbox size smaller than the threshold will be dropped,
-  // default = -1
-  float pose_min_bbox_size;
-  // nms oks/iou threshold for suppressing overlapped poses, useful when multiple pose estimations
-  // collapse to the same target, default = 0.5
-  float pose_nms_thr;
-  // keypoint sigmas for computing OKS, will use IOU if not set, default = nullptr
-  float* keypoint_sigmas;
-  // size of keypoint sigma array, must be consistent with the number of key-points, default = 0
-  int32_t keypoint_sigmas_size;
-
-  // iou threshold for associating missing tracks, default = 0.4
-  float track_iou_thr;
-  // max number of missing frames before a missing tracks is removed, default = 10
-  int32_t track_max_missing;
-  // track history size, default = 1
-  int32_t track_history_size;
-
-  // weight of position for setting covariance matrices of kalman filters, default = 0.05
-  float std_weight_position;
-  // weight of velocity for setting covariance matrices of kalman filters, default = 0.00625
-  float std_weight_velocity;
-
-  // params for the one-euro filter for smoothing the outputs - (beta, fc_min, fc_derivative)
-  // default = (0.007, 1, 1)
-  float smooth_params[3];
-) mmdeploy_pose_tracker_param_t;
-"""
-
-import argparse
 import os
-import json
+import json_tricks as json
 
-from mmdeploy_runtime import PoseTracker
-from imutils.video import FileVideoStream
-from tqdm import tqdm
 import cv2
-# from imutils.video import FPS
+import mmcv
+import mmengine
+import numpy as np
+import argparse
 
-model_path = dir_path = os.path.dirname(os.path.realpath(__file__)).replace('preprocess', "model/rtmpose-trt")
+from tqdm import tqdm
+
+from mmpose.apis import inference_topdown
+from mmpose.apis import init_model as init_pose_estimator
+from mmpose.evaluation.functional import nms
+from mmpose.registry import VISUALIZERS
+from mmpose.structures import merge_data_samples, split_instances
+from mmpose.utils import adapt_mmdet_pipeline
+
+try:
+    from mmdet.apis import inference_detector, init_detector
+    has_mmdet = True
+except (ImportError, ModuleNotFoundError):
+    has_mmdet = False
+
+HOME = os.path.dirname(os.path.realpath(__file__))
+
+model_cfg = {
+    "det_config": os.path.join(HOME, 'config/rtm_det_m.py'),
+    "det_checkpoint": os.path.join(HOME, 'model/rtm_det_m.pth'),
+    "pose_config": os.path.join(HOME, 'config/rtm_pose_x.py'),
+    "pose_checkpoint": os.path.join(HOME, 'model/rtm_pose_x.pth')
+}
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -73,274 +44,138 @@ def parse_args():
     return args
 
 
-def input_process(input_video):
-    if os.path.isdir(input_video):
-        print(f"[INFO] Input is a Directory. Processing all videos in {input_video}")
-
-        file_list = []
-        
-        for root, dirs, files in os.walk(input_video):
-            for file in files:
-                if file.endswith(".mp4"):
-                    file_list.append(os.path.join(root, file))
-
-    else:
-        print(f"[INFO] Input is a Video. Processing {input_video}")
-        file_list = [input_video]
-
-    file_list.sort()
-
-    return file_list
-
-
-def frame_process(results, frame_id):
-    keypoints, bboxes, _ = results
-    # scores = keypoints[..., 2]
-    keypoints = (keypoints[..., :2]).astype(float)
-
-    instances = []
-
-    for idx, keypoint in enumerate(keypoints):
-        instance = {"keypoints": keypoint.tolist()}
-        instances.append(instance)
-
-    frame_info = {"frame_idx": frame_id, "instances": instances}
-
-    return frame_info
-    
-
-def print_process_bar(frame_id, total_frames):
-    bar_length = 50
-    percentage = frame_id / total_frames
-    block = int(round(bar_length * percentage))
-    progress = "█" * block + "-" * (bar_length - block)
-    print(f"\r{progress} {percentage*100:.2f}% | {frame_id}/{total_frames}", end="")
-    if block == bar_length:
-        print()
-
-def get_total_frames(video):
-    frames = []
-    fvs = FileVideoStream(video).start()
-    print("[FILE]", video)
-    print("[INFO]Getting total frames...")
-    while fvs.more():
-        frame = fvs.read()
-        if frame is None:
-            break
-        frames.append(frame)
-    print("[INFO]Done getting total frames!")
-    print("[INFO]Total frames:", len(frames))
-
-    fvs.stop()
-
-    return frames
-
-# def get_total_frames(video):
-#     cap = cv2.VideoCapture(video)
-
-#     return cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-def run(output_path, video, tracker, state):
-    cap = cv2.VideoCapture(video)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-
-    fvs = FileVideoStream(video).start()
-    video_info = {"instance_info": []}
-    frame_id = 0
-
-    pbar = tqdm(total=total_frames, position=1, leave=False)
-
-    while fvs.more():
-        frame = fvs.read()
-        if frame is None:
-            break
-
-        results = tracker(state, frame, detect=-1)
-
-        frame_info = frame_process(results, frame_id)
-
-        video_info["instance_info"].append(frame_info)
-
-        frame_id += 1
-
-        pbar.update(1)
-
-    fvs.stop()
-
-    # print(f"Elapsed time: {fps.elapsed():.2f}")  
-    # print(f"Approx. FPS: {fps.fps():.2f}")  
-
-    with open(os.path.join(output_path, f"{os.path.splitext(os.path.basename(video))[0]}.json"), "w") as f:
-        json.dump(video_info, f, indent=4)
-
 def main():
     args = parse_args()
-    run_pose_estimation(args.input_video, args.output_path)
+    rtmpose(args.input_video, args.output_path)
 
-
-def run_pose_estimation(input_video, output_path):
-
-    video_files = input_process(input_video)
-
-    os.makedirs(output_path, exist_ok=True)
-
-    coco_wholebody_sigmas = [
-        0.026000000536441803,
-        0.02500000037252903,
-        0.02500000037252903,
-        0.03500000014901161,
-        0.03500000014901161,
-        0.07900000363588333,
-        0.07900000363588333,
-        0.07199999690055847,
-        0.07199999690055847,
-        0.06199999898672104,
-        0.06199999898672104,
-        0.10700000077486038,
-        0.10700000077486038,
-        0.08699999749660492,
-        0.08699999749660492,
-        0.08900000154972076,
-        0.08900000154972076,
-        0.06800000369548798,
-        0.06599999964237213,
-        0.06599999964237213,
-        0.09200000017881393,
-        0.09399999678134918,
-        0.09399999678134918,
-        0.041999999433755875,
-        0.0430000014603138,
-        0.04399999976158142,
-        0.0430000014603138,
-        0.03999999910593033,
-        0.03500000014901161,
-        0.03099999949336052,
-        0.02500000037252903,
-        0.019999999552965164,
-        0.023000000044703484,
-        0.028999999165534973,
-        0.03200000151991844,
-        0.03700000047683716,
-        0.03799999877810478,
-        0.0430000014603138,
-        0.04100000113248825,
-        0.04500000178813934,
-        0.013000000268220901,
-        0.012000000104308128,
-        0.010999999940395355,
-        0.010999999940395355,
-        0.012000000104308128,
-        0.012000000104308128,
-        0.010999999940395355,
-        0.010999999940395355,
-        0.013000000268220901,
-        0.014999999664723873,
-        0.008999999612569809,
-        0.007000000216066837,
-        0.007000000216066837,
-        0.007000000216066837,
-        0.012000000104308128,
-        0.008999999612569809,
-        0.00800000037997961,
-        0.01600000075995922,
-        0.009999999776482582,
-        0.017000000923871994,
-        0.010999999940395355,
-        0.008999999612569809,
-        0.010999999940395355,
-        0.008999999612569809,
-        0.007000000216066837,
-        0.013000000268220901,
-        0.00800000037997961,
-        0.010999999940395355,
-        0.012000000104308128,
-        0.009999999776482582,
-        0.03400000184774399,
-        0.00800000037997961,
-        0.00800000037997961,
-        0.008999999612569809,
-        0.00800000037997961,
-        0.00800000037997961,
-        0.007000000216066837,
-        0.009999999776482582,
-        0.00800000037997961,
-        0.008999999612569809,
-        0.008999999612569809,
-        0.008999999612569809,
-        0.007000000216066837,
-        0.007000000216066837,
-        0.00800000037997961,
-        0.010999999940395355,
-        0.00800000037997961,
-        0.00800000037997961,
-        0.00800000037997961,
-        0.009999999776482582,
-        0.00800000037997961,
-        0.028999999165534973,
-        0.02199999988079071,
-        0.03500000014901161,
-        0.03700000047683716,
-        0.04699999839067459,
-        0.026000000536441803,
-        0.02500000037252903,
-        0.024000000208616257,
-        0.03500000014901161,
-        0.017999999225139618,
-        0.024000000208616257,
-        0.02199999988079071,
-        0.026000000536441803,
-        0.017000000923871994,
-        0.020999999716877937,
-        0.020999999716877937,
-        0.03200000151991844,
-        0.019999999552965164,
-        0.01899999938905239,
-        0.02199999988079071,
-        0.03099999949336052,
-        0.028999999165534973,
-        0.02199999988079071,
-        0.03500000014901161,
-        0.03700000047683716,
-        0.04699999839067459,
-        0.026000000536441803,
-        0.02500000037252903,
-        0.024000000208616257,
-        0.03500000014901161,
-        0.017999999225139618,
-        0.024000000208616257,
-        0.02199999988079071,
-        0.026000000536441803,
-        0.017000000923871994,
-        0.020999999716877937,
-        0.020999999716877937,
-        0.03200000151991844,
-        0.019999999552965164,
-        0.01899999938905239,
-        0.02199999988079071,
-        0.03099999949336052
-    ]
+def process_one_image(img,
+                      detector,
+                      pose_estimator,
+                      visualizer=None,
+                      show_interval=0):
     
-    tracker = PoseTracker(
-        det_model=os.path.join(model_path, 'rtmdet-m'),
-        pose_model=os.path.join(model_path, 'rtmpose-x'),
-        device_name='cuda'
+    det_result = inference_detector(detector, img)
+    pred_instance = det_result.pred_instances.cpu().numpy()
+
+    bboxes = np.concatenate(
+        (pred_instance.bboxes, pred_instance.scores[:, None]), axis=1)
+    
+    bboxes = bboxes[np.logical_and(pred_instance.labels == 0,
+                                      pred_instance.scores > 0.3)] # bbox_thr = 0.65
+    bboxes = bboxes[nms(bboxes, 0.3), :4] # nms_thr = 0.3
+
+    pose_results=inference_topdown(pose_estimator, img, bboxes)
+    data_samples = merge_data_samples(pose_results)
+
+    if isinstance(img, str):
+        img = mmcv.imread(img, channel_order='rgb')
+    elif isinstance(img, np.ndarray):
+        img = mmcv.bgr2rgb(img)
+
+    if visualizer is not None:
+        visualizer.add_datasample(
+            'result',
+            img,
+            data_sample=data_samples,
+            draw_gt=False,
+            draw_heatmap=False,
+            draw_bbox=False,
+            show_kpt_idx=False,
+            skeleton_style="coco",
+            show=False,
+            wait_time=show_interval,
+            kpt_thr=0.3) # kpt_thr = 0.15
+        
+    return data_samples.get('pred_instances', None)
+
+def rtmpose(i_path, o_path, device_, f_idx=0):
+    assert has_mmdet, 'Please install mmdet to run this code'
+
+    VIDEOS = os.path.join(o_path, 'videos')
+    KEYPOINTS = os.path.join(o_path, 'keypoints')
+
+    mmengine.mkdir_or_exist(o_path)
+    mmengine.mkdir_or_exist(VIDEOS)
+    mmengine.mkdir_or_exist(KEYPOINTS)
+
+    filename, _ = os.path.splitext(os.path.basename(i_path))
+
+    video_name = os.path.join(VIDEOS, filename + '.mp4')
+    keypoints_name = os.path.join(KEYPOINTS, filename + '.json')
+
+    detector = init_detector(
+        model_cfg['det_config'], model_cfg['det_checkpoint'], device=device_
+    )
+    detector.cfg = adapt_mmdet_pipeline(detector.cfg)
+
+    pose_estimator = init_pose_estimator(
+        model_cfg['pose_config'],
+        model_cfg['pose_checkpoint'],
+        device=device_,
+        cfg_options=dict(
+            model=dict(test_cfg=dict(output_heatmaps=False))
+        )
+    )
+    pose_estimator.cfg.visualizer.radius = 3
+    pose_estimator.cfg.visualizer.alpha = 0.8
+    pose_estimator.cfg.visualizer.line_width = 3
+
+    visualizer = VISUALIZERS.build(pose_estimator.cfg.visualizer)
+    visualizer.set_dataset_meta(
+        pose_estimator.dataset_meta, skeleton_style='coco'
     )
 
-    state = tracker.create_state(
-        det_interval=1,
-        det_thr=0.5,
-        pose_nms_thr=0.3,
-        keypoint_sigmas=coco_wholebody_sigmas
-    )
+    cap = cv2.VideoCapture(i_path)
 
-    video_files_tqdm = tqdm(video_files, position=0)
+    video_writer = None
+    pred_instances_list = []
 
-    for idx, file in enumerate(video_files_tqdm):
-        # print(f"[INFO] Processing {idx+1}/{len(video_files)}: {file}")
-        run(output_path, file, tracker, state)
+    pbar = tqdm(position=0, leave=False)
 
-    video_files_tqdm.close()
+    while cap.isOpened():
+        success, frame = cap.read()
+        f_idx += 1
+        
+        if not success:
+            break
+
+        pred_instances = process_one_image(frame, detector, pose_estimator, visualizer)
+
+        pred_instances_list.append(
+            dict(
+                frame_idx=f_idx,
+                instances=split_instances(pred_instances)
+            )
+        )
+
+        # Save Video
+        if video_name:
+            frame_vis = visualizer.get_image()
+
+            if video_writer is None:
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video_writer = cv2.VideoWriter(
+                    video_name, fourcc, 60, (frame_vis.shape[1], frame_vis.shape[0]) # fps: 60
+                )
+
+            video_writer.write(mmcv.rgb2bgr(frame_vis))
+        
+        pbar.update(1)
+
+    if video_writer:
+            video_writer.release()
+
+    cap.release()
+
+    with open(keypoints_name, 'w') as f:
+        json.dump(
+            dict(
+                meta_info=pose_estimator.dataset_meta,
+                instance_info=pred_instances_list
+            ),
+            f,
+            indent='\t'
+        )
     
 if __name__ == '__main__':
     main()

@@ -1,6 +1,6 @@
 from .feature import run_feature_extraction
 from .keypoint import run_keypoint_extraction
-from .pose_estimation import run_pose_estimation
+from .pose_estimation import rtmpose
 from .json_trim import run_json_trim
 from .overlap import run_overlap
 import os
@@ -34,8 +34,8 @@ def run_pipe(input_video, frame_rate, frame_per_data, inference=True):
     # val_size = 0 if inference else 0.1
     # test_size = 0 if inference else 0.1
     
-    run_pose_estimation(input_video, rtm_pose_path)
-    run_json_trim(rtm_pose_path, json_trim_path, frame_rate)
+    rtmpose(input_video, rtm_pose_path)
+    run_json_trim(os.path.join(rtm_pose_path, "keypoints"), json_trim_path, frame_rate)
     csv_path = run_feature_extraction(json_trim_path, feature_path)
     # run_keypoint_extraction()
     
