@@ -21,7 +21,7 @@ export default function VideoTimeline() {
     // console.log(csvData);
     const element = document.querySelector(".highlighted");
     const container = document.getElementById("scrollableTimelineContainer");
-
+  
     if (element && container) {
       const elementRect = element.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
@@ -40,7 +40,7 @@ export default function VideoTimeline() {
       });
     }
   }, [currentTime]);
-
+  
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
     const margin = index * 4; // 2px margin between each timeline
@@ -212,7 +212,7 @@ export default function VideoTimeline() {
       className="flex w-full overflow-x-scroll h-full"
       id="scrollableTimelineContainer"
     >
-      <div className="flex w-full h-full flex-row overflow-scroll">
+      <div className="flex w-full h-full flex-row">
         <div className="flex w-1/2">a</div>
         <div className="">
           <Popover className="flex relative w-full">
