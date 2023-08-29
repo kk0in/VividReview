@@ -98,7 +98,7 @@ export default function VideoTimeline() {
         if (_oldDuration + deltaDuration <= 60) {
           // less than half modapts (129ms)
           const blankSpace = newCsvData[index];
-          blankSpace.label = "";
+          blankSpace.Modapts = "-";
           newCsvData[index] = blankSpace;
         } else {
           // Right reducing logic
@@ -111,13 +111,13 @@ export default function VideoTimeline() {
           );
 
           const blankSpace = {
-            label: "",
-            start: subtractTimes(
+            Modapts: "-",
+            In: subtractTimes(
               newCsvData[index].In,
               MillisecondsTotime(deltaDuration)
             ),
-            end: newCsvData[index].In,
-            duration: MillisecondsTotime(deltaDuration),
+            Out: newCsvData[index].In,
+            Duration: MillisecondsTotime(deltaDuration),
           };
           newCsvData.splice(index, 0, blankSpace);
         }
@@ -165,7 +165,7 @@ export default function VideoTimeline() {
         if (oldDuration + deltaDuration <= 60) {
           // less than half modapts (129ms)
           const blankSpace = newCsvData[index];
-          blankSpace.label = "";
+          blankSpace.Modapts = "-";
           newCsvData[index] = blankSpace;
         } else {
           newCsvData[index].Duration = MillisecondsTotime(
@@ -177,13 +177,13 @@ export default function VideoTimeline() {
           );
 
           const blankSpace = {
-            label: "",
-            start: newCsvData[index].Out,
-            end: addTimes(
+            Modapts: "-",
+            In: newCsvData[index].Out,
+            Out: addTimes(
               newCsvData[index].Out,
               MillisecondsTotime(-deltaDuration)
             ),
-            duration: MillisecondsTotime(-deltaDuration),
+            Duration: MillisecondsTotime(-deltaDuration),
           };
           newCsvData.splice(index + 1, 0, blankSpace);
         }
