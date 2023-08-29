@@ -209,7 +209,7 @@ export default function VideoTimeline() {
         <div className="">
           <Popover className="flex relative w-full">
             {/* {({close}) => } */}
-            <Popover.Button>
+            <Popover.Button onKeyDown={(e) => {if (e.key === " ") {e.preventDefault()}}}>
               {csvData.map((row, rowIndex) => (
                 <div
                   key={rowIndex}
@@ -297,9 +297,38 @@ export default function VideoTimeline() {
                 className="absolute z-10 mt-3 w-screen max-w-sm -translate-x-1/2 transform px-4 "
               >
                 <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-                  <div className="relative grid gap-8 bg-white p-7 lg:grid-cols-2 text-slate-800">
-                    POPOVER PANEL
-                    {selectedCellIndex}
+                  <div className="relative gap-8 bg-white p-7 lg:grid-cols-2 text-slate-800">
+                    <div>
+                      {selectedCellIndex}:
+                      {csvData[selectedCellIndex]["Modapts"]}
+                    </div>
+                    <div className="flex">
+                      <div className="flex-1">
+                        In
+                        <div>{csvData[selectedCellIndex]["In"]}</div>
+                      </div>
+                      <div className="flex-1">
+                        Out
+                        <div>{csvData[selectedCellIndex]["Out"]}</div>
+                      </div>
+                      <div className="flex-1">
+                        Duration
+                        <div>{csvData[selectedCellIndex]["Duration"]}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      Top-K
+                      <div className="flex gap-3">
+                        {csvData[selectedCellIndex]["Topk"].map(
+                          (topk, index) => (
+                            <div key={index} className="flex-1 border">
+                              <div> {topk.Modapts} {topk.Score.toFixed(2)} </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
                     <br />
                   </div>
                 </div>
