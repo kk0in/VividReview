@@ -92,7 +92,7 @@ def process_one_image(img,
 def rtmpose(i_path, o_path, device_, f_idx=0):
     assert has_mmdet, 'Please install mmdet to run this code'
 
-    VIDEOS = os.path.join(o_path, 'videos')
+    VIDEOS = os.path.join(o_path, 'rtm_videos')
     KEYPOINTS = os.path.join(o_path, 'keypoints')
 
     mmengine.mkdir_or_exist(o_path)
@@ -103,7 +103,7 @@ def rtmpose(i_path, o_path, device_, f_idx=0):
 
     video_name = os.path.join(VIDEOS, filename + '.mp4')
     keypoints_name = os.path.join(KEYPOINTS, filename + '.json')
-
+    
     detector = init_detector(
         model_cfg['det_config'], model_cfg['det_checkpoint'], device=device_
     )

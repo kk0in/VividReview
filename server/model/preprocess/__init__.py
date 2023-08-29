@@ -1,5 +1,4 @@
 from .inference_feature import run_feature_extraction
-from .keypoint import run_keypoint_extraction
 from .pose_estimation import rtmpose
 from .json_trim import run_json_trim
 from .overlap import run_overlap
@@ -9,6 +8,7 @@ import json
 
 
 base_path = os.path.dirname(os.path.realpath(__file__))
+HOME = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
 def run_pipe(input_video:str, frame_rate:int, window_size:int, inference:bool=True)->Tuple[str, str]:
@@ -29,6 +29,7 @@ def run_pipe(input_video:str, frame_rate:int, window_size:int, inference:bool=Tr
     # Open and read the JSON file
     
     name = os.path.basename(input_video)
+
     rtm_pose_path = base_path + f"/assets/{name}/rtm_pose/"
     feature_path = base_path + f"/assets/{name}/feature/"
     # overlap_path = base_path + f"/assets/{name}/overlap/"
@@ -37,11 +38,11 @@ def run_pipe(input_video:str, frame_rate:int, window_size:int, inference:bool=Tr
     # val_size = 0 if inference else 0.1
     # test_size = 0 if inference else 0.1
     
-    json_file = rtmpose(input_video, rtm_pose_path)
+    json_file = rtmpose(input_video, HOME, "cuda:0")
     
     # run_json_trim(rtm_pose_path, json_trim_path, frame_rate)
     
-    feature_csv_file = run_feature_extraction(json_file, feature_path)
+    feature_csv_file = run_feature_extraction(json_file, HOME)
     # run_keypoint_extraction()
     
     # run_overlap(feature_path, overlap_path, window_size, overlap_count, val_size, test_size)

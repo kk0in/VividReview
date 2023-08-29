@@ -2,6 +2,10 @@ from fastapi import FastAPI, UploadFile, Form, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from concurrent.futures import ThreadPoolExecutor
+
+from model.test import run_inference
+
 from typing import Any
 
 import zipfile
@@ -11,6 +15,8 @@ import os
 import numpy as np 
 
 app = FastAPI()
+
+executor = ThreadPoolExecutor(10)
 
 origins = [
     "*"
@@ -42,6 +48,11 @@ os.makedirs(RESULT, exist_ok=True)
 confidence_threshold = 0.5
 labels = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
 
+def process_video(metadata_file_path, video_file_path):
+    print(f"Processing video - {video_file_path}")
+    run_inference(video_file_path)
+    print("Done")
+
 def issue_id():
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
     if metadata_list:
@@ -71,7 +82,10 @@ def get_filename(id):
     else:
         return None
 
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 @app.get('/api/get_project', status_code=200)
 async def get_project():
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
@@ -80,6 +94,8 @@ async def get_project():
     for metadata in metadata_list:
         with open(os.path.join(META_DATA, metadata), 'r') as f:
             project_list.append(json.load(f))
+
+    project_list.sort(key=lambda x: x['id'])
 
     return {"projects": project_list}
 
@@ -176,6 +192,8 @@ async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: 
     with open(metadata_file_path, 'w') as f:
         json.dump(metadata, f)
 
+    executor.submit(process_video, metadata_file_path, video_file_path)
+
     return {"id": id}
 
 
@@ -205,3 +223,7 @@ async def test_get_json():
     with open('test_file/0707_MX_0002_TEST.json') as f:
         data = json.load(f)
     return data
+
+# if __name__ == '__main__':
+#     import uvicornß
+#     uvicorn.run(app, host='0.0.0.0', port=9998)

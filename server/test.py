@@ -1,3 +1,3 @@
 from model.test import run_inference
 
-run_inference('/data/samsung/sec/TEST/test.mp4')
+print(run_inference('/data/samsung/sec/TEST/test_10.mp4'))

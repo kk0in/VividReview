@@ -198,12 +198,15 @@ def run_feature_extraction(json_file:str, target_folder:str)->str:
     :return: extracted feature's csv path
     :rtype: str
     """
+
+    FV = os.path.join(target_folder, 'feature_vectors')
+    os.makedirs(FV, exist_ok=True)
     
     video_name = os.path.basename(json_file).split(".")[0]
     global DATA_PATH, TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH
-    TXT_PATH = DATA_PATH = target_folder
-    X_FV_PKL_PATH = TXT_PATH + 'X_pkl/'
-    X_FV_CSV_PATH = TXT_PATH + 'X_csv/'
+    TXT_PATH = DATA_PATH = FV
+    X_FV_PKL_PATH = os.path.join(TXT_PATH, 'X_pkl/')
+    X_FV_CSV_PATH = os.path.join(TXT_PATH, 'X_csv/')
 
     PATH_LIST = [TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH]
     for path in PATH_LIST:
@@ -211,8 +214,8 @@ def run_feature_extraction(json_file:str, target_folder:str)->str:
     
     x_file = []
     
-    feature_csv_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
-    feature_pkl_path = os.path.join(X_FV_CSV_PATH + f'X_fv_{video_name}.csv')
+    feature_csv_path = os.path.join(X_FV_CSV_PATH + f'{video_name}.csv')
+    feature_pkl_path = os.path.join(X_FV_PKL_PATH + f'{video_name}.pkl')
     t1 = open(feature_pkl_path, 'wb')
     t2 = open(feature_csv_path, 'w', newline='')
     
