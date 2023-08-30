@@ -14,39 +14,58 @@ export default function VideoTimeline() {
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(
     null
   );
-  const [scrollPosition, setScrollPosition] = useState<number|null>(null);
+  const [scrollPosition, setScrollPosition] = useState<number | null>(null);
   const timecellRefs = useRef([]);
   const [totalWidth, setTotalWidth] = useState(0);
   const leftMarginRef = useRef<HTMLDivElement>();
   const [popoverLeft, setPopoverLeft] = useState(0);
   const resizingRef = useRef(false);
-  const videoElement = useRecoilValue(videoRefState)
+  const videoElement = useRecoilValue(videoRefState);
 
   let initialLeft = 0;
   let initialWidth = 0;
 
-  useEffect(() => {
+  const popoverRef = useRef();
 
-    timecellRefs.current = csvData.map((_item, i) => timecellRefs.current[i] || createRef());
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickPopoverOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickPopoverOutside);
+    };
+  }, []);
+
+  const handleClickPopoverOutside = (event) => {
+    if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+      console.log("You clicked outside of me!");
+    }
+  };
+
+  useEffect(() => {
+    timecellRefs.current = csvData.map(
+      (_item, i) => timecellRefs.current[i] || createRef()
+    );
 
     let width = 0;
     timecellRefs.current.forEach((ref, idx) => {
       if (ref.current) {
         width += ref.current.state.width;
-        width += 4
+        width += 4;
       }
     });
 
     // console.log(leftMarginRef.current.offsetWidth)
-    width += leftMarginRef.current.offsetWidth
+    width += leftMarginRef.current.offsetWidth;
 
     // console.log(timecellRefs.current)
-    setTotalWidth(width)
+    setTotalWidth(width);
     // console.log(width)
 
     const element = document.querySelector(".highlighted");
     const container = document.getElementById("scrollableTimelineContainer");
-  
+
     if (element && container) {
       const indexMatch = element.className.match(/timeline-item-(\d+)/);
       if (indexMatch && indexMatch[1]) {
@@ -54,51 +73,50 @@ export default function VideoTimeline() {
         // Get time info from your csvData using rowIndex
         const row = csvData[rowIndex];
         if (row) {
-          const startTime = timeToMilliseconds(row["In"]); 
-          const endTime = timeToMilliseconds(row["Out"]); 
+          const startTime = timeToMilliseconds(row["In"]);
+          const endTime = timeToMilliseconds(row["Out"]);
           const duration = endTime - startTime;
-          
+
           // Find out where the currentTime falls within the highlighted Modapts
           const normalizedTime = (currentTime * 1000 - startTime) / duration;
-  
+
           const elementRect = element.getBoundingClientRect();
           const containerRect = container.getBoundingClientRect();
-  
-          const scrollLeftPosition = 
-            elementRect.left - 
-            containerRect.left + 
-            container.scrollLeft - 
+
+          const scrollLeftPosition =
+            elementRect.left -
+            containerRect.left +
+            container.scrollLeft -
             containerRect.width / 2 +
             elementRect.width * normalizedTime; // ratio of the current time to the duration of the highlighted modapts
-  
+
           container.scrollLeft = scrollLeftPosition;
           container.scrollTo({
             left: scrollLeftPosition,
             behavior: "smooth",
           });
-          console.log("scrollLeftPosition: ", scrollLeftPosition);
-          setScrollPosition(scrollLeftPosition)
+          // console.log("scrollLeftPosition: ", scrollLeftPosition);
+          setScrollPosition(scrollLeftPosition);
         }
       }
     }
-  }, [currentTime]);
+  }, [currentTime, csvData]);
 
   useEffect(() => {
-    console.log("selectedCellIndex:", selectedCellIndex)
-    
-    if(selectedCellIndex !== null) {
+    // console.log("selectedCellIndex:", selectedCellIndex);
+
+    if (selectedCellIndex !== null) {
       // console.log(timecellRefs.current[selectedCellIndex])
       let left = 0;
       for (let i = 0; i < selectedCellIndex; i++) {
         if (timecellRefs.current[i].current) {
           left += timecellRefs.current[i].current.state.width;
-          left += 4
+          left += 4;
         }
       }
-      left += timecellRefs.current[selectedCellIndex].current.state.width / 2
-      setPopoverLeft(left)
+      left += timecellRefs.current[selectedCellIndex].current.state.width / 2;
+      setPopoverLeft(left);
     }
-
   }, [selectedCellIndex]);
 
   function calculateLeftPosition(index: number) {
@@ -271,7 +289,12 @@ export default function VideoTimeline() {
         newCsvData[index + 1].In
       );
     }
-    console.log("adjustTimeline - newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
+    console.log(
+      "adjustTimeline - newCsvData: ",
+      newCsvData[index],
+      "newCsvData[index].In-mili: ",
+      timeToMilliseconds(newCsvData[index].In)
+    );
     setCSVData(newCsvData);
   };
   const isInCurrentTime = (start: string, end: string) => {
@@ -289,7 +312,7 @@ export default function VideoTimeline() {
     >
       <div className="relative w-[50%]" ref={leftMarginRef}></div>
       <Popover className="flex-1 relative">
-            {/* {({close}) => } */}
+        {/* {({close}) => } */}
         <Popover.Button
           onKeyDown={(e) => {
             if (e.key === " ") {
@@ -297,101 +320,134 @@ export default function VideoTimeline() {
             }
           }}
           onClick={() => {}}
-          className="relative flex-1"
+          className="relative flex-1 w-full"
+          onFocus={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }}
+          // ref={null}
         >
-              {csvData.map((row, rowIndex) => (
-                <div
-                  key={rowIndex}
+          {csvData.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
               onClick={() => setSelectedCellIndex(rowIndex)}
-                  className=""
+              className=""
+            >
+              <Resizable
+                key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
+                  row["Duration"]
+                )}`}
+                defaultSize={{
+                  width: timeToMilliseconds(row["Duration"]) / 5,
+                  height: 30,
+                }}
+                enable={{
+                  top: false,
+                  right: true,
+                  bottom: false,
+                  left: true,
+                  topRight: false,
+                  bottomRight: false,
+                  bottomLeft: false,
+                  topLeft: false,
+                }}
+                onResizeStart={(e, direction, ref) => {
+                  resizingRef.current = true;
+                  initialLeft = parseFloat(ref.style.left);
+                  initialWidth = parseFloat(ref.style.width);
+                  ref.style.zIndex = "10";
+                  ref.style.opacity = "0.65";
+
+                  console.log(
+                    "OnResize Start - currentTime: ",
+                    row["In"],
+                    "currentTimeFormat: ",
+                    timeToMilliseconds(row["In"])
+                  );
+                  console.log(
+                    "Onresize Start - ",
+                    "row[out]",
+                    row["Out"],
+                    "row[Duration]",
+                    row["Duration"]
+                  );
+
+                  if (direction === "left") {
+                    //console.log("left: ", initialLeft, "width: ", initialWidth);
+                  } else {
+                  }
+                }}
+                onResize={(e, direction, ref, d) => {
+                  if (direction === "left") {
+                    ref.style.left = `${initialLeft - d.width}px`; // 이동한 만큼 left position을 늘려주기
+                    ref.style.width = `${initialWidth + d.width}px`; // 이동한 만큼 width를 줄여주기
+
+                    let adjustTime = 0;
+                    let newWidth = initialWidth + d.width;
+                    let newLeft = initialLeft - d.width;
+                    adjustTime =
+                      timeToMilliseconds(row["In"]) -
+                      (newWidth - initialWidth) * 5;
+
+                    console.log(
+                      "initialTime: ",
+                      row["In"],
+                      "adjustTime: ",
+                      adjustTime,
+                      "adjustTimeFormat: ",
+                      MillisecondsTotime(adjustTime)
+                    );
+                  } else if (direction === "right") {
+                    ref.style.width = `${initialWidth + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
+                  }
+                }}
+                onResizeStop={(e, direction, ref) => {
+                  resizingRef.current = false;
+
+                  ref.style.zIndex = "1";
+                  ref.style.opacity = "1";
+                  if (direction === "left") {
+                    let FinalTime =
+                      timeToMilliseconds(row["In"]) -
+                      (parseFloat(ref.style.width) - initialWidth) * 5;
+                    console.log(
+                      "onResizeStop - FinalTime: ",
+                      MillisecondsTotime(FinalTime),
+                      "originalTime: ",
+                      row["In"]
+                    );
+                  }
+                  adjustTimeline(rowIndex, ref.offsetWidth, direction);
+                }}
+                style={{
+                  left: `${calculateLeftPosition(rowIndex)}px`,
+                  position: "absolute",
+                }}
+                ref={timecellRefs.current[rowIndex]}
+              >
+                <div
+                  className={`rounded py-5 px-1 border flex items-center justify-center ${
+                    !row["Modapts"] ? "" : "border-opacity-0"
+                  } ${
+                    isInCurrentTime(row["In"], row["Out"]) &&
+                    resizingRef.current === false
+                      ? "highlighted"
+                      : ""
+                  } timeline-item-${rowIndex}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: colormap(row["Modapts"]),
+                  }}
                 >
-                  <Resizable
-                    key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
-                      row["Duration"]
-                    )}`}
-                    defaultSize={{
-                      width: timeToMilliseconds(row["Duration"]) / 5,
-                      height: 30,
-                    }}
-                    enable={{
-                      top: false,
-                      right: true,
-                      bottom: false,
-                      left: true,
-                      topRight: false,
-                      bottomRight: false,
-                      bottomLeft: false,
-                      topLeft: false,
-                    }}
-                    onResizeStart={(e, direction, ref) => {
-                      resizingRef.current = true;
-                      initialLeft = parseFloat(ref.style.left);
-                      initialWidth = parseFloat(ref.style.width);
-                      ref.style.zIndex = "10";
-                      ref.style.opacity = "0.65";
-
-                      console.log("OnResize Start - currentTime: ", row["In"], "currentTimeFormat: ", (timeToMilliseconds(row["In"])));
-                      console.log("Onresize Start - ", "row[out]", row["Out"], "row[Duration]", row["Duration"]);
-
-                      if (direction === "left") {
-                        //console.log("left: ", initialLeft, "width: ", initialWidth);
-                      }
-                      else {
-
-                      }                      
-                    }}
-                    onResize={(e, direction, ref, d) => {
-                      if (direction === "left") {
-                        ref.style.left = `${initialLeft - d.width}px`; // 이동한 만큼 left position을 늘려주기
-                        ref.style.width = `${initialWidth + d.width}px`; // 이동한 만큼 width를 줄여주기
-                        
-                        let adjustTime=0;
-                        let newWidth = initialWidth + d.width;
-                        let newLeft = initialLeft - d.width;
-                        adjustTime = timeToMilliseconds(row["In"]) - ((newWidth - initialWidth) * 5);
-                      
-                        console.log("initialTime: ", row["In"], "adjustTime: ", adjustTime, "adjustTimeFormat: ", MillisecondsTotime(adjustTime));
-                      } 
-                      else if (direction === "right") {
-                        ref.style.width = `${initialWidth + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
-                      }
-                    }}
-                    onResizeStop={(e, direction, ref) => {
-                      resizingRef.current = false;
-                      
-                      ref.style.zIndex = "1";
-                      ref.style.opacity = "1";
-                      if (direction === "left") {
-                        let FinalTime = timeToMilliseconds(row["In"]) - (parseFloat(ref.style.width) - initialWidth) * 5;
-                        console.log("onResizeStop - FinalTime: ", MillisecondsTotime(FinalTime), "originalTime: ", row["In"]);
-                      }
-                      adjustTimeline(rowIndex, ref.offsetWidth, direction);
-                    }}
-                    style={{
-                      left: `${calculateLeftPosition(rowIndex)}px`,
-                      position: "absolute",
-                    }}
-                    ref={timecellRefs.current[rowIndex]}
-                  >
-                    <div
-                      className={`rounded py-5 px-1 border flex items-center justify-center ${
-                        !row["Modapts"] ? "" : "border-opacity-0"
-                      } ${
-                    isInCurrentTime(row["In"], row["Out"]) && resizingRef.current === false ? "highlighted" : ""
-                      } timeline-item-${rowIndex}`}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: colormap(row["Modapts"]),
-                      }}
-                    >
-                      {row["Modapts"]}
-                    </div>
-                  </Resizable>
+                  {row["Modapts"]}
                 </div>
-              ))}
-            </Popover.Button>
-            {/* <Transition
+              </Resizable>
+            </div>
+          ))}
+        </Popover.Button>
+        {/* <Transition
               as={Fragment}
               show={false}
               enter="transition ease-out duration-200"
@@ -401,17 +457,21 @@ export default function VideoTimeline() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             > */}
-        {selectedCellIndex !== null &&  (
-          <div className="relative" >
-              <Popover.Panel
-                // key={rowIndex}
-            className={`absolute z-10 mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
-            style={{left: `${popoverLeft}px`}}
-              >
+        {selectedCellIndex !== null && (
+          <div className="relative">
+            <Popover.Panel
+              // static
+              // key={rowIndex}
+              ref={popoverRef}
+              className={`absolute z-10 mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
+              style={{ left: `${popoverLeft}px` }}
+            >
+              {({ close }) => (
                 <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-              <div className="relative gap-8 bg-white p-6 lg:grid-cols-2 text-slate-800">
+                  <div className="relative gap-8 bg-white p-6 lg:grid-cols-2 text-slate-800">
                     <div>
-                  {selectedCellIndex} : {csvData[selectedCellIndex]["Modapts"]}
+                      {selectedCellIndex} :{" "}
+                      {csvData[selectedCellIndex]["Modapts"]}
                     </div>
                     <div className="flex">
                       <div className="flex-1">
@@ -431,26 +491,41 @@ export default function VideoTimeline() {
                     <div className="mt-5">
                       Top-K
                       <div className="flex gap-3">
-                    {csvData[selectedCellIndex]["Topk"]?.map((topk, index) => (
+                        {csvData[selectedCellIndex]["Topk"]?.map(
+                          (topk, index) => (
                             <div key={index} className="flex-1 border">
-                        <div>
-                          {" "}
-                          {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                              <div>
+                                {" "}
+                                {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                              </div>
                             </div>
-                      </div>
-                    ))}
+                          )
+                        )}
                       </div>
                     </div>
                     <br />
                   </div>
+                  <button
+                    onClick={() => {
+                      close(timecellRefs.current[selectedCellIndex].current);
+                    }}
+                  >
+                    close
+                  </button>
                 </div>
-              </Popover.Panel>
-              </div>
-            )}
-            {/* </Transition> */}
-          </Popover>
+              )}
+            </Popover.Panel>
+          </div>
+        )}
+        {/* </Transition> */}
+      </Popover>
       {/* </div> */}
-      <div className={`absolute h-1`} style={{left: totalWidth, width: "50%"}}> </div>
+      <div
+        className={`absolute h-1`}
+        style={{ left: totalWidth, width: "50%" }}
+      >
+        {" "}
+      </div>
     </div>
   );
 }
