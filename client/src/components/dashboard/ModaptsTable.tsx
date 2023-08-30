@@ -4,6 +4,8 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { videoRefState } from "@/app/recoil/videoRefState";
 import { csvDataState } from "@/app/recoil/DataState";
+import isEqual from 'lodash/isEqual';
+
 
 const ModaptsTable = ({ setCurrentModapts }) => {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
@@ -57,14 +59,16 @@ const ModaptsTable = ({ setCurrentModapts }) => {
       "C/T": Number((timeToMilliseconds(item["Duration"]) / 1000).toFixed(2)),
       "S/T": Number((convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2))
     }));
-    setCSVData(updatedData);
+    if (!isEqual(csvData, updatedData)) {
+      setCSVData(updatedData);
+    }
     console.log(updatedData);
     updateTotalTime();
-  }, []);
-
-  useEffect(() => {
-    updateTotalTime();
   }, [csvData]);
+
+  // useEffect(() => {
+  //   updateTotalTime();
+  // }, [csvData]);
 
   useEffect(() => {
     if (rowRef.current && headerRef.current && tableContainerRef.current) {
