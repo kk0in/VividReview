@@ -143,7 +143,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {isLoaded && (
         <>
-          <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
+          <div className="flex-grow flex flex-row h-[55%] max-h-1/2">
             <div className="flex-auto bg-slate-900 p-4 text-white w-[30rem]">
               <div className="flex justify-between mb-3 pr-5">
                 <h5 className="my-1 text-sm font-bold">분석 영상</h5>
@@ -178,7 +178,7 @@ export default function Page({ params }: { params: { id: string } }) {
               <ModaptsTable csvData={csvData} />
             </div>
           </div>
-          <div className="flex-grow bg-slate-900 p-4 text-white h-1/2">
+          <div className="flex-grow bg-slate-900 p-4 text-white h-[45%]">
             <h5 className="my-1 text-sm font-bold">Video Timeline</h5>
             <VideoTimeline />
           </div>

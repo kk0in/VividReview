@@ -301,11 +301,11 @@ export default function VideoTimeline() {
   };
 
   return (
-    <div className="relative w-full h-full mt-10">
+    <div className="relative w-full h-full pt-10">
       <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
       {/* <div className="absolute left-[50%] top-32 transform -translate-x-[50%] font-mono">{secondsToTime(currentTime)}</div>       */}
     <div
-      className="w-full relative overflow-x-scroll h-full flex"
+      className="w-full relative overflow-x-scroll flex h-[10rem]"
       id="scrollableTimelineContainer"
     > 
       <div className="relative w-[50%]" ref={leftMarginRef}></div>
@@ -440,17 +440,17 @@ export default function VideoTimeline() {
               // static
               // key={rowIndex}
               ref={popoverRef}
-              className={`absolute z-[100] mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
+              className={`absolute z-[100] mt-6 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
               style={{ left: `${popoverLeft}px` }}
             >
               {({ close }) => (
                 <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-                  <div className="relative gap-8 bg-white p-6 lg:grid-cols-2 text-slate-800">
+                  <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
                     <div>
                       {selectedCellIndex} :{" "}
                       {csvData[selectedCellIndex]["Modapts"]}
                     </div>
-                    <div className="flex">
+                    <div className="flex text-sm">
                       <div className="flex-1">
                         In
                         <div>{csvData[selectedCellIndex]["In"]}</div>
@@ -465,7 +465,7 @@ export default function VideoTimeline() {
                       </div>
                     </div>
 
-                    <div className="mt-5">
+                    <div className="mt-4 text-sm">
                       Top-K
                       <div className="flex gap-3">
                         {csvData[selectedCellIndex]["Topk"]?.map(
@@ -480,8 +480,7 @@ export default function VideoTimeline() {
                         )}
                       </div>
                     </div>
-                    <br />
-                  </div>
+                    
                   <button
                     onClick={() => {
                       close(timecellRefs.current[selectedCellIndex].current);
@@ -489,6 +488,7 @@ export default function VideoTimeline() {
                   >
                     close
                   </button>
+                  </div>
                 </div>
               )}
             </Popover.Panel>
