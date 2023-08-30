@@ -38,7 +38,7 @@ export default function VideoTimeline() {
     if (popoverRef.current && !popoverRef.current.contains(event.target)) {
       event.preventDefault();
       event.stopPropagation();
-      console.log("You clicked outside of me!");
+      // console.log("You clicked outside of me!");
     }
   };
 
@@ -51,7 +51,7 @@ export default function VideoTimeline() {
     timecellRefs.current.forEach((ref, idx) => {
       if (ref.current) {
         width += ref.current.state.width;
-        width += 4;
+        width += 10;
       }
     });
 
@@ -99,7 +99,7 @@ export default function VideoTimeline() {
         }
       }
     }
-  }, [currentTime]);
+  }, [currentTime, csvData]);
 
   useEffect(() => {
     // console.log("selectedCellIndex:", selectedCellIndex);
@@ -110,7 +110,7 @@ export default function VideoTimeline() {
       for (let i = 0; i < selectedCellIndex; i++) {
         if (timecellRefs.current[i].current) {
           left += timecellRefs.current[i].current.state.width;
-          left += 4;
+          left += 10;
         }
       }
       left += timecellRefs.current[selectedCellIndex].current.state.width / 2;
@@ -120,7 +120,7 @@ export default function VideoTimeline() {
 
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
-    const margin = index * 4; // 2px margin between each timeline
+    const margin = index * 10; // 2px margin between each timeline
     return base + margin; //+ margin;
   }
 
@@ -135,7 +135,7 @@ export default function VideoTimeline() {
     const oldWidth = oldDuration / 5;
     const deltaWidth = newWidth - oldWidth;
     const deltaDuration = deltaWidth * 5;
-    // console.log("adjustTimeline before- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
+
     if (direction == "left") {
       if (deltaWidth >= 0) {
         // when resizing to the left, it should overlap the previous timelines
@@ -301,10 +301,13 @@ export default function VideoTimeline() {
   };
 
   return (
+    <div className="relative w-full h-full mt-10">
+      <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
+      {/* <div className="absolute left-[50%] top-32 transform -translate-x-[50%] font-mono">{secondsToTime(currentTime)}</div>       */}
     <div
       className="w-full relative overflow-x-scroll h-full flex"
       id="scrollableTimelineContainer"
-    >
+    > 
       <div className="relative w-[50%]" ref={leftMarginRef}></div>
       <Popover className="flex-1 relative">
         {/* {({close}) => } */}
@@ -335,7 +338,7 @@ export default function VideoTimeline() {
                     )}`}
                     defaultSize={{
                       width: timeToMilliseconds(row["Duration"]) / 5,
-                      height: 30,
+                      height: 70,
                     }}
                     enable={{
                       top: false,
@@ -353,8 +356,7 @@ export default function VideoTimeline() {
                       initialWidth.current = parseFloat(ref.style.width);
                       ref.style.zIndex = "10";
                       ref.style.opacity = "0.65";
-
-                      // console.log("OnResize Start - currentTime: ", row["In"], "currentTimeFormat: ", (timeToMilliseconds(row["In"])));
+ // console.log("OnResize Start - currentTime: ", row["In"], "currentTimeFormat: ", (timeToMilliseconds(row["In"])));
                       // console.log("Onresize Start - ", "row[out]", row["Out"], "row[Duration]", row["Duration"]);
                       // console.log("Onresize Start -initialLeft: ", initialLeft.current, "initialWidth: ", initialWidth.current);
                       if (direction === "left") {
@@ -382,7 +384,7 @@ export default function VideoTimeline() {
                       else if (direction === "right") {
                         ref.style.width = `${initialWidth.current + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
                         let newWidth = initialWidth.current + d.width;
-                        adjustingTime = timeToMilliseconds(row["In"]) + ((newWidth - initialWidth.current) * 5);
+                        adjustingTime = timeToMilliseconds(row["Out"]) + ((newWidth - initialWidth.current) * 5);
                         //console.log("initialTime: ", row["In"], "adjustingTime: ", adjustingTime, "adjustTimeFormat: ", MillisecondsTotime(adjustingTime));
                       }
                       if (videoElement){
@@ -395,30 +397,34 @@ export default function VideoTimeline() {
                       ref.style.opacity = "1";
                       adjustTimeline(rowIndex, ref.offsetWidth, direction);
                       resizingRef.current = false;
-                    }}
-                    style={{
-                      left: `${calculateLeftPosition(rowIndex)}px`,
-                      position: "absolute",
-                    }}
-                    ref={timecellRefs.current[rowIndex]}
-                  >
-                    <div
-                      className={`rounded py-5 px-1 border flex items-center justify-center ${
-                    isInCurrentTime(row["In"], row["Out"]) && resizingRef.current === false ? "highlighted" : ""
-                      } timeline-item-${rowIndex}`}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: colormap(row["Modapts"]),
-                      }}
-                    >
-                      {row["Modapts"]}
-                    </div>
-                  </Resizable>
+                }}
+                style={{
+                  left: `${calculateLeftPosition(rowIndex)}px`,
+                  position: "absolute",
+                }}
+                ref={timecellRefs.current[rowIndex]}
+              >
+                <div
+                  className={ 
+                    `rounded py-5 px-1 flex items-center justify-center ${
+                    isInCurrentTime(row["In"], row["Out"]) &&
+                    resizingRef.current === false
+                      ? "highlighted border-slate-300 border-2"
+                      : `border-2 ${row["Modapts"] === '-' ? "border-slate-700" : "border-transparent"}  `
+                  } timeline-item-${rowIndex}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: colormap(row["Modapts"]),
+                  }}
+                >
+                  {row["Modapts"]}
                 </div>
-              ))}
-            </Popover.Button>
-            {/* <Transition
+              </Resizable>
+            </div>
+          ))}
+        </Popover.Button>
+        {/* <Transition
               as={Fragment}
               show={false}
               enter="transition ease-out duration-200"
@@ -434,7 +440,7 @@ export default function VideoTimeline() {
               // static
               // key={rowIndex}
               ref={popoverRef}
-              className={`absolute z-10 mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
+              className={`absolute z-[100] mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
               style={{ left: `${popoverLeft}px` }}
             >
               {({ close }) => (
@@ -498,6 +504,7 @@ export default function VideoTimeline() {
         {" "}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -555,3 +562,13 @@ function timeToMilliseconds(timeString: string): number {
   //console.log(minute, second, frame)
   return minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
 }
+
+function secondsToTime(seconds: number): string {
+  // sec with decimal to M:SS:FF
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  const frames = Math.round((seconds % 1) * 60);
+  return `${String(minutes).padStart(1, "0")}:${String(remainingSeconds).padStart(2, "0")}:${String(
+    frames
+  ).padStart(2, "0")}`;
+  }
