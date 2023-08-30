@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Fragment, createRef, useRef } from "react";
+import { useEffect, useState, Fragment, createRef, useRef, JSXElementConstructor, Key, PromiseLikeOfReactNode, ReactElement, ReactNode, ReactPortal } from "react";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
@@ -34,7 +34,7 @@ export default function VideoTimeline() {
     };
   }, []);
 
-  const handleClickPopoverOutside = (event) => {
+  const handleClickPopoverOutside = (event: { target: any; preventDefault: () => void; stopPropagation: () => void; }) => {
     if (popoverRef.current && !popoverRef.current.contains(event.target)) {
       event.preventDefault();
       event.stopPropagation();
@@ -124,12 +124,33 @@ export default function VideoTimeline() {
     return base + margin; //+ margin;
   }
 
+  const editTimeline = (
+    index: number,
+    newIn: string,
+    newOut: string,
+    newLabel: string
+    ) => {
+      const newCsvData = JSON.parse(JSON.stringify(csvData));
+      const oldIn = newCsvData[index].In;
+      const oldOut = newCsvData[index].Out;
+      
+      const newInTime = timeToMilliseconds(newIn);
+      const oldInTime = timeToMilliseconds(oldIn);
+      adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
+
+      const newOutTime = timeToMilliseconds(newOut);
+      const oldOutTime = timeToMilliseconds(oldOut);
+      adjustRightTimeline(index, newOutTime - oldOutTime, newCsvData);
+
+      newCsvData[index].label = newLabel;
+      setCSVData(newCsvData);
+    };
+    
   const adjustTimeline = (
     index: number,
     newWidth: number,
     direction: string
   ) => {
-    
     const newCsvData = JSON.parse(JSON.stringify(csvData));
     const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
     const oldWidth = oldDuration / 5;
@@ -137,146 +158,107 @@ export default function VideoTimeline() {
     const deltaDuration = deltaWidth * 5;
 
     if (direction == "left") {
-      if (deltaWidth >= 0) {
-        // when resizing to the left, it should overlap the previous timelines
-        const _deltaDuration = deltaDuration;
-        const _oldDuration = timeToMilliseconds(newCsvData[index].Duration);
-        let remainingDuration = _deltaDuration;
-
-        for (let i = index - 1; i >= 0 && remainingDuration > 0; i--) {
-          const prevDuration = timeToMilliseconds(newCsvData[i].Duration);
-          if (prevDuration <= remainingDuration) {
-            remainingDuration -= prevDuration;
-            newCsvData.splice(i, 1);
-            index--;
-          } else {
-            newCsvData[i].Out = subtractTimes(
-              newCsvData[i].Out,
-              MillisecondsTotime(remainingDuration)
-            );
-            newCsvData[i].Duration = MillisecondsTotime(
-              prevDuration - remainingDuration
-            );
-            newCsvData[i].In = subtractTimes(
-              newCsvData[i].Out,
-              newCsvData[i].Duration
-            );
-            remainingDuration = 0;
-          }
-        }
-        newCsvData[index].Duration = MillisecondsTotime(
-          _oldDuration + _deltaDuration - remainingDuration
-        );
-        newCsvData[index].In = subtractTimes(
-          newCsvData[index].Out,
-          newCsvData[index].Duration
-        );
-      } else {
-        const _oldDuration = timeToMilliseconds(newCsvData[index].Duration);
-        if (_oldDuration + deltaDuration <= 60) {
-          // less than half modapts (129ms)
-          const blankSpace = newCsvData[index];
-          blankSpace.Modapts = "-";
-          newCsvData[index] = blankSpace;
-        } else {
-          // Right reducing logic
-          newCsvData[index].Duration = MillisecondsTotime(
-            _oldDuration + deltaDuration
-          );
-          newCsvData[index].In = subtractTimes(
-            newCsvData[index].Out,
-            newCsvData[index].Duration
-          );
-
-          const blankSpace = {
-            Modapts: "-",
-            In: subtractTimes(
-              newCsvData[index].In,
-              MillisecondsTotime(deltaDuration)
-            ),
-            Out: newCsvData[index].In,
-            Duration: MillisecondsTotime(deltaDuration),
-          };
-          newCsvData.splice(index, 0, blankSpace);
-        }
-      }
-      if (
-        index - 1 >= 0 &&
-        newCsvData[index - 1].Out !== newCsvData[index].In
-      ) {
-        // adjust the previous timeline's out time to the current timeline's in time
-        newCsvData[index - 1].Out = newCsvData[index].In;
-        newCsvData[index - 1].Duration = subtractTimes(
-          newCsvData[index - 1].Out,
-          newCsvData[index - 1].In
-        );
-      }
+      adjustLeftTimeline(index, deltaDuration, newCsvData);
     } else if (direction == "right") {
-      if (deltaWidth >= 0) {
-        // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
-        let remainingDuration = deltaDuration;
+      adjustRightTimeline(index, deltaDuration, newCsvData);
+    }
+    setCSVData(newCsvData);
+  };
 
-        for (
-          let i = index + 1;
-          i < newCsvData.length && remainingDuration > 0;
-          i++
-        ) {
-          // need to optimize?
-          const nextDuration = timeToMilliseconds(newCsvData[i].Duration);
+  const adjustLeftTimeline = (index: number, deltaDuration: number, newCsvData: any) => {
+    if (deltaDuration >= 0) {
+      // Left resize logic
+      handleLeftIncrease(index, deltaDuration, newCsvData);
+    }
+    else {
+      handleLeftDecrease(index, deltaDuration, newCsvData);
+    }
+    if (
+      index - 1 >= 0 &&
+      newCsvData[index - 1].Out !== newCsvData[index].In
+    ) {
+      // adjust the previous timeline's out time to the current timeline's in time
+      newCsvData[index - 1].Out = newCsvData[index].In;
+      newCsvData[index - 1].Duration = subtractTimes(
+        newCsvData[index - 1].Out,
+        newCsvData[index - 1].In
+      );
+    }
+  };
 
-          if (nextDuration <= remainingDuration) {
-            remainingDuration -= nextDuration;
-            newCsvData.splice(i, 1);
-            i--;
-          } else {
-            newCsvData[i].In = addTimes(
-              newCsvData[i].In,
-              MillisecondsTotime(remainingDuration)
-            );
-            newCsvData[i].Duration = MillisecondsTotime(
-              nextDuration - remainingDuration
-            );
-            newCsvData[i].Out = addTimes(
-              newCsvData[i].In,
-              newCsvData[i].Duration
-            );
-            remainingDuration = 0;
-          }
-        }
-        newCsvData[index].Duration = MillisecondsTotime(
-          oldDuration + deltaDuration - remainingDuration
-        );
-        newCsvData[index].Out = addTimes(
-          newCsvData[index].In,
-          newCsvData[index].Duration
-        );
+  const handleLeftIncrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+    // when resizing to the left, it should overlap the previous timelines
+    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    let remainingDuration = deltaDuration;
+
+    for (let i = index - 1; i >= 0 && remainingDuration > 0; i--) {
+      const prevDuration = timeToMilliseconds(newCsvData[i].Duration);
+      if (prevDuration <= remainingDuration) {
+        remainingDuration -= prevDuration;
+        newCsvData.splice(i, 1);
+        index--;
       } else {
-        if (oldDuration + deltaDuration <= 60) {
-          // less than half modapts (129ms)
-          const blankSpace = newCsvData[index];
-          blankSpace.Modapts = "-";
-          newCsvData[index] = blankSpace;
-        } else {
-          newCsvData[index].Duration = MillisecondsTotime(
-            oldDuration + deltaDuration
-          );
-          newCsvData[index].Out = addTimes(
-            newCsvData[index].In,
-            newCsvData[index].Duration
-          );
-
-          const blankSpace = {
-            Modapts: "-",
-            In: newCsvData[index].Out,
-            Out: addTimes(
-              newCsvData[index].Out,
-              MillisecondsTotime(-deltaDuration)
-            ),
-            Duration: MillisecondsTotime(-deltaDuration),
-          };
-          newCsvData.splice(index + 1, 0, blankSpace);
-        }
+        newCsvData[i].Out = subtractTimes(
+          newCsvData[i].Out,
+          MillisecondsTotime(remainingDuration)
+        );
+        newCsvData[i].Duration = MillisecondsTotime(
+          prevDuration - remainingDuration
+        );
+        newCsvData[i].In = subtractTimes(
+          newCsvData[i].Out,
+          newCsvData[i].Duration
+        );
+        remainingDuration = 0;
       }
+    }
+    newCsvData[index].Duration = MillisecondsTotime(
+      oldDuration + deltaDuration - remainingDuration
+    );
+    newCsvData[index].In = subtractTimes(
+      newCsvData[index].Out,
+      newCsvData[index].Duration
+    );
+  };
+
+  const handleLeftDecrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    if (oldDuration + deltaDuration <= 60) {
+      // less than half modapts (129ms)
+      const blankSpace = newCsvData[index];
+      blankSpace.Modapts = "-";
+      newCsvData[index] = blankSpace;
+    } else {
+      // Right reducing logic
+      newCsvData[index].Duration = MillisecondsTotime(
+        oldDuration + deltaDuration
+      );
+      newCsvData[index].In = subtractTimes(
+        newCsvData[index].Out,
+        newCsvData[index].Duration
+      );
+
+      const blankSpace = {
+        Modapts: "-",
+        In: subtractTimes(
+          newCsvData[index].In,
+          MillisecondsTotime(deltaDuration)
+        ),
+        Out: newCsvData[index].In,
+        Duration: MillisecondsTotime(deltaDuration),
+      };
+      newCsvData.splice(index, 0, blankSpace);
+    }
+  };
+
+  const adjustRightTimeline = (index: number, deltaDuration: number, newCsvData: any) => {
+    // console.log("adjustTimeline before- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
+    if (deltaDuration >= 0) {
+      // Left resize logic
+      handleRightIncrease(index, deltaDuration, newCsvData);
+    }
+    else {
+      handleRightDecrease(index, deltaDuration, newCsvData);
     }
     if (
       index + 1 < newCsvData.length &&
@@ -289,9 +271,78 @@ export default function VideoTimeline() {
         newCsvData[index + 1].In
       );
     }
-    // console.log("adjustTimeline after- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
-    setCSVData(newCsvData);
   };
+
+  const handleRightIncrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+    // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
+    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    let remainingDuration = deltaDuration;
+
+    for (
+      let i = index + 1;
+      i < newCsvData.length && remainingDuration > 0;
+      i++
+    ) {
+      // need to optimize?
+      const nextDuration = timeToMilliseconds(newCsvData[i].Duration);
+
+      if (nextDuration <= remainingDuration) {
+        remainingDuration -= nextDuration;
+        newCsvData.splice(i, 1);
+        i--;
+      } else {
+        newCsvData[i].In = addTimes(
+          newCsvData[i].In,
+          MillisecondsTotime(remainingDuration)
+        );
+        newCsvData[i].Duration = MillisecondsTotime(
+          nextDuration - remainingDuration
+        );
+        newCsvData[i].Out = addTimes(
+          newCsvData[i].In,
+          newCsvData[i].Duration
+        );
+        remainingDuration = 0;
+      }
+    }
+    newCsvData[index].Duration = MillisecondsTotime(
+      oldDuration + deltaDuration - remainingDuration
+    );
+    newCsvData[index].Out = addTimes(
+      newCsvData[index].In,
+      newCsvData[index].Duration
+    );
+  };
+
+  const handleRightDecrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    if (oldDuration + deltaDuration <= 60) {
+      // less than half modapts (129ms)
+      const blankSpace = newCsvData[index];
+      blankSpace.Modapts = "-";
+      newCsvData[index] = blankSpace;
+    } else {
+      newCsvData[index].Duration = MillisecondsTotime(
+        oldDuration + deltaDuration
+      );
+      newCsvData[index].Out = addTimes(
+        newCsvData[index].In,
+        newCsvData[index].Duration
+      );
+
+      const blankSpace = {
+        Modapts: "-",
+        In: newCsvData[index].Out,
+        Out: addTimes(
+          newCsvData[index].Out,
+          MillisecondsTotime(-deltaDuration)
+        ),
+        Duration: MillisecondsTotime(-deltaDuration),
+      };
+      newCsvData.splice(index + 1, 0, blankSpace);
+    }
+  };
+  
   const isInCurrentTime = (start: string, end: string) => {
     const startTimeMillis = timeToMilliseconds(start);
     const endTimeMillis = timeToMilliseconds(end);
@@ -299,8 +350,8 @@ export default function VideoTimeline() {
 
     return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
   };
-  
-  const handleMouseMove = (e) => {
+
+  const handleMouseMove = (e: { target: { getBoundingClientRect: () => any; style: { cursor: string; }; }; clientX: number; }) => {
     const rect = e.target.getBoundingClientRect();
     const xPos = e.clientX - rect.left;
     const boundaryTolerance = 5; // distance in pixels near the edge
@@ -321,11 +372,11 @@ export default function VideoTimeline() {
     }
   };
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: any) => {
     mouseClickRef.current = true;
   };
   
-  const handleMouseUp = (e) => {
+  const handleMouseUp = (e: any) => {
     mouseClickRef.current = false;
   };
 
@@ -388,35 +439,23 @@ export default function VideoTimeline() {
                       initialWidth.current = parseFloat(ref.style.width);
                       ref.style.zIndex = "10";
                       ref.style.opacity = "0.65";
-
-                      if (direction === "left") {
-                        if (videoElement){
-                          videoElement.currentTime = timeToMilliseconds(row["In"]) / 1000;
-                          setCurrentTime(videoElement.currentTime);
-                        }
+                    
+                      const timeKey = direction === "left" ? "In" : "Out";
+                      
+                      if (videoElement) {
+                        videoElement.currentTime = timeToMilliseconds(row[timeKey]) / 1000;
+                        setCurrentTime(videoElement.currentTime);
                       }
-                      else {
-                        if (videoElement){
-                          videoElement.currentTime = timeToMilliseconds(row["Out"]) / 1000;
-                          setCurrentTime(videoElement.currentTime);
-                        }
-                      }                      
                     }}
                     onResize={(e, direction, ref, d) => {
-                      let adjustingTime = 0;
+                      const newWidth = initialWidth.current + d.width;
+                      const timeKey = direction === "left" ? "In" : "Out";
                       if (direction === "left") {
-                        ref.style.left = `${initialLeft.current - d.width}px`; // 이동한 만큼 left position을 늘려주기
-                        ref.style.width = `${initialWidth.current + d.width}px`; // 이동한 만큼 width를 줄여주기
-                        let newWidth = initialWidth.current + d.width;
-                        adjustingTime = timeToMilliseconds(row["In"]) - ((newWidth - initialWidth.current) * 5);
-                      } 
-                      else if (direction === "right") {
-                        ref.style.width = `${initialWidth.current + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
-                        let newWidth = initialWidth.current + d.width;
-                        adjustingTime = timeToMilliseconds(row["Out"]) + ((newWidth - initialWidth.current) * 5);
-                        //console.log("initialTime: ", row["In"], "adjustingTime: ", adjustingTime, "adjustTimeFormat: ", MillisecondsTotime(adjustingTime));
+                        ref.style.left = `${initialLeft.current - d.width}px`;
                       }
-                      if (videoElement){
+                      ref.style.width = `${newWidth}px`;
+                      const adjustingTime = timeToMilliseconds(row[timeKey]) + (direction === "left" ? -1 : 1) * ((newWidth - initialWidth.current) * 5);
+                      if (videoElement) {
                         videoElement.currentTime = adjustingTime / 1000;
                         setCurrentTime(videoElement.currentTime);
                       }
@@ -498,7 +537,7 @@ export default function VideoTimeline() {
                       Top-K
                       <div className="flex gap-3">
                         {csvData[selectedCellIndex]["Topk"]?.map(
-                          (topk, index) => (
+                          (topk: { Modapts: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | PromiseLikeOfReactNode | null | undefined; Score: number; }, index: Key | null | undefined) => (
                             <div key={index} className="flex-1 border">
                               <div>
                                 {" "}
