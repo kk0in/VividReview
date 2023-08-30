@@ -4,8 +4,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { videoRefState } from "@/app/recoil/videoRefState";
 import { csvDataState } from "@/app/recoil/DataState";
-import isEqual from 'lodash/isEqual';
-
+import isEqual from "lodash/isEqual";
 
 const ModaptsTable = ({ setCurrentModapts }) => {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
@@ -15,9 +14,8 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   const headerRef = useRef<HTMLTableSectionElement | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [editedCell, setEditedCell] = useState<Object | null>(null);
-  const videoElement = useRecoilValue(videoRefState)
+  const videoElement = useRecoilValue(videoRefState);
   const [sums, setSums] = useState({ ctSum: 0, stSum: 0 });
-
 
   useEffect(() => {
     // for (let i = 1; i < csvData.length; i++) {
@@ -35,9 +33,9 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     // iterate through each csvdata, and check if current time is between start and end time
     if (csvData.length > 0) {
       csvData.forEach((row: any, index: number) => {
-        const startTime = timeToMilliseconds(row["In"]);
-        const endTime = timeToMilliseconds(row["Out"]);
-        const current = currentTime * 1000;
+        const startTime = timeToSeconds(row["In"]);
+        const endTime = timeToSeconds(row["Out"]);
+        const current = currentTime;
         if (current >= startTime && current <= endTime) {
           setHighlightedRow(index);
           return;
@@ -47,7 +45,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   }, [currentTime, csvData]);
 
   var ctSum = 0;
-  var stSum = 0; 
+  var stSum = 0;
 
   useEffect(() => {
     // update csvData to include duration in miliseconds and ST
@@ -56,8 +54,10 @@ const ModaptsTable = ({ setCurrentModapts }) => {
       In: item["In"],
       Out: item["Out"],
       Duration: item["Duration"],
-      "C/T": Number((timeToMilliseconds(item["Duration"]) / 1000).toFixed(2)),
-      "S/T": Number((convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2))
+      "C/T": Number(timeToSeconds(item["Duration"]).toFixed(2)),
+      "S/T": Number(
+        (convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2)
+      ),
     }));
     if (!isEqual(csvData, updatedData)) {
       setCSVData(updatedData);
@@ -89,25 +89,22 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     ctSum = csvData.reduce((sum, item) => sum + item["C/T"], 0);
     stSum = csvData.reduce((sum, item) => sum + item["S/T"], 0);
     setSums({ ctSum, stSum });
-    console.log(`ctSum: ${ctSum}, stSum: ${stSum}`)
+    console.log(`ctSum: ${ctSum}, stSum: ${stSum}`);
   }
 
-  function timeToMilliseconds(timeString: string): number {
+  function timeToSeconds(timeString: string): number {
     // time string format hh:mm:ss.frame
     // fps = 60
     // console.log(timeString)
-    if (timeString){
+    if (timeString) {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
       const second = parseInt(timeArray[1]);
       const frame = parseInt(timeArray[2]);
-  
-      const milliseconds =
-        minute * 60 * 1000 +
-        second * 1000 +
-        (frame * 1000) / 60;
-  
+
+      const milliseconds = minute * 60 + second + frame / 60;
+
       return milliseconds;
     }
   }
@@ -128,14 +125,14 @@ const ModaptsTable = ({ setCurrentModapts }) => {
 
   const handleRowClick = (rowIndex: number) => {
     // move to the time of the row['start']
-    console.log(rowIndex)
+    console.log(rowIndex);
     const row = csvData[rowIndex];
-    const startTime = timeToMilliseconds(row["In"]);
-    if (videoElement){
-      videoElement.currentTime = startTime / 1000;
+    const startTime = timeToSeconds(row["In"]);
+    if (videoElement) {
+      videoElement.currentTime = startTime;
       setCurrentTime(startTime);
     }
-  }
+  };
 
   const handleCellClick = (rowIndex: number, key: string) => {
     setEditedCell({ rowIndex, key });
@@ -143,8 +140,8 @@ const ModaptsTable = ({ setCurrentModapts }) => {
 
   const handleCellHover = (rowIndex: number, key: string) => {
     // setHighlightedRow(rowIndex);
-    console.log(rowIndex, key)
-  }
+    console.log(rowIndex, key);
+  };
 
   // const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
   //   if (!event.target) return;
@@ -165,13 +162,14 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                 Object.keys(csvData[0]).map((key, index) => {
                   if (key === "Topk") return;
                   return (
-                  <th
-                    key={key}
-                    className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left"
-                  >
-                    {key}
-                  </th>
-                )})}
+                    <th
+                      key={key}
+                      className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left"
+                    >
+                      {key}
+                    </th>
+                  );
+                })}
             </tr>
           </thead>
           <tbody>
@@ -188,17 +186,17 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                 {Object.entries(row).map(([key, value], cellIndex) => {
                   if (key === "Topk") return;
                   return (
-                  <td
-                    key={cellIndex}
-                    className={`border-b border-slate-700 px-3 py-2 font-mono ${
-                      rowIndex === highlightedRow
-                        ? "text-slate-800"
-                        : "text-slate-200"
-                    }`}
-                    onMouseOver={() => handleCellHover(rowIndex, key)}
-                    // onClick={() => handleCellClick(rowIndex, key)}
-                  >
-                    {/* {editedCell &&
+                    <td
+                      key={cellIndex}
+                      className={`border-b border-slate-700 px-3 py-2 font-mono ${
+                        rowIndex === highlightedRow
+                          ? "text-slate-800"
+                          : "text-slate-200"
+                      }`}
+                      onMouseOver={() => handleCellHover(rowIndex, key)}
+                      // onClick={() => handleCellClick(rowIndex, key)}
+                    >
+                      {/* {editedCell &&
                     editedCell.rowIndex === rowIndex &&
                     editedCell.key === key ? (
                       <input
@@ -209,9 +207,10 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                     ) : (
                       value
                     )} */}
-                    {value}
-                  </td>
-                )})}
+                      {value}
+                    </td>
+                  );
+                })}
                 {/* {row.entries().map((cell, cellIndex) => (
                   <td
                     key={cellIndex}
@@ -229,22 +228,28 @@ const ModaptsTable = ({ setCurrentModapts }) => {
           </tbody>
           <tfoot className="sticky bottom-0 bg-slate-700" ref={headerRef}>
             <tr>
-                {csvData[0] &&
+              {csvData[0] &&
                 Object.keys(csvData[0]).map((key, index) => {
-                  if (key === "S/T") return (
-                    <td key={key} 
-                      className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
-                      {sums.stSum.toFixed(2)}
-                    </td>
-                  )
-                  if (key === "C/T") return (
-                    <td key={key} 
-                      className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
-                      {sums.ctSum.toFixed(2)}
-                    </td>
-                  )
+                  if (key === "S/T")
+                    return (
+                      <td
+                        key={key}
+                        className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}
+                      >
+                        {sums.stSum.toFixed(2)}
+                      </td>
+                    );
+                  if (key === "C/T")
+                    return (
+                      <td
+                        key={key}
+                        className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}
+                      >
+                        {sums.ctSum.toFixed(2)}
+                      </td>
+                    );
                   if (key === "Topk") return;
-                  else return ( <td></td> )
+                  else return <td></td>;
                 })}
             </tr>
           </tfoot>
@@ -253,7 +258,6 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     </>
   );
 };
-
 
 function convertLastCharToNumber(inputString: string): number {
   const lastNum = parseInt(inputString.slice(-1)); // Get the last character

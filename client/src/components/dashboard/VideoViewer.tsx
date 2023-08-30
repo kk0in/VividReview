@@ -44,18 +44,18 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   useEffect(() => {
     if (csvData.length > 0) {
       csvData.forEach((row, index) => {
-        const startTime = timeToMilliseconds(row["In"]);
-        const endTime = timeToMilliseconds(row["Out"]);
-        const current = currentTime * 1000;
+        const startTime = timeToSeconds(row["In"]);
+        const endTime = timeToSeconds(row["Out"]);
+        const current = currentTime;
         if (current >= startTime && current <= endTime) {
           setCurrentModapts(row["Modapts"]);
-          setCurrentModaptsTime([startTime / 1000, endTime / 1000]);
+          setCurrentModaptsTime([startTime, endTime]);
           return;
         }
       });
     }
   }, [currentTime, csvData]);
-  function timeToMilliseconds(timeString: string): number {
+  function timeToSeconds(timeString: string): number {
     if (timeString) {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
@@ -63,8 +63,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       const second = parseInt(timeArray[1]);
       const frame = parseInt(timeArray[2]);
 
-      const milliseconds =
-        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+      const milliseconds = minute * 60 + second + frame / 60;
 
       return milliseconds;
     }
@@ -164,15 +163,12 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       // setCurrentTime(videoRef.current.currentTime);
       if (isPlayingRange) {
         csvData.forEach((row, index) => {
-          const startTime = timeToMilliseconds(row["In"]);
-          const endTime = timeToMilliseconds(row["Out"]);
-          const current = newCurrentTime * 1000;
+          const startTime = timeToSeconds(row["In"]);
+          const endTime = timeToSeconds(row["Out"]);
+          const current = newCurrentTime;
           if (current >= startTime && current <= endTime) {
-            setPlayingRange([startTime / 1000, endTime / 1000]);
-            setCurrentModaptsTime([
-              startTime / 1000 + 0.001,
-              endTime / 1000 - 0.001,
-            ]);
+            setPlayingRange([startTime, endTime]);
+            setCurrentModaptsTime([startTime + 0.00001, endTime - 0.00001]);
 
             return;
           }
@@ -370,7 +366,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
           </span>
           {isInputMode && (
             <input
-              className="m-2 w-24 font-mono border p-1 text-black bg-white"
+              className="m-2 w-18 font-mono border p-1 text-black bg-white"
               type="text"
               value={inputTime}
               onChange={handleInputChange}
@@ -384,7 +380,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
           </button>
 
           <div
-            className={`ml-5 ${
+            className={`ml-2 ${
               isPlayingRange ? "bg-white rounded bg-opacity-50" : ""
             }`}
           >
@@ -392,7 +388,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
               <FontAwesomeIcon icon={faRepeat} size="lg" />
             </button>
           </div>
-          <div className="ml-3">
+          <div className="ml-2">
             <div>
               <select
                 className="px-3 py-2 bg-transparent text-white w-20"
@@ -413,7 +409,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
         </div>
 
         <div
-          className={`w-14 ml-2 rounded-lg flex items-center justify-center`}
+          className={`w-14 ml-10 rounded-lg flex items-center justify-center`}
           style={{ backgroundColor: colormap(currentModapts) }}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
