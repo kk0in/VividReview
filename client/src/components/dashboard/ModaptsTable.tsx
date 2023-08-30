@@ -3,8 +3,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { videoRefState } from "@/app/recoil/videoRefState";
+import { csvDataState } from "@/app/recoil/DataState";
 
-const ModaptsTable = ({ csvData, setCurrentModapts }) => {
+const ModaptsTable = ({ setCurrentModapts }) => {
+  const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [highlightedRow, setHighlightedRow] = useState(-1);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
@@ -12,6 +14,7 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [editedCell, setEditedCell] = useState<Object | null>(null);
   const videoElement = useRecoilValue(videoRefState)
+  const [sums, setSums] = useState({ ctSum: 0, stSum: 0 });
 
 
   useEffect(() => {
@@ -41,8 +44,26 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
     }
   }, [currentTime, csvData]);
 
+  var ctSum = 0;
+  var stSum = 0; 
+
   useEffect(() => {
-    console.log(csvData);
+    // update csvData to include duration in miliseconds and ST
+    const updatedData = csvData.map((item) => ({
+      Modapts: item["Modapts"],
+      In: item["In"],
+      Out: item["Out"],
+      Duration: item["Duration"],
+      CT: Number((timeToMilliseconds(item["Duration"]) / 1000).toFixed(2)),
+      ST: Number((convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2))
+    }));
+    setCSVData(updatedData);
+    console.log(updatedData);
+    updateTotalTime();
+  }, []);
+
+  useEffect(() => {
+    updateTotalTime();
   }, [csvData]);
 
   useEffect(() => {
@@ -59,6 +80,13 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
       });
     }
   }, [highlightedRow]);
+
+  function updateTotalTime() {
+    ctSum = csvData.reduce((sum, item) => sum + item["CT"], 0);
+    stSum = csvData.reduce((sum, item) => sum + item["ST"], 0);
+    setSums({ ctSum, stSum });
+    console.log(`ctSum: ${ctSum}, stSum: ${stSum}`)
+  }
 
   function timeToMilliseconds(timeString: string): number {
     // time string format hh:mm:ss.frame
@@ -195,11 +223,42 @@ const ModaptsTable = ({ csvData, setCurrentModapts }) => {
               </tr>
             ))}
           </tbody>
-          <tfoot></tfoot>
+          <tfoot className="sticky bottom-0 bg-slate-700" ref={headerRef}>
+            <tr>
+                {csvData[0] &&
+                Object.keys(csvData[0]).map((key, index) => {
+                  if (key === "ST") return (
+                    <td key={key} 
+                      className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
+                      {sums.stSum.toFixed(2)}
+                    </td>
+                  )
+                  if (key === "CT") return (
+                    <td key={key} 
+                      className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
+                      {sums.ctSum.toFixed(2)}
+                    </td>
+                  )
+                  if (key === "Topk") return;
+                  else return ( <td></td> )
+                })}
+            </tr>
+          </tfoot>
         </table>
       </div>
     </>
   );
 };
+
+
+function convertLastCharToNumber(inputString: string): number {
+  const lastNum = parseInt(inputString.slice(-1)); // Get the last character
+
+  if (isNaN(lastNum)) {
+    return 0;
+  } else {
+    return lastNum;
+  }
+}
 
 export default ModaptsTable;
