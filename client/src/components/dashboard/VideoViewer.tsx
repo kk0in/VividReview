@@ -120,6 +120,21 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     return isPlaying ? faCirclePause : faCirclePlay;
   };
 
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (video) {
+      video.addEventListener("ended", handleVideoEnded);
+
+      return () => {
+        video.removeEventListener("ended", handleVideoEnded);
+      };
+    }
+  }, []);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === " ") {
