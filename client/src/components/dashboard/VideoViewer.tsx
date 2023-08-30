@@ -366,7 +366,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
             className={`m-2 font-mono ${isInputMode ? "hidden" : "block"}`}
             onClick={handleTimeSpanClick}
           >
-            {videoRef.current ? formatTime(currentTime) : "00:00:00"}
+            {videoRef.current ? formatTime(currentTime) : "0:00:00"}
           </span>
           {isInputMode && (
             <input

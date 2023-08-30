@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useState, Fragment, createRef, useRef } from "react";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
@@ -13,15 +13,53 @@ export default function VideoTimeline() {
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(
     null
   );
+  const [scrollPosition, setScrollPosition] = useState<number|null>(null);
+  const timecellRefs = useRef([]);
+  const [totalWidth, setTotalWidth] = useState(0);
+  const leftMarginRef = useRef<HTMLDivElement>();
+  const [popoverLeft, setPopoverLeft] = useState(0);
+
 
   let initialLeft = 0;
   let initialWidth = 0;
 
   useEffect(() => {
 
+    timecellRefs.current = csvData.map((_item, i) => timecellRefs.current[i] || createRef());
+
+    let width = 0;
+    timecellRefs.current.forEach((ref, idx) => {
+      if (ref.current) {
+        width += ref.current.state.width;
+        width += 4
+      }
+    });
+
+
+    if(selectedCellIndex !== null) {
+      // console.log(timecellRefs.current[selectedCellIndex])
+      let left = 0;
+      for (let i = 0; i < selectedCellIndex; i++) {
+        if (timecellRefs.current[i].current) {
+          left += timecellRefs.current[i].current.state.width;
+          left += 4
+        }
+      }
+      left += timecellRefs.current[selectedCellIndex].current.state.width / 2
+      setPopoverLeft(left)
+    }
+
+    // console.log(leftMarginRef.current.offsetWidth)
+    width += leftMarginRef.current.offsetWidth
+
+    // console.log(timecellRefs.current)
+    setTotalWidth(width)
+    console.log(width)
+
+
     const element = document.querySelector(".highlighted");
     const container = document.getElementById("scrollableTimelineContainer");
-  
+
     if (element && container) {
       const indexMatch = element.className.match(/timeline-item-(\d+)/);
       if (indexMatch && indexMatch[1]) {
@@ -29,33 +67,35 @@ export default function VideoTimeline() {
         // Get time info from your csvData using rowIndex
         const row = csvData[rowIndex];
         if (row) {
-          const startTime = timeToMilliseconds(row["In"]); 
-          const endTime = timeToMilliseconds(row["Out"]); 
+          const startTime = timeToMilliseconds(row["In"]);
+          const endTime = timeToMilliseconds(row["Out"]);
           const duration = endTime - startTime;
-          
+
           // Find out where the currentTime falls within the highlighted Modapts
-          const normalizedTime = ((currentTime*1000) - startTime) / duration;
-  
+          const normalizedTime = (currentTime * 1000 - startTime) / duration;
+
           const elementRect = element.getBoundingClientRect();
           const containerRect = container.getBoundingClientRect();
-  
-          const scrollLeftPosition = 
-            elementRect.left - 
-            containerRect.left + 
-            container.scrollLeft - 
-            (containerRect.width / 2) + 
-            (elementRect.width * normalizedTime); // ratio of the current time to the duration of the highlighted modapts
-  
+
+          const scrollLeftPosition =
+            elementRect.left -
+            containerRect.left +
+            container.scrollLeft -
+            containerRect.width / 2 +
+            elementRect.width * normalizedTime; // ratio of the current time to the duration of the highlighted modapts
+
           container.scrollLeft = scrollLeftPosition;
           container.scrollTo({
             left: scrollLeftPosition,
             behavior: "smooth",
           });
+          setScrollPosition(scrollLeftPosition)
         }
       }
     }
-  }, [currentTime, csvData]);
-  
+  }, [currentTime, csvData, selectedCellIndex]);
+
+
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
     const margin = index * 4; // 2px margin between each timeline
@@ -137,9 +177,16 @@ export default function VideoTimeline() {
           newCsvData.splice(index, 0, blankSpace);
         }
       }
-      if (index - 1 >= 0 && newCsvData[index-1].Out !== newCsvData[index].In) { // adjust the previous timeline's out time to the current timeline's in time
+      if (
+        index - 1 >= 0 &&
+        newCsvData[index - 1].Out !== newCsvData[index].In
+      ) {
+        // adjust the previous timeline's out time to the current timeline's in time
         newCsvData[index - 1].Out = newCsvData[index].In;
-        newCsvData[index - 1].Duration = subtractTimes(newCsvData[index - 1].Out, newCsvData[index - 1].In);
+        newCsvData[index - 1].Duration = subtractTimes(
+          newCsvData[index - 1].Out,
+          newCsvData[index - 1].In
+        );
       }
     } else if (direction == "right") {
       if (deltaWidth >= 0) {
@@ -208,9 +255,16 @@ export default function VideoTimeline() {
         }
       }
     }
-    if (index+1 < newCsvData.length && newCsvData[index].Out !== newCsvData[index+1].In) { // adjust the next timeline's in time to the current timeline's out time
+    if (
+      index + 1 < newCsvData.length &&
+      newCsvData[index].Out !== newCsvData[index + 1].In
+    ) {
+      // adjust the next timeline's in time to the current timeline's out time
       newCsvData[index + 1].In = newCsvData[index].Out;
-      newCsvData[index + 1].Duration = subtractTimes(newCsvData[index + 1].Out, newCsvData[index + 1].In);
+      newCsvData[index + 1].Duration = subtractTimes(
+        newCsvData[index + 1].Out,
+        newCsvData[index + 1].In
+      );
     }
     setCSVData(newCsvData);
   };
@@ -224,84 +278,88 @@ export default function VideoTimeline() {
 
   return (
     <div
-      className="flex w-full overflow-x-scroll h-full"
+      className="w-full relative overflow-x-scroll h-full flex"
       id="scrollableTimelineContainer"
     >
-      <div className="flex w-full h-full flex-row">
-        <div className="flex w-1/2">a</div>
-        <div className="">
-          <Popover className="flex relative w-full">
-            {/* {({close}) => } */}
-            <Popover.Button onKeyDown={(e) => {if (e.key === " ") {e.preventDefault()}}}>
-              {csvData.map((row, rowIndex) => (
+      <div className="relative w-[50%]" ref={leftMarginRef}></div>
+      <Popover className="flex-1 relative">
+        {/* {({close}) => } */}
+        <Popover.Button
+          onKeyDown={(e) => {
+            if (e.key === " ") {
+              e.preventDefault();
+            }
+          }}
+          className="relative flex-1"
+        >
+          {csvData.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              onClick={() => setSelectedCellIndex(rowIndex)}
+              className=""
+            >
+              <Resizable
+                key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
+                  row["Duration"]
+                )}`}
+                defaultSize={{
+                  width: timeToMilliseconds(row["Duration"]) / 5,
+                  height: 30,
+                }}
+                enable={{
+                  top: false,
+                  right: true,
+                  bottom: false,
+                  left: true,
+                  topRight: false,
+                  bottomRight: false,
+                  bottomLeft: false,
+                  topLeft: false,
+                }}
+                onResizeStart={(e, direction, ref) => {
+                  initialLeft = parseFloat(ref.style.left);
+                  initialWidth = parseFloat(ref.style.width);
+                  ref.style.zIndex = "10";
+                  ref.style.opacity = "0.65";
+                }}
+                onResize={(e, direction, ref, d) => {
+                  if (direction === "left") {
+                    ref.style.left = `${initialLeft - d.width}px`; // 이동한 만큼 left position을 늘려주기
+                    ref.style.width = `${initialWidth + d.width}px`; // 이동한 만큼 width를 줄여주기
+                  } else if (direction === "right") {
+                    ref.style.width = `${initialWidth + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
+                  }
+                }}
+                onResizeStop={(e, direction, ref) => {
+                  ref.style.zIndex = "1";
+                  ref.style.opacity = "1";
+                  adjustTimeline(rowIndex, ref.offsetWidth, direction);
+                }}
+                style={{
+                  left: `${calculateLeftPosition(rowIndex)}px`,
+                  position: "absolute",
+                }}
+                ref={timecellRefs.current[rowIndex]}
+              >
                 <div
-                  key={rowIndex}
-                  onClick={() => setSelectedCellIndex(rowIndex)}
-                  className=""
+                  className={`rounded py-5 px-1 border flex items-center justify-center ${
+                    !row["Modapts"] ? "" : "border-opacity-0"
+                  } ${
+                    isInCurrentTime(row["In"], row["Out"]) ? "highlighted" : ""
+                  } timeline-item-${rowIndex}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: colormap(row["Modapts"]),
+                  }}
                 >
-                  <Resizable
-                    key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
-                      row["Duration"]
-                    )}`}
-                    defaultSize={{
-                      width: timeToMilliseconds(row["Duration"]) / 5,
-                      height: 30,
-                    }}
-                    enable={{
-                      top: false,
-                      right: true,
-                      bottom: false,
-                      left: true,
-                      topRight: false,
-                      bottomRight: false,
-                      bottomLeft: false,
-                      topLeft: false,
-                    }}
-                    onResizeStart={(e, direction, ref) => {
-                      initialLeft = parseFloat(ref.style.left);
-                      initialWidth = parseFloat(ref.style.width);
-                      ref.style.zIndex = "10";
-                      ref.style.opacity = "0.65";
-                    }}
-                    onResize={(e, direction, ref, d) => {
-                      if (direction === "left") {
-                        ref.style.left = `${initialLeft - d.width}px`; // 이동한 만큼 left position을 늘려주기
-                        ref.style.width = `${initialWidth + d.width}px`; // 이동한 만큼 width를 줄여주기
-                      } else if (direction === "right") {
-                        ref.style.width = `${initialWidth + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
-                      }
-                    }}
-                    onResizeStop={(e, direction, ref) => {
-                      ref.style.zIndex = "1";
-                      ref.style.opacity = "1";
-                      adjustTimeline(rowIndex, ref.offsetWidth, direction);
-                    }}
-                    style={{
-                      left: `${calculateLeftPosition(rowIndex)}px`,
-                      position: "absolute",
-                    }}
-                  >
-                    <div
-                      className={`rounded py-5 px-1 border flex items-center justify-center ${
-                        !row["Modapts"] ? "" : "border-opacity-0"
-                      } ${
-                        isInCurrentTime(row["In"], row["Out"]) 
-                          ? "highlighted"
-                          : ""
-                      } timeline-item-${rowIndex}`}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: colormap(row["Modapts"]),
-                      }}
-                    >
-                      {row["Modapts"]}
-                    </div>
-                  </Resizable>
+                  {row["Modapts"]}
                 </div>
-              ))}
-            </Popover.Button>
-            {/* <Transition
+              </Resizable>
+            </div>
+          ))}
+        </Popover.Button>
+        {/* <Transition
               as={Fragment}
               show={false}
               enter="transition ease-out duration-200"
@@ -311,57 +369,56 @@ export default function VideoTimeline() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             > */}
-            {selectedCellIndex && (
-              <Popover.Panel
-                // key={rowIndex}
-                style={{
-                  left: `${calculateLeftPosition(selectedCellIndex)}px`,
-                }}
-                className="absolute z-10 mt-3 w-screen max-w-sm -translate-x-1/2 transform px-4 "
-              >
-                <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-                  <div className="relative gap-8 bg-white p-7 lg:grid-cols-2 text-slate-800">
-                    <div>
-                      {selectedCellIndex}:
-                      {csvData[selectedCellIndex]["Modapts"]}
-                    </div>
-                    <div className="flex">
-                      <div className="flex-1">
-                        In
-                        <div>{csvData[selectedCellIndex]["In"]}</div>
-                      </div>
-                      <div className="flex-1">
-                        Out
-                        <div>{csvData[selectedCellIndex]["Out"]}</div>
-                      </div>
-                      <div className="flex-1">
-                        Duration
-                        <div>{csvData[selectedCellIndex]["Duration"]}</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-5">
-                      Top-K
-                      <div className="flex gap-3">
-                        {csvData[selectedCellIndex]["Topk"].map(
-                          (topk, index) => (
-                            <div key={index} className="flex-1 border">
-                              <div> {topk.Modapts} {topk.Score.toFixed(2)} </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                    <br />
+        {selectedCellIndex !== null &&  (
+          <div className="relative" >
+          <Popover.Panel
+            // key={rowIndex}
+            className={`absolute z-10 mt-12 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
+            style={{left: `${popoverLeft}px`}}
+          >
+            <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
+              <div className="relative gap-8 bg-white p-6 lg:grid-cols-2 text-slate-800">
+                <div>
+                  {selectedCellIndex} : {csvData[selectedCellIndex]["Modapts"]}
+                </div>
+                <div className="flex">
+                  <div className="flex-1">
+                    In
+                    <div>{csvData[selectedCellIndex]["In"]}</div>
+                  </div>
+                  <div className="flex-1">
+                    Out
+                    <div>{csvData[selectedCellIndex]["Out"]}</div>
+                  </div>
+                  <div className="flex-1">
+                    Duration
+                    <div>{csvData[selectedCellIndex]["Duration"]}</div>
                   </div>
                 </div>
-              </Popover.Panel>
-            )}
-            {/* </Transition> */}
-          </Popover>
-        </div>
-        <div className="flex w-1/2">a</div>
-      </div>
+
+                <div className="mt-5">
+                  Top-K
+                  <div className="flex gap-3">
+                    {csvData[selectedCellIndex]["Topk"]?.map((topk, index) => (
+                      <div key={index} className="flex-1 border">
+                        <div>
+                          {" "}
+                          {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <br />
+              </div>
+            </div>
+          </Popover.Panel>
+          </div>
+        )}
+        {/* </Transition> */}
+      </Popover>
+      {/* </div> */}
+      <div className={`absolute h-1`} style={{left: totalWidth, width: "50%"}}> </div>
     </div>
   );
 }
@@ -380,7 +437,7 @@ const colormap = (label: string) => {
     case "A":
       return "#59A14F";
     case "-": // BG
-      return "#BAB0AC";
+      return "transparent";
     default: // Blank
       return "transparent";
   }
