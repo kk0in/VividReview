@@ -54,8 +54,8 @@ const ModaptsTable = ({ setCurrentModapts }) => {
       In: item["In"],
       Out: item["Out"],
       Duration: item["Duration"],
-      CT: Number((timeToMilliseconds(item["Duration"]) / 1000).toFixed(2)),
-      ST: Number((convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2))
+      "C/T": Number((timeToMilliseconds(item["Duration"]) / 1000).toFixed(2)),
+      "S/T": Number((convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2))
     }));
     setCSVData(updatedData);
     console.log(updatedData);
@@ -82,8 +82,8 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   }, [highlightedRow]);
 
   function updateTotalTime() {
-    ctSum = csvData.reduce((sum, item) => sum + item["CT"], 0);
-    stSum = csvData.reduce((sum, item) => sum + item["ST"], 0);
+    ctSum = csvData.reduce((sum, item) => sum + item["C/T"], 0);
+    stSum = csvData.reduce((sum, item) => sum + item["S/T"], 0);
     setSums({ ctSum, stSum });
     console.log(`ctSum: ${ctSum}, stSum: ${stSum}`)
   }
@@ -227,13 +227,13 @@ const ModaptsTable = ({ setCurrentModapts }) => {
             <tr>
                 {csvData[0] &&
                 Object.keys(csvData[0]).map((key, index) => {
-                  if (key === "ST") return (
+                  if (key === "S/T") return (
                     <td key={key} 
                       className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
                       {sums.stSum.toFixed(2)}
                     </td>
                   )
-                  if (key === "CT") return (
+                  if (key === "C/T") return (
                     <td key={key} 
                       className={`border-b border-slate-700 px-3 py-2 font-mono "text-slate-200"`}>
                       {sums.ctSum.toFixed(2)}
