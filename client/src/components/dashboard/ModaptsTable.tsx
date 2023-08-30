@@ -54,6 +54,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
       In: item["In"],
       Out: item["Out"],
       Duration: item["Duration"],
+      Topk: item["Topk"],
       "C/T": Number(timeToSeconds(item["Duration"]).toFixed(2)),
       "S/T": Number(
         (convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2)
