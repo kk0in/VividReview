@@ -143,7 +143,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {isLoaded && (
         <>
-          <div className="flex-grow flex flex-row h- max-h-1/2">
+          <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
             <div className="flex-auto bg-slate-900 p-4 text-white w-[30rem]">
               <div className="flex justify-between mb-3 pr-5">
                 <h5 className="my-1 text-sm font-bold">분석 영상</h5>
