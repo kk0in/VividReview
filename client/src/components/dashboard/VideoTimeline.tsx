@@ -23,8 +23,8 @@ export default function VideoTimeline() {
   const videoElement = useRecoilValue(videoRefState)
   const initialLeft = useRef(0);
   const initialWidth = useRef(0);
-
   const popoverRef = useRef();
+  const mouseClickRef = useRef(false);
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickPopoverOutside);
@@ -117,7 +117,7 @@ export default function VideoTimeline() {
       setPopoverLeft(left);
     }
   }, [selectedCellIndex]);
-
+   
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
     const margin = index * 10; // 2px margin between each timeline
@@ -299,6 +299,35 @@ export default function VideoTimeline() {
 
     return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
   };
+  
+  const handleMouseMove = (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const xPos = e.clientX - rect.left;
+    const boundaryTolerance = 5; // distance in pixels near the edge
+  
+    if (mouseClickRef.current) {
+      e.target.style.cursor = "col-resize";
+    }
+    else {
+      if (xPos <= boundaryTolerance) {
+        e.target.style.cursor = "w-resize"; // Cursor like "<|"
+      } 
+      else if (xPos >= rect.width - boundaryTolerance) {
+        e.target.style.cursor = "e-resize"; // Cursor like "|>"
+      }
+      else {
+        e.target.style.cursor = "grab";
+      }
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    mouseClickRef.current = true;
+  };
+  
+  const handleMouseUp = (e) => {
+    mouseClickRef.current = false;
+  };
 
   return (
     <div className="relative w-full h-full pt-10">
@@ -331,6 +360,9 @@ export default function VideoTimeline() {
               key={rowIndex}
               onClick={() => setSelectedCellIndex(rowIndex)}
                   className=""
+                  onMouseMove={handleMouseMove} 
+                  onMouseDown={handleMouseDown} 
+                  onMouseUp={handleMouseUp}  
                 >
                   <Resizable
                     key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
@@ -356,9 +388,7 @@ export default function VideoTimeline() {
                       initialWidth.current = parseFloat(ref.style.width);
                       ref.style.zIndex = "10";
                       ref.style.opacity = "0.65";
- // console.log("OnResize Start - currentTime: ", row["In"], "currentTimeFormat: ", (timeToMilliseconds(row["In"])));
-                      // console.log("Onresize Start - ", "row[out]", row["Out"], "row[Duration]", row["Duration"]);
-                      // console.log("Onresize Start -initialLeft: ", initialLeft.current, "initialWidth: ", initialWidth.current);
+
                       if (direction === "left") {
                         if (videoElement){
                           videoElement.currentTime = timeToMilliseconds(row["In"]) / 1000;
@@ -379,7 +409,6 @@ export default function VideoTimeline() {
                         ref.style.width = `${initialWidth.current + d.width}px`; // 이동한 만큼 width를 줄여주기
                         let newWidth = initialWidth.current + d.width;
                         adjustingTime = timeToMilliseconds(row["In"]) - ((newWidth - initialWidth.current) * 5);
-                        //console.log("initialTime: ", row["In"], "adjustingTime: ", adjustingTime, "adjustTimeFormat: ", MillisecondsTotime(adjustingTime));
                       } 
                       else if (direction === "right") {
                         ref.style.width = `${initialWidth.current + d.width}px`; // 오른쪽 변을 늘리는 경우에는 width만 늘려주기
@@ -571,4 +600,6 @@ function secondsToTime(seconds: number): string {
   return `${String(minutes).padStart(1, "0")}:${String(remainingSeconds).padStart(2, "0")}:${String(
     frames
   ).padStart(2, "0")}`;
-  }
+}
+
+  
