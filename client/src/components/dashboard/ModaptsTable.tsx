@@ -153,7 +153,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   return (
     <>
       <div className="w-full h-full overflow-y-scroll" ref={tableContainerRef}>
-        <table className="w-[80%] table-auto">
+        <table className="w-[80%] table-auto h-full">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
               {/* read object keys to generate header */}
