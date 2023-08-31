@@ -39,7 +39,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   useEffect(() => {
     // update csvData to include duration in miliseconds and ST
     const updatedData = csvData.map((row: Object, rowIndex: number) => ({
-      Idx: rowIndex+1,
+      No: rowIndex+1,
       Modapts: row["Modapts"],
       In: row["In"],
       Out: row["Out"],
@@ -199,7 +199,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                               onBlur={(event) => {
                                 setTimeout(() => {
                                   setEditedCell(null);
-                                }, 300); // delay to allow button click
+                                }, 150); // delay to allow button click
                               }}
                           >
                             <input
