@@ -128,6 +128,23 @@ export default function VideoTimeline() {
     }
   }, [currentTime, csvData]);
 
+  useEffect(() => {
+    const container = document.getElementById("scrollableTimelineContainer");
+    if (container) {
+      container.addEventListener("wheel", handleWheelScroll);
+      return () => {
+        container.removeEventListener("wheel", handleWheelScroll);
+      };
+    }
+  }, []);
+  
+  const handleWheelScroll = (e) => {
+    const container = document.getElementById("scrollableTimelineContainer");
+    if (container) {
+      container.scrollLeft += e.deltaY;
+    }
+  };
+  
   const handleCellClick = (index) => {
     // go to cell's time
     // const row = csvData[index];
@@ -208,7 +225,7 @@ export default function VideoTimeline() {
       const relativePosition = currentScrollPosition - calculatePreviousWidth;
       const baseTime = timeStringToSeconds(csvData[rowIndex]["In"]);
       const estimatedTime = (relativePosition / elementWidth) * timeStringToSeconds(csvData[rowIndex]["Duration"]) + baseTime;
-
+      
       setScrolledTime(estimatedTime);
     }
   };
