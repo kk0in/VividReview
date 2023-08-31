@@ -267,8 +267,8 @@ def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
     os.makedirs(output_folder, exist_ok=True)
     inference_output_path = os.path.join(output_folder, f"test_inf_labels_{input_file_name}.txt")
     inference_confidence_path = os.path.join(output_folder, f"test_inf_confidence_{input_file_name}.txt")
-    inference_csv_path = os.path.join(output_folder, f"{input_file_name}.csv")
-    inference_json_path = os.path.join(output_folder, f"{input_file_name}.json")
+    inference_csv_path = os.path.join(output_folder, f"{input_file_name}_0.csv")
+    inference_json_path = os.path.join(output_folder, f"{input_file_name}_0.json")
     gt_avail = True if gt_path else False
     
     scaler_path = config['scaler_path']
