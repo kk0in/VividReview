@@ -169,10 +169,10 @@ export default function Page({ params }: { params: { id: string } }) {
             </div>
             
             <div className="flex-auto bg-slate-900 p-4 text-white">
-              <div className="flex justify-between mb-3 pr-5">
+              <div className="flex justify-between mt-1 mb-3 pr-5">
                 <h5 className="my-1 text-sm font-bold">MODAPTS 테이블</h5>
                 <button className="font-mono">
-                  {/* <FontAwesomeIcon icon={faFileExport} size="xs" /> */}
+                  {/* <FontAwesomeIcon  icon={faFileExport} size="xs" /> */}
                   Export
                 </button>
               </div>
