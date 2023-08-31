@@ -140,7 +140,7 @@ export default function Page({ params }: { params: { id: string } }) {
             <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
           </div>
         }
-        {true && true && (
+        {data?.project?.done === "done" && !isLoaded && (
           <div className="flex items-center justify-center gap-10">
             {loadingVideo && 
               <div 
