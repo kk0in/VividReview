@@ -19,7 +19,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   const videoElement = useRecoilValue(videoRefState);
   const [sums, setSums] = useState({ ctSum: 0, stSum: 0 });
   const inputRef = useRef<HTMLInputElement | null>(null); 
-  const [isButtonClicked, setIsButtonClicked] = useState(false);
+  const [labelEditMode, setLabelEditMode] = useState(false);
 
   useEffect(() => {
     // iterate through each csvdata, and check if current time is between start and end time
@@ -132,19 +132,19 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     // console.log(rowIndex, key)
   }
 
-  const handleInputChange = (rowIndex: number, key: string) => {
-    console.log(`rowIndex: ${rowIndex}, key: ${key}, value: ${inputRef.current.value}, buttonClicked: ${isButtonClicked}`) 
-    if (inputRef.current == null) return;
+  const cancelLabelEdit = () => {
     setEditedCell(null);
-    if (!isButtonClicked) return;
-    setIsButtonClicked(false);
-    console.log("buttonClicked = false")
-    if (inputRef.current.value === "") return;
+  }
+
+  const handleLabelEdit = (rowIndex: number, key: string) => {
+    console.log(`rowIndex: ${rowIndex}, key: ${key}, value: ${inputRef.current.value}`) 
+    setEditedCell(null);
+    if (inputRef.current == null || inputRef.current.value === "") return;
     const newData = csvData.map((item, index) =>
       index === rowIndex ? { ...item, [key]: inputRef.current.value } : item
     );
     setCSVData(newData);
-  };
+  }
 
   return (
     <>
@@ -191,40 +191,41 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                       onMouseOver={() => handleCellHover(rowIndex, key)}
                       onClick={() => handleCellClick(rowIndex, key)}
                     >
-                      {editedCell &&
-                    editedCell.rowIndex === rowIndex &&
-                    editedCell.key === key ? (
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <input
-                          ref={inputRef}
-                          size={2}
-                          type="text"
-                          style={{ 
-                            color: 'black',
-                            height: '1.5em', 
-                            paddingLeft: '5px',
-                            paddingRight: '5px',
-                          }}
-                          placeholder={row[key]}
-                          autoFocus
-                          onBlur={(event) => {
-                            setTimeout(() => {
-                              handleInputChange(rowIndex, key);
-                            }, 300); // delay to allow button click
-                          }}
-                        />
-                        <button 
-                          style={{ paddingLeft: '10px' }}
-                          onClick={() => {
-                            setIsButtonClicked(true)
-                            console.log("buttonClicked = true")
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faCheck} size="s" />
-                        </button>
-                      </div>
-                    ) : (
-                      value
+                      { editedCell &&
+                        editedCell.rowIndex === rowIndex &&
+                        editedCell.key === key ? (
+                          <div 
+                            style={{ display: 'flex', alignItems: 'center' }}
+                              onBlur={(event) => {
+                                setTimeout(() => {
+                                  setEditedCell(null);
+                                }, 300); // delay to allow button click
+                              }}
+                          >
+                            <input
+                              ref={inputRef}
+                              size={2}
+                              type="text"
+                              style={{ 
+                                color: 'black',
+                                height: '1.5em', 
+                                paddingLeft: '5px',
+                                paddingRight: '5px',
+                              }}
+                              placeholder={row[key]}
+                              autoFocus
+                            />
+                            <button 
+                              style={{ paddingLeft: '10px' }}
+                              onClick={() => {
+                                handleLabelEdit(rowIndex, key);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faCheck} size="s" />
+                            </button>
+                          </div>
+                        ) : (
+                          value
                     )}
                   </td>
                 )})}
