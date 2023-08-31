@@ -341,7 +341,6 @@ export default function VideoTimeline() {
         newCsvData[index].Out,
         newCsvData[index].Duration
       );
-
       const blankSpace = {
         Modapts: "-",
         In: subtractTimes(
@@ -766,10 +765,11 @@ function subtractTimes(time1: string, time2: string): string {
 // }
 
 function secondsToTimeString(seconds: number): string {
+  let absoluteSeconds = Math.abs(seconds);
   // sec with decimal to M:SS:FF
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  const frames = Math.round((seconds % 1) * 60);
+  const minutes = Math.floor(absoluteSeconds / 60);
+  const remainingSeconds = Math.floor(absoluteSeconds % 60);
+  const frames = Math.round((absoluteSeconds % 1) * 60);
   return `${String(minutes).padStart(1, "0")}:${String(
     remainingSeconds
   ).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
