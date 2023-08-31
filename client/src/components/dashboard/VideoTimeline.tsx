@@ -39,6 +39,7 @@ export default function VideoTimeline() {
   const containerRef = useRef();
   const mouseClickRef = useRef(false);
   const [scrolledTime, setScrolledTime] = useState(0);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickPopoverOutside);
@@ -124,8 +125,6 @@ export default function VideoTimeline() {
     // const row = csvData[index];
     // const startTime = timeStringToSeconds(row["In"]);
 
-    
-
     // scroll
     const element = document.querySelector(`.timeline-item-${index}`);
     const container = document.getElementById("scrollableTimelineContainer");
@@ -133,26 +132,27 @@ export default function VideoTimeline() {
     const elementRect = element.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    const scrollLeftPosition = elementRect.left -
-            containerRect.left +
-            container.scrollLeft -
-            containerRect.width / 2
+    const scrollLeftPosition =
+      elementRect.left -
+      containerRect.left +
+      container.scrollLeft -
+      containerRect.width / 2;
 
     // container.scrollLeft = scrollLeftPosition;
     container.scrollTo({
-      left: scrollLeftPosition ,
+      left: scrollLeftPosition,
       behavior: "smooth",
-    })
+    });
 
     const row = csvData[index];
-    const startTime = timeStringToSeconds(row["In"]) 
+    const startTime = timeStringToSeconds(row["In"]);
     setTimeout(() => {
-    if (videoElement) {
-      videoElement.currentTime = startTime;
-      setCurrentTime(startTime);
-    } }, 500)
-
-  }
+      if (videoElement) {
+        videoElement.currentTime = startTime;
+        setCurrentTime(startTime);
+      }
+    }, 500);
+  };
 
   function findRowIndexByTime(csvData, currentTime) {
     let left = 0;
@@ -162,8 +162,7 @@ export default function VideoTimeline() {
       const mid = Math.floor((left + right) / 2);
       const row = csvData[mid];
       const startTime = timeStringToSeconds(row["In"]);
-      const endTime = timeStringToSeconds(row["Out"]);
-      
+      const endTime = timeStringToSeconds(row["Out"]);      
       if (startTime <= currentTime && currentTime <= endTime) {
         return mid;
       }
@@ -394,7 +393,7 @@ export default function VideoTimeline() {
     newCsvData: any[]
   ) => {
     // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
-    console.log(newCsvData[index])
+    console.log(newCsvData[index]);
     const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
 
@@ -505,8 +504,7 @@ export default function VideoTimeline() {
       <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
       <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">
         {videoElement?.paused ? secondsToTimeString(scrolledTime) : secondsToTimeString(currentTime)}
-        </div>      
-      <div
+        </div>       <div
         className="w-full relative overflow-x-scroll flex h-[10rem]"
         id="scrollableTimelineContainer"
         ref={containerRef}
@@ -533,8 +531,15 @@ export default function VideoTimeline() {
             {csvData.map((row, rowIndex) => (
               <div
                 key={rowIndex}
-                // onClick={() => setSelectedCellIndex(rowIndex)}
-                onClick={() => handleCellClick(rowIndex)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSelectedCellIndex(rowIndex);
+                  setIsPopoverOpen(true);
+                }}
+                onClick={(e) => {
+                  handleCellClick(rowIndex);
+                  e.stopPropagation();
+                }}
                 className=""
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
@@ -568,8 +573,9 @@ export default function VideoTimeline() {
                     const timeKey = direction === "left" ? "In" : "Out";
 
                     if (videoElement) {
-                      videoElement.currentTime =
-                        timeStringToSeconds(row[timeKey]);
+                      videoElement.currentTime = timeStringToSeconds(
+                        row[timeKey]
+                      );
                       setCurrentTime(videoElement.currentTime);
                     }
                   }}
@@ -618,7 +624,10 @@ export default function VideoTimeline() {
                       backgroundColor: colormap(row["Modapts"]),
                     }}
                   >
-                    {row["Modapts"]}
+                    <div className="flex-grow text-center">
+                      {row["Modapts"]}
+                    </div>
+                    {/* <div className="ml-auto">수정</div> */}
                   </div>
                 </Resizable>
               </div>
@@ -634,10 +643,10 @@ export default function VideoTimeline() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             > */}
-          {selectedCellIndex !== null && (
+          {selectedCellIndex !== null && isPopoverOpen && (
             <div className="relative">
               <Popover.Panel
-                // static
+                static
                 // key={rowIndex}
                 ref={popoverRef}
                 className={`absolute z-[100] mt-6 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
@@ -646,16 +655,20 @@ export default function VideoTimeline() {
                 {({ close }) => (
                   <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
                     <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
-                      <div>
-                        {selectedCellIndex} :{" "}
+                      <div className="flex flex-row">
+                        <div>{selectedCellIndex + 1}</div>
                         {csvData[selectedCellIndex]["Modapts"]}
+                        <input
+                          className="text-sm p-1 w-full"
+                          placeholder={csvData[selectedCellIndex]["Modapts"]}
+                        ></input>
                       </div>
-                      <div className="flex text-sm">
+                      <div className="flex text-sm font-semibold gap-3 mt-2">
                         <div className="flex-1">
                           In
                           {/* <div>{csvData[selectedCellIndex]["In"]}</div> */}
                           <input
-                            className="text-sm p-1 w-full"
+                            className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[selectedCellIndex]["In"]}
                           ></input>
                         </div>
@@ -663,43 +676,56 @@ export default function VideoTimeline() {
                           Out
                           {/* <div>{csvData[selectedCellIndex]["Out"]}</div> */}
                           <input
-                            className="text-sm p-1 w-full"
+                            className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[selectedCellIndex]["Out"]}
                           ></input>
                         </div>
                         <div className="flex-1">
                           Duration
-                          <div className="p-1">
-                            {csvData[selectedCellIndex]["Duration"]}
+                          <div className="mt-1 p-1 font-normal">
+                            {subtractTimes(csvData[selectedCellIndex]["Out"], csvData[selectedCellIndex]["In"])}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 text-sm">
+                      <div className="mt-4 text-sm font-semibold">
                         Top-K
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 mt-2">
                           {csvData[selectedCellIndex]["Topk"]?.map(
                             (topk, index) => (
-                              <div key={index} className="flex-1 border">
-                                <div>
-                                  {" "}
-                                  {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                              <div
+                                key={index}
+                                className={`flex-1 rounded px-2 py-1 hover:shadow-md hover:-translate-y-0.5 transition duration-200`}
+                                style={{
+                                  backgroundColor: topKColormap(topk.Modapts),
+                                }}
+                              >
+                                <div className="flex flex-row text-white">
+                                  <div>{topk.Modapts}</div>
+                                  <div className="ml-auto">
+                                    {topk.Score.toFixed(2)}
+                                  </div>
                                 </div>
                               </div>
                             )
                           )}
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => {
-                          close(
-                            timecellRefs.current[selectedCellIndex].current
-                          );
-                        }}
-                      >
-                        close
-                      </button>
+                      <div className="flex flex-row">
+                        <div className="flex mx-auto mt-2 text-sm">
+                        <button
+                          className="flex mx-3"
+                          onClick={() => {
+                            setIsPopoverOpen(false);
+                            setSelectedCellIndex(null);
+                            close();
+                          }}
+                        >
+                          CLOSE
+                        </button>
+                        <button className="flex mx-3">SAVE</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -735,6 +761,26 @@ const colormap = (label: string) => {
       return "#59A14F";
     case "-": // BG
       return "transparent";
+    default: // Blank
+      return "transparent";
+  }
+};
+
+const topKColormap = (label: string) => {
+  let label_alphabet = label ? label[0] : "";
+  switch (label_alphabet) {
+    case "M":
+      return "#4E79A7";
+    case "G":
+      return "#F28E2B";
+    case "P":
+      return "#E15759";
+    case "R":
+      return "#76B7B2";
+    case "A":
+      return "#59A14F";
+    case "-": // BG
+      return "#BAB0AC";
     default: // Blank
       return "transparent";
   }
