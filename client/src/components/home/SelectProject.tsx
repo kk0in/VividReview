@@ -1,34 +1,39 @@
 "use client";
 
+import { CloudArrowDownIcon, PlusCircleIcon } from "@heroicons/react/24/solid";
+
 type SelectProjectProps = {
   setView: React.Dispatch<React.SetStateAction<string>>;
 };
 
 export default function SelectProject({ setView }: SelectProjectProps) {
   return (
-    <div>
-      <div className="flex items-center justify-center gap-10">
-        <button
-          className="flex flex-col items-center justify-center border rounded-md border-gray-200 p-4 w-80 hover:shadow-md transition duration-200"
-          onClick={() => setView("existing")}
-        >
-          <div className="text-center">Load Existing Project</div>
-        </button>
-        <button
-          className="flex flex-col items-center justify-center border rounded-md border-gray-200 p-4 w-80 hover:shadow-md transition duration-200"
-          onClick={() => setView("add")}
-        >
-          <div className="text-center">Add New Project</div>
-        </button>
-      </div>
-      <div className="flex mt-10">
-        {/* <button
-          className="mx-auto bg-slate-700 py-2 px-3 text-white rounded-md shadow-md hover:bg-slate-600"
-          onClick={fetchData}
-        >
-          {isFetching ? "FETCHING..." : "TEST MODE"}
-        </button> */}
-      </div>
+    <div className="flex items-center justify-center gap-10"> 
+
+      <button 
+        className="not-prose relative bg-white hover:-translate-y-1 transition duration-200 hover:shadow-lg shadow-md flex justify-center items-center rounded-xl overflow-hidden w-80 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+        onClick={() => setView("existing")}
+      >
+        <div className="relative overflow-auto flex flex-col justify-center items-center h-80">
+          <CloudArrowDownIcon className="h-20 w-20 text-slate-400"/>
+          <div className="border-slate-100 dark:border-slate-700 p-4 font-semibold text-slate-500 dark:text-slate-400 text-center text-lg">Load Project</div>
+          <div className="border-slate-100 dark:border-slate-700 p-4 text-slate-500 dark:text-slate-400 text-center text-sm">Load existing projects from files on server,<br/>or check video processing status.</div>
+        </div>
+        <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+      </button>
+
+
+      <button 
+        className="not-prose relative bg-white hover:-translate-y-1 transition duration-200 hover:shadow-lg shadow-md flex justify-center items-center rounded-xl overflow-hidden w-80 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+        onClick={() => setView("add")}
+      >
+        <div className="relative overflow-auto flex flex-col justify-center items-center h-80">
+          <PlusCircleIcon className="h-20 w-20 text-slate-400"/>
+          <div className="border-slate-100 dark:border-slate-700 p-4 font-semibold text-slate-500 dark:text-slate-400 text-center text-lg">Create New Project</div>
+          <div className="border-slate-100 dark:border-slate-700 p-4 text-slate-500 dark:text-slate-400 text-center text-sm">Create new project from raw video file.<br/>Extracting pose data may take some time.</div>
+        </div>
+        <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+      </button>
     </div>
   );
 }

@@ -44,27 +44,26 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   useEffect(() => {
     if (csvData.length > 0) {
       csvData.forEach((row, index) => {
-        const startTime = timeToMilliseconds(row["start"]);
-        const endTime = timeToMilliseconds(row["end"]);
-        const current = currentTime * 1000;
+        const startTime = timeToSeconds(row["In"]);
+        const endTime = timeToSeconds(row["Out"]);
+        const current = currentTime;
         if (current >= startTime && current <= endTime) {
-          setCurrentModapts(row["label"]);
-          setCurrentModaptsTime([startTime / 1000, endTime / 1000]);
+          setCurrentModapts(row["Modapts"]);
+          setCurrentModaptsTime([startTime, endTime]);
           return;
         }
       });
     }
   }, [currentTime, csvData]);
-  function timeToMilliseconds(timeString: string): number {
+  function timeToSeconds(timeString: string): number {
     if (timeString) {
       const timeArray = timeString.split(":");
       // const hour = parseInt(timeArray[0]);
       const minute = parseInt(timeArray[0]);
-      const second = parseInt(timeArray[1].split(".")[0]);
-      const frame = parseInt(timeArray[1].split(".")[1]);
+      const second = parseInt(timeArray[1]);
+      const frame = parseInt(timeArray[2]);
 
-      const milliseconds =
-        minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+      const milliseconds = minute * 60 + second + frame / 60;
 
       return milliseconds;
     }
@@ -121,10 +120,33 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     return isPlaying ? faCirclePause : faCirclePlay;
   };
 
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (video) {
+      video.addEventListener("ended", handleVideoEnded);
+
+      return () => {
+        video.removeEventListener("ended", handleVideoEnded);
+      };
+    }
+  }, []);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === " ") {
         handlePlayPause();
+      }
+      // left arrow
+      if (event.key === "ArrowLeft") {
+        rewind(1);
+      }
+      // right arrow
+      if (event.key === "ArrowRight") {
+        rewind(-1);
       }
     };
 
@@ -147,7 +169,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
 
     const msToFrame = Math.floor((millisecs * 60) / 1000);
 
-    const formattedTime = `${mins.toString().padStart(2, "0")}:${secs
+    const formattedTime = `${mins.toString().padStart(1, "0")}:${secs
       .toString()
       .padStart(2, "0")}:${msToFrame.toString().padStart(2, "0")}`;
     return formattedTime;
@@ -164,15 +186,12 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       // setCurrentTime(videoRef.current.currentTime);
       if (isPlayingRange) {
         csvData.forEach((row, index) => {
-          const startTime = timeToMilliseconds(row["start"]);
-          const endTime = timeToMilliseconds(row["end"]);
-          const current = newCurrentTime * 1000;
+          const startTime = timeToSeconds(row["In"]);
+          const endTime = timeToSeconds(row["Out"]);
+          const current = newCurrentTime;
           if (current >= startTime && current <= endTime) {
-            setPlayingRange([startTime / 1000, endTime / 1000]);
-            setCurrentModaptsTime([
-              startTime / 1000 + 0.001,
-              endTime / 1000 - 0.001,
-            ]);
+            setPlayingRange([startTime, endTime]);
+            setCurrentModaptsTime([startTime + 0.00001, endTime - 0.00001]);
 
             return;
           }
@@ -331,8 +350,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   }, [isPlayingRange, currentTime, playingRange]);
 
   return (
-    <div className="w-[80%]">
-      <video ref={videoRef} src={videoSrc} />
+    <div className="w-[85%] mt-8">
+      <video ref={videoRef} src={videoSrc} className="" />
       <div
         className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"
         ref={progressRef}
@@ -353,7 +372,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
           />
         </div>
       </div>
-      <div className=" flex">
+      <div className="flex">
         <div className="h-10 w-3/4 pl-20 flex justify-center items-center">
           <button className={`m-2`} onClick={() => rewind(1)}>
             <FontAwesomeIcon icon={faReply} size="lg" />
@@ -366,11 +385,11 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
             className={`m-2 font-mono ${isInputMode ? "hidden" : "block"}`}
             onClick={handleTimeSpanClick}
           >
-            {videoRef.current ? formatTime(currentTime) : "00:00:00"}
+            {videoRef.current ? formatTime(currentTime) : "0:00:00"}
           </span>
           {isInputMode && (
             <input
-              className="m-2 w-24 font-mono border p-1 text-black bg-white"
+              className="m-2 w-18 font-mono border p-1 text-black bg-white"
               type="text"
               value={inputTime}
               onChange={handleInputChange}
@@ -384,7 +403,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
           </button>
 
           <div
-            className={`ml-5 ${
+            className={`ml-2 ${
               isPlayingRange ? "bg-white rounded bg-opacity-50" : ""
             }`}
           >
@@ -392,7 +411,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
               <FontAwesomeIcon icon={faRepeat} size="lg" />
             </button>
           </div>
-          <div className="ml-3">
+          <div className="ml-2">
             <div>
               <select
                 className="px-3 py-2 bg-transparent text-white w-20"
@@ -413,7 +432,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
         </div>
 
         <div
-          className={`w-14 ml-2 rounded-lg flex items-center justify-center`}
+          className={`w-14 ml-10 rounded-lg flex items-center justify-center`}
           style={{ backgroundColor: colormap(currentModapts) }}
         >
           <h2 className="font-mono text-white">{currentModapts}</h2>
