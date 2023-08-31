@@ -23,9 +23,7 @@ export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [openState, setOpenState] = useState(false);
-  const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(
-    null
-  );
+  
   const [scrollPosition, setScrollPosition] = useState<number | null>(null);
   const timecellRefs = useRef([]);
   const [totalWidth, setTotalWidth] = useState(0);
@@ -40,6 +38,16 @@ export default function VideoTimeline() {
   const mouseClickRef = useRef(false);
   const [scrolledTime, setScrolledTime] = useState(0);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  //popover value state
+  const [popoverIndex, setPopoverIndex] = useState<number | null>(
+    null
+  );
+  const [popoverIn, setPopoverIn] = useState("");
+  const [popoverOut, setPopoverOut] = useState("");
+  const [popoverLabel, setPopoverLabel] = useState("");
+
+
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickPopoverOutside);
@@ -206,21 +214,21 @@ export default function VideoTimeline() {
   };
 
   useEffect(() => {
-    // console.log("selectedCellIndex:", selectedCellIndex);
+    // console.log("popoverIndex:", popoverIndex);
 
-    if (selectedCellIndex !== null) {
-      // console.log(timecellRefs.current[selectedCellIndex])
+    if (popoverIndex !== null) {
+      // console.log(timecellRefs.current[popoverIndex])
       let left = 0;
-      for (let i = 0; i < selectedCellIndex; i++) {
+      for (let i = 0; i < popoverIndex; i++) {
         if (timecellRefs.current[i].current) {
           left += timecellRefs.current[i].current.state.width;
           left += 10;
         }
       }
-      left += timecellRefs.current[selectedCellIndex].current.state.width / 2;
+      left += timecellRefs.current[popoverIndex].current.state.width / 2;
       setPopoverLeft(left);
     }
-  }, [selectedCellIndex]);
+  }, [popoverIndex]);
 
   function calculateLeftPosition(index: number) {
     const base = timeStringToSeconds(csvData[index]["In"]) * 500;
@@ -499,12 +507,20 @@ export default function VideoTimeline() {
     mouseClickRef.current = false;
   };
 
+  const handlePopoverSave = () => {
+    if (popoverIndex !== null) {
+      editTimeline(popoverIndex, popoverIn, popoverOut, popoverLabel);
+      setIsPopoverOpen(false);
+    }
+  }
+
   return (
-    <div className="relative w-full h-full pt-10">
+    <div className="relative w-full h-full pt-5">
       <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
       <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">
         {videoElement?.paused ? secondsToTimeString(scrolledTime) : secondsToTimeString(currentTime)}
-        </div>       <div
+        </div>
+      <div
         className="w-full relative overflow-x-scroll flex h-[10rem]"
         id="scrollableTimelineContainer"
         ref={containerRef}
@@ -533,7 +549,10 @@ export default function VideoTimeline() {
                 key={rowIndex}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setSelectedCellIndex(rowIndex);
+                  setPopoverIn(row["In"]);
+                  setPopoverOut(row["Out"]);
+                  setPopoverLabel(row["Modapts"]);
+                  setPopoverIndex(rowIndex);
                   setIsPopoverOpen(true);
                 }}
                 onClick={(e) => {
@@ -643,7 +662,7 @@ export default function VideoTimeline() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             > */}
-          {selectedCellIndex !== null && isPopoverOpen && (
+          {popoverIndex !== null && isPopoverOpen && (
             <div className="relative">
               <Popover.Panel
                 static
@@ -656,34 +675,38 @@ export default function VideoTimeline() {
                   <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
                     <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
                       <div className="flex flex-row">
-                        <div>{selectedCellIndex + 1}</div>
-                        {csvData[selectedCellIndex]["Modapts"]}
+                        <div>{popoverIndex + 1}</div>
+                        {/* {csvData[popoverIndex]["Modapts"]} */}
                         <input
                           className="text-sm p-1 w-full"
-                          placeholder={csvData[selectedCellIndex]["Modapts"]}
+                          placeholder={csvData[popoverIndex]["Modapts"]}
+                          onChange={(e) => {setPopoverLabel(e.target.value)}}
+                          value={popoverLabel}
                         ></input>
                       </div>
                       <div className="flex text-sm font-semibold gap-3 mt-2">
                         <div className="flex-1">
                           In
-                          {/* <div>{csvData[selectedCellIndex]["In"]}</div> */}
+                          {/* <div>{csvData[popoverIndex]["In"]}</div> */}
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
-                            placeholder={csvData[selectedCellIndex]["In"]}
+                            placeholder={csvData[popoverIndex]["In"]}
+                            onChange={(e) => {setPopoverIn(e.target.value)}}
                           ></input>
                         </div>
                         <div className="flex-1">
                           Out
-                          {/* <div>{csvData[selectedCellIndex]["Out"]}</div> */}
+                          {/* <div>{csvData[popoverIndex]["Out"]}</div> */}
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
-                            placeholder={csvData[selectedCellIndex]["Out"]}
+                            placeholder={csvData[popoverIndex]["Out"]}
+                            onChange={e => {setPopoverOut(e.target.value)}}
                           ></input>
                         </div>
                         <div className="flex-1">
                           Duration
                           <div className="mt-1 p-1 font-normal">
-                            {subtractTimes(csvData[selectedCellIndex]["Out"], csvData[selectedCellIndex]["In"])}
+                            {subtractTimes(csvData[popoverIndex]["Out"], csvData[popoverIndex]["In"])}
                           </div>
                         </div>
                       </div>
@@ -691,7 +714,7 @@ export default function VideoTimeline() {
                       <div className="mt-4 text-sm font-semibold">
                         Top-K
                         <div className="flex gap-3 mt-2">
-                          {csvData[selectedCellIndex]["Topk"]?.map(
+                          {csvData[popoverIndex]["Topk"]?.map(
                             (topk, index) => (
                               <div
                                 key={index}
@@ -699,6 +722,7 @@ export default function VideoTimeline() {
                                 style={{
                                   backgroundColor: topKColormap(topk.Modapts),
                                 }}
+                                onClick={() => setPopoverLabel(topk.Modapts)}
                               >
                                 <div className="flex flex-row text-white">
                                   <div>{topk.Modapts}</div>
@@ -717,13 +741,16 @@ export default function VideoTimeline() {
                           className="flex mx-3"
                           onClick={() => {
                             setIsPopoverOpen(false);
-                            setSelectedCellIndex(null);
+                            setPopoverIndex(null);
+                            setPopoverIn("");
+                            setPopoverOut("");
+                            setPopoverLabel("");
                             close();
                           }}
                         >
                           CLOSE
                         </button>
-                        <button className="flex mx-3">SAVE</button>
+                        <button className="flex mx-3" onClick={handlePopoverSave}>SAVE</button>
                         </div>
                       </div>
                     </div>
