@@ -70,7 +70,7 @@ export default function VideoTimeline() {
       setPopoverIn("");
       setPopoverOut("");
       setPopoverLabel("");
-      
+
       // console.log("You clicked outside of me!");
     }
   };
@@ -848,28 +848,6 @@ function subtractTimes(time1: string, time2: string): string {
   return secondsToTimeString(ms1 - ms2);
 }
 
-// function timeToMilliseconds(duration: number): string {
-//   let absoluteDuration = Math.abs(duration);
-
-//   const frames = Math.round(((absoluteDuration % 1000) * 60) / 1000);
-//   const seconds = Math.floor((absoluteDuration / 1000) % 60);
-//   const minutes = Math.floor((absoluteDuration / (1000 * 60)) % 60);
-
-//   return `${String(minutes).padStart(1, "0")}:${String(seconds).padStart(
-//     2,
-//     "0"
-//   )}:${String(frames).padStart(2, "0")}`;
-// }
-
-// function timeStringToSeconds(timeString: string): number {
-//   if (!timeString) return 0;
-//   const timeArray = timeString.split(":");
-//   const minute = parseInt(timeArray[0]);
-//   const second = parseInt(timeArray[1]);
-//   const frame = parseInt(timeArray[2]);
-//   //console.log(minute, second, frame)
-//   return minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
-// }
 
 function secondsToTimeString(seconds: number): string {
   let absoluteSeconds = Math.abs(seconds);
