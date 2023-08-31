@@ -1,5 +1,17 @@
 "use client";
-import { useEffect, useState, Fragment, createRef, useRef, JSXElementConstructor, Key, PromiseLikeOfReactNode, ReactElement, ReactNode, ReactPortal } from "react";
+import {
+  useEffect,
+  useState,
+  Fragment,
+  createRef,
+  useRef,
+  JSXElementConstructor,
+  Key,
+  PromiseLikeOfReactNode,
+  ReactElement,
+  ReactNode,
+  ReactPortal,
+} from "react";
 import { Resizable } from "re-resizable";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
@@ -24,7 +36,9 @@ export default function VideoTimeline() {
   const initialLeft = useRef(0);
   const initialWidth = useRef(0);
   const popoverRef = useRef();
+  const containerRef = useRef();
   const mouseClickRef = useRef(false);
+  const [scrolledTime, setScrolledTime] = useState(0);
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickPopoverOutside);
@@ -34,7 +48,11 @@ export default function VideoTimeline() {
     };
   }, []);
 
-  const handleClickPopoverOutside = (event: { target: any; preventDefault: () => void; stopPropagation: () => void; }) => {
+  const handleClickPopoverOutside = (event: {
+    target: any;
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
     if (popoverRef.current && !popoverRef.current.contains(event.target)) {
       event.preventDefault();
       event.stopPropagation();
@@ -101,6 +119,84 @@ export default function VideoTimeline() {
     }
   }, [currentTime, csvData]);
 
+  const handleCellClick = (index) => {
+    // go to cell's time
+    // const row = csvData[index];
+    // const startTime = timeToMilliseconds(row["In"]);
+
+    
+
+    // scroll
+    const element = document.querySelector(`.timeline-item-${index}`);
+    const container = document.getElementById("scrollableTimelineContainer");
+
+    const elementRect = element.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    const scrollLeftPosition = elementRect.left -
+            containerRect.left +
+            container.scrollLeft -
+            containerRect.width / 2
+
+    // container.scrollLeft = scrollLeftPosition;
+    container.scrollTo({
+      left: scrollLeftPosition ,
+      behavior: "smooth",
+    })
+
+    const row = csvData[index];
+    const startTime = timeToMilliseconds(row["In"]) / 1000
+    setTimeout(() => {
+    if (videoElement) {
+      videoElement.currentTime = startTime;
+      setCurrentTime(startTime);
+    } }, 500)
+
+  }
+
+  const handleScroll = () => {
+    const scrollPosition = containerRef.current.scrollLeft;
+    console.log(scrollPosition);
+    // scroll position to current time
+
+    const timeArray = csvData.map((row) => {
+      const startTime = timeToMilliseconds(row["In"]);
+      const endTime = timeToMilliseconds(row["Out"]);
+      const duration = endTime - startTime;
+      return duration / 5;
+    });
+
+    let accumulatedWidth = 0;
+  let accumulatedTime = 0;
+
+  for (let i = 0; i < timeArray.length; i++) {
+    const elementWidth = timeArray[i] * 5;
+
+    // If the accumulated width plus this element's width surpasses the scroll position
+    if (accumulatedWidth + elementWidth > scrollPosition) {
+      // Get the width of the part of the element that's visible
+      const partialWidth = scrollPosition - accumulatedWidth;
+      console.log(elementWidth)
+
+      // Convert this partial width to its corresponding time duration
+      const partialTime = (partialWidth / elementWidth) * (timeArray[i] * 5);
+
+      console.log(MillisecondsTotime(accumulatedTime + partialTime))
+      setScrolledTime(accumulatedTime + partialTime);
+      return;
+    }
+
+    accumulatedWidth += elementWidth;          // Add the width of the current element
+    accumulatedTime += timeArray[i] * 5;       // Add the time of the current element
+
+    accumulatedWidth += 10;  // Add the 10-pixel gap
+  }
+
+  // If you're here, it means the scroll position is beyond the last element
+  setScrolledTime(accumulatedTime)
+  // return accumulatedTime;
+  };
+
   useEffect(() => {
     // console.log("selectedCellIndex:", selectedCellIndex);
 
@@ -117,7 +213,7 @@ export default function VideoTimeline() {
       setPopoverLeft(left);
     }
   }, [selectedCellIndex]);
-   
+
   function calculateLeftPosition(index: number) {
     const base = timeToMilliseconds(csvData[index]["In"]) / 5;
     const margin = index * 10; // 2px margin between each timeline
@@ -129,23 +225,23 @@ export default function VideoTimeline() {
     newIn: string,
     newOut: string,
     newLabel: string
-    ) => {
-      const newCsvData = JSON.parse(JSON.stringify(csvData));
-      const oldIn = newCsvData[index].In;
-      const oldOut = newCsvData[index].Out;
-      
-      const newInTime = timeToMilliseconds(newIn);
-      const oldInTime = timeToMilliseconds(oldIn);
-      adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
+  ) => {
+    const newCsvData = JSON.parse(JSON.stringify(csvData));
+    const oldIn = newCsvData[index].In;
+    const oldOut = newCsvData[index].Out;
 
-      const newOutTime = timeToMilliseconds(newOut);
-      const oldOutTime = timeToMilliseconds(oldOut);
-      adjustRightTimeline(index, newOutTime - oldOutTime, newCsvData);
+    const newInTime = timeToMilliseconds(newIn);
+    const oldInTime = timeToMilliseconds(oldIn);
+    adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
 
-      newCsvData[index].label = newLabel;
-      setCSVData(newCsvData);
-    };
-    
+    const newOutTime = timeToMilliseconds(newOut);
+    const oldOutTime = timeToMilliseconds(oldOut);
+    adjustRightTimeline(index, newOutTime - oldOutTime, newCsvData);
+
+    newCsvData[index].label = newLabel;
+    setCSVData(newCsvData);
+  };
+
   const adjustTimeline = (
     index: number,
     newWidth: number,
@@ -165,18 +261,18 @@ export default function VideoTimeline() {
     setCSVData(newCsvData);
   };
 
-  const adjustLeftTimeline = (index: number, deltaDuration: number, newCsvData: any) => {
+  const adjustLeftTimeline = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any
+  ) => {
     if (deltaDuration >= 0) {
       // Left resize logic
       handleLeftIncrease(index, deltaDuration, newCsvData);
-    }
-    else {
+    } else {
       handleLeftDecrease(index, deltaDuration, newCsvData);
     }
-    if (
-      index - 1 >= 0 &&
-      newCsvData[index - 1].Out !== newCsvData[index].In
-    ) {
+    if (index - 1 >= 0 && newCsvData[index - 1].Out !== newCsvData[index].In) {
       // adjust the previous timeline's out time to the current timeline's in time
       newCsvData[index - 1].Out = newCsvData[index].In;
       newCsvData[index - 1].Duration = subtractTimes(
@@ -186,7 +282,11 @@ export default function VideoTimeline() {
     }
   };
 
-  const handleLeftIncrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+  const handleLeftIncrease = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any[]
+  ) => {
     // when resizing to the left, it should overlap the previous timelines
     const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
@@ -221,7 +321,11 @@ export default function VideoTimeline() {
     );
   };
 
-  const handleLeftDecrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+  const handleLeftDecrease = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any[]
+  ) => {
     const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
     if (oldDuration + deltaDuration <= 60) {
       // less than half modapts (129ms)
@@ -251,13 +355,16 @@ export default function VideoTimeline() {
     }
   };
 
-  const adjustRightTimeline = (index: number, deltaDuration: number, newCsvData: any) => {
+  const adjustRightTimeline = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any
+  ) => {
     // console.log("adjustTimeline before- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
     if (deltaDuration >= 0) {
       // Left resize logic
       handleRightIncrease(index, deltaDuration, newCsvData);
-    }
-    else {
+    } else {
       handleRightDecrease(index, deltaDuration, newCsvData);
     }
     if (
@@ -273,7 +380,11 @@ export default function VideoTimeline() {
     }
   };
 
-  const handleRightIncrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+  const handleRightIncrease = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any[]
+  ) => {
     // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
     const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
@@ -298,10 +409,7 @@ export default function VideoTimeline() {
         newCsvData[i].Duration = MillisecondsTotime(
           nextDuration - remainingDuration
         );
-        newCsvData[i].Out = addTimes(
-          newCsvData[i].In,
-          newCsvData[i].Duration
-        );
+        newCsvData[i].Out = addTimes(newCsvData[i].In, newCsvData[i].Duration);
         remainingDuration = 0;
       }
     }
@@ -314,7 +422,11 @@ export default function VideoTimeline() {
     );
   };
 
-  const handleRightDecrease = (index: number, deltaDuration: number, newCsvData: any[]) => {
+  const handleRightDecrease = (
+    index: number,
+    deltaDuration: number,
+    newCsvData: any[]
+  ) => {
     const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
     if (oldDuration + deltaDuration <= 60) {
       // less than half modapts (129ms)
@@ -342,31 +454,31 @@ export default function VideoTimeline() {
       newCsvData.splice(index + 1, 0, blankSpace);
     }
   };
-  
+
   const isInCurrentTime = (start: string, end: string) => {
     const startTimeMillis = timeToMilliseconds(start);
     const endTimeMillis = timeToMilliseconds(end);
     const _currentTime = currentTime * 1000;
 
-    return _currentTime >= startTimeMillis && _currentTime <= endTimeMillis;
+    return _currentTime >= startTimeMillis && _currentTime < endTimeMillis;
   };
 
-  const handleMouseMove = (e: { target: { getBoundingClientRect: () => any; style: { cursor: string; }; }; clientX: number; }) => {
+  const handleMouseMove = (e: {
+    target: { getBoundingClientRect: () => any; style: { cursor: string } };
+    clientX: number;
+  }) => {
     const rect = e.target.getBoundingClientRect();
     const xPos = e.clientX - rect.left;
     const boundaryTolerance = 5; // distance in pixels near the edge
-  
+
     if (mouseClickRef.current) {
       e.target.style.cursor = "col-resize";
-    }
-    else {
+    } else {
       if (xPos <= boundaryTolerance) {
         e.target.style.cursor = "w-resize"; // Cursor like "<|"
-      } 
-      else if (xPos >= rect.width - boundaryTolerance) {
+      } else if (xPos >= rect.width - boundaryTolerance) {
         e.target.style.cursor = "e-resize"; // Cursor like "|>"
-      }
-      else {
+      } else {
         e.target.style.cursor = "grab";
       }
     }
@@ -375,7 +487,7 @@ export default function VideoTimeline() {
   const handleMouseDown = (e: any) => {
     mouseClickRef.current = true;
   };
-  
+
   const handleMouseUp = (e: any) => {
     mouseClickRef.current = false;
   };
@@ -383,116 +495,126 @@ export default function VideoTimeline() {
   return (
     <div className="relative w-full h-full pt-10">
       <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
-      {/* <div className="absolute left-[50%] top-32 transform -translate-x-[50%] font-mono">{secondsToTime(currentTime)}</div>       */}
-    <div
-      className="w-full relative overflow-x-scroll flex h-[10rem]"
-      id="scrollableTimelineContainer"
-    > 
-      <div className="relative w-[50%]" ref={leftMarginRef}></div>
-      <Popover className="flex-1 relative">
-        {/* {({close}) => } */}
-        <Popover.Button
-          onKeyDown={(e) => {
-            if (e.key === " ") {
+      <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">{scrolledTime}</div>      
+      <div
+        className="w-full relative overflow-x-scroll flex h-[10rem]"
+        id="scrollableTimelineContainer"
+        ref={containerRef}
+        onScroll={handleScroll}
+      >
+        <div className="relative w-[50%]" ref={leftMarginRef}></div>
+        <Popover className="flex-1 relative">
+          {/* {({close}) => } */}
+          <Popover.Button
+            onKeyDown={(e) => {
+              if (e.key === " ") {
+                e.preventDefault();
+              }
+            }}
+            onClick={() => {}}
+            className="relative flex-1 w-full"
+            onFocus={(e) => {
               e.preventDefault();
-            }
-          }}
-          onClick={() => {}}
-          className="relative flex-1 w-full"
-          onFocus={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }}
-          // ref={null}
-        >
-          {csvData.map((row, rowIndex) => (
-            <div
-              key={rowIndex}
-              onClick={() => setSelectedCellIndex(rowIndex)}
-                  className=""
-                  onMouseMove={handleMouseMove} 
-                  onMouseDown={handleMouseDown} 
-                  onMouseUp={handleMouseUp}  
-                >
-                  <Resizable
-                    key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
-                      row["Duration"]
-                    )}`}
-                    defaultSize={{
-                      width: timeToMilliseconds(row["Duration"]) / 5,
-                      height: 70,
-                    }}
-                    enable={{
-                      top: false,
-                      right: true,
-                      bottom: false,
-                      left: true,
-                      topRight: false,
-                      bottomRight: false,
-                      bottomLeft: false,
-                      topLeft: false,
-                    }}
-                    onResizeStart={(e, direction, ref) => {
-                      resizingRef.current = true;
-                      initialLeft.current = parseFloat(ref.style.left);
-                      initialWidth.current = parseFloat(ref.style.width);
-                      ref.style.zIndex = "10";
-                      ref.style.opacity = "0.65";
-                    
-                      const timeKey = direction === "left" ? "In" : "Out";
-                      
-                      if (videoElement) {
-                        videoElement.currentTime = timeToMilliseconds(row[timeKey]) / 1000;
-                        setCurrentTime(videoElement.currentTime);
-                      }
-                    }}
-                    onResize={(e, direction, ref, d) => {
-                      const newWidth = initialWidth.current + d.width;
-                      const timeKey = direction === "left" ? "In" : "Out";
-                      if (direction === "left") {
-                        ref.style.left = `${initialLeft.current - d.width}px`;
-                      }
-                      ref.style.width = `${newWidth}px`;
-                      const adjustingTime = timeToMilliseconds(row[timeKey]) + (direction === "left" ? -1 : 1) * ((newWidth - initialWidth.current) * 5);
-                      if (videoElement) {
-                        videoElement.currentTime = adjustingTime / 1000;
-                        setCurrentTime(videoElement.currentTime);
-                      }
-                    }}
-                    onResizeStop={(e, direction, ref) => {
-                      ref.style.zIndex = "1";
-                      ref.style.opacity = "1";
-                      adjustTimeline(rowIndex, ref.offsetWidth, direction);
-                      resizingRef.current = false;
-                }}
-                style={{
-                  left: `${calculateLeftPosition(rowIndex)}px`,
-                  position: "absolute",
-                }}
-                ref={timecellRefs.current[rowIndex]}
+              e.stopPropagation();
+              return;
+            }}
+            // ref={null}
+          >
+            {csvData.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                // onClick={() => setSelectedCellIndex(rowIndex)}
+                onClick={() => handleCellClick(rowIndex)}
+                className=""
+                onMouseMove={handleMouseMove}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
               >
-                <div
-                  className={ 
-                    `rounded py-5 px-1 flex items-center justify-center ${
-                    isInCurrentTime(row["In"], row["Out"]) &&
-                    resizingRef.current === false
-                      ? "highlighted border-slate-300 border-2"
-                      : `border-2 ${row["Modapts"] === '-' ? "border-slate-700" : "border-transparent"}  `
-                  } timeline-item-${rowIndex}`}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: colormap(row["Modapts"]),
+                <Resizable
+                  key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
+                    row["Duration"]
+                  )}`}
+                  defaultSize={{
+                    width: timeToMilliseconds(row["Duration"]) / 5,
+                    height: 70,
                   }}
+                  enable={{
+                    top: false,
+                    right: true,
+                    bottom: false,
+                    left: true,
+                    topRight: false,
+                    bottomRight: false,
+                    bottomLeft: false,
+                    topLeft: false,
+                  }}
+                  onResizeStart={(e, direction, ref) => {
+                    resizingRef.current = true;
+                    initialLeft.current = parseFloat(ref.style.left);
+                    initialWidth.current = parseFloat(ref.style.width);
+                    ref.style.zIndex = "10";
+                    ref.style.opacity = "0.65";
+
+                    const timeKey = direction === "left" ? "In" : "Out";
+
+                    if (videoElement) {
+                      videoElement.currentTime =
+                        timeToMilliseconds(row[timeKey]) / 1000;
+                      setCurrentTime(videoElement.currentTime);
+                    }
+                  }}
+                  onResize={(e, direction, ref, d) => {
+                    const newWidth = initialWidth.current + d.width;
+                    const timeKey = direction === "left" ? "In" : "Out";
+                    if (direction === "left") {
+                      ref.style.left = `${initialLeft.current - d.width}px`;
+                    }
+                    ref.style.width = `${newWidth}px`;
+                    const adjustingTime =
+                      timeToMilliseconds(row[timeKey]) +
+                      (direction === "left" ? -1 : 1) *
+                        ((newWidth - initialWidth.current) * 5);
+                    if (videoElement) {
+                      videoElement.currentTime = adjustingTime / 1000;
+                      setCurrentTime(videoElement.currentTime);
+                    }
+                  }}
+                  onResizeStop={(e, direction, ref) => {
+                    ref.style.zIndex = "1";
+                    ref.style.opacity = "1";
+                    adjustTimeline(rowIndex, ref.offsetWidth, direction);
+                    resizingRef.current = false;
+                  }}
+                  style={{
+                    left: `${calculateLeftPosition(rowIndex)}px`,
+                    position: "absolute",
+                  }}
+                  ref={timecellRefs.current[rowIndex]}
                 >
-                  {row["Modapts"]}
-                </div>
-              </Resizable>
-            </div>
-          ))}
-        </Popover.Button>
-        {/* <Transition
+                  <div
+                    className={`rounded py-5 px-1 flex items-center justify-center ${
+                      isInCurrentTime(row["In"], row["Out"]) &&
+                      resizingRef.current === false
+                        ? "highlighted border-slate-300 border-2"
+                        : `border-2 ${
+                            row["Modapts"] === "-"
+                              ? "border-slate-700"
+                              : "border-transparent"
+                          }  `
+                    } timeline-item-${rowIndex}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      backgroundColor: colormap(row["Modapts"]),
+                    }}
+                  >
+                    {row["Modapts"]}
+                  </div>
+                </Resizable>
+              </div>
+            ))}
+          </Popover.Button>
+          {/* <Transition
               as={Fragment}
               show={false}
               enter="transition ease-out duration-200"
@@ -522,17 +644,24 @@ export default function VideoTimeline() {
                         <div className="flex-1">
                           In
                           {/* <div>{csvData[selectedCellIndex]["In"]}</div> */}
-                          <input className="text-sm p-1 w-full" placeholder={csvData[selectedCellIndex]["In"]}></input>
+                          <input
+                            className="text-sm p-1 w-full"
+                            placeholder={csvData[selectedCellIndex]["In"]}
+                          ></input>
                         </div>
                         <div className="flex-1">
                           Out
                           {/* <div>{csvData[selectedCellIndex]["Out"]}</div> */}
-                          <input className="text-sm p-1 w-full" placeholder={csvData[selectedCellIndex]["Out"]}></input>
+                          <input
+                            className="text-sm p-1 w-full"
+                            placeholder={csvData[selectedCellIndex]["Out"]}
+                          ></input>
                         </div>
                         <div className="flex-1">
                           Duration
-                          <div className="p-1">{csvData[selectedCellIndex]["Duration"]}</div>
-                          
+                          <div className="p-1">
+                            {csvData[selectedCellIndex]["Duration"]}
+                          </div>
                         </div>
                       </div>
 
@@ -644,4 +773,12 @@ function secondsToTime(seconds: number): string {
   return `${String(minutes).padStart(1, "0")}:${String(
     remainingSeconds
   ).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
+}
+
+function timeToSeconds(timeString: string): number {
+  const timeArray = timeString.split(":");
+  const minute = parseInt(timeArray[0]);
+  const second = parseInt(timeArray[1]);
+  const frame = parseInt(timeArray[2]);
+  return minute * 60 + second + frame / 60;
 }
