@@ -20,7 +20,7 @@ export default function VideoTimeline() {
   const leftMarginRef = useRef<HTMLDivElement>();
   const [popoverLeft, setPopoverLeft] = useState(0);
   const resizingRef = useRef(false);
-  const videoElement = useRecoilValue(videoRefState)
+  const videoElement = useRecoilValue(videoRefState);
   const initialLeft = useRef(0);
   const initialWidth = useRef(0);
   const popoverRef = useRef();
@@ -51,7 +51,7 @@ export default function VideoTimeline() {
     timecellRefs.current.forEach((ref, idx) => {
       if (ref.current) {
         width += ref.current.state.width;
-        width += 10;
+        if (idx !== timecellRefs.current.length - 1) width += 10;
       }
     });
 
@@ -502,76 +502,81 @@ export default function VideoTimeline() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             > */}
-        {selectedCellIndex !== null && (
-          <div className="relative">
-            <Popover.Panel
-              // static
-              // key={rowIndex}
-              ref={popoverRef}
-              className={`absolute z-[100] mt-6 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
-              style={{ left: `${popoverLeft}px` }}
-            >
-              {({ close }) => (
-                <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
-                  <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
-                    <div>
-                      {selectedCellIndex} :{" "}
-                      {csvData[selectedCellIndex]["Modapts"]}
-                    </div>
-                    <div className="flex text-sm">
-                      <div className="flex-1">
-                        In
-                        <div>{csvData[selectedCellIndex]["In"]}</div>
+          {selectedCellIndex !== null && (
+            <div className="relative">
+              <Popover.Panel
+                // static
+                // key={rowIndex}
+                ref={popoverRef}
+                className={`absolute z-[100] mt-6 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
+                style={{ left: `${popoverLeft}px` }}
+              >
+                {({ close }) => (
+                  <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
+                    <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
+                      <div>
+                        {selectedCellIndex} :{" "}
+                        {csvData[selectedCellIndex]["Modapts"]}
                       </div>
-                      <div className="flex-1">
-                        Out
-                        <div>{csvData[selectedCellIndex]["Out"]}</div>
+                      <div className="flex text-sm">
+                        <div className="flex-1">
+                          In
+                          {/* <div>{csvData[selectedCellIndex]["In"]}</div> */}
+                          <input className="text-sm p-1 w-full" placeholder={csvData[selectedCellIndex]["In"]}></input>
+                        </div>
+                        <div className="flex-1">
+                          Out
+                          {/* <div>{csvData[selectedCellIndex]["Out"]}</div> */}
+                          <input className="text-sm p-1 w-full" placeholder={csvData[selectedCellIndex]["Out"]}></input>
+                        </div>
+                        <div className="flex-1">
+                          Duration
+                          <div className="p-1">{csvData[selectedCellIndex]["Duration"]}</div>
+                          
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        Duration
-                        <div>{csvData[selectedCellIndex]["Duration"]}</div>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 text-sm">
-                      Top-K
-                      <div className="flex gap-3">
-                        {csvData[selectedCellIndex]["Topk"]?.map(
-                          (topk: { Modapts: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | PromiseLikeOfReactNode | null | undefined; Score: number; }, index: Key | null | undefined) => (
-                            <div key={index} className="flex-1 border">
-                              <div>
-                                {" "}
-                                {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                      <div className="mt-4 text-sm">
+                        Top-K
+                        <div className="flex gap-3">
+                          {csvData[selectedCellIndex]["Topk"]?.map(
+                            (topk, index) => (
+                              <div key={index} className="flex-1 border">
+                                <div>
+                                  {" "}
+                                  {topk.Modapts} {topk.Score.toFixed(2)}{" "}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        )}
+                            )
+                          )}
+                        </div>
                       </div>
+
+                      <button
+                        onClick={() => {
+                          close(
+                            timecellRefs.current[selectedCellIndex].current
+                          );
+                        }}
+                      >
+                        close
+                      </button>
                     </div>
-                    
-                  <button
-                    onClick={() => {
-                      close(timecellRefs.current[selectedCellIndex].current);
-                    }}
-                  >
-                    close
-                  </button>
                   </div>
-                </div>
-              )}
-            </Popover.Panel>
-          </div>
-        )}
-        {/* </Transition> */}
-      </Popover>
-      {/* </div> */}
-      <div
-        className={`absolute h-1`}
-        style={{ left: totalWidth, width: "50%" }}
-      >
-        {" "}
+                )}
+              </Popover.Panel>
+            </div>
+          )}
+          {/* </Transition> */}
+        </Popover>
+        {/* </div> */}
+        <div
+          className={`absolute h-1`}
+          style={{ left: totalWidth, width: "50%" }}
+        >
+          {" "}
+        </div>
       </div>
-    </div>
     </div>
   );
 }
@@ -636,9 +641,7 @@ function secondsToTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
   const frames = Math.round((seconds % 1) * 60);
-  return `${String(minutes).padStart(1, "0")}:${String(remainingSeconds).padStart(2, "0")}:${String(
-    frames
-  ).padStart(2, "0")}`;
+  return `${String(minutes).padStart(1, "0")}:${String(
+    remainingSeconds
+  ).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
 }
-
-  
