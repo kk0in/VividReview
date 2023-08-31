@@ -47,7 +47,7 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-slate-700 ">
       {isLoaded && (
         <>
           <div className="flex-grow flex flex-row h-1/2 max-h-1/2">

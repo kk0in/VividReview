@@ -14,7 +14,7 @@ import {
 import { getProject, getVideo, getKeypoint, getResult, updateResult } from "@/utils/api";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-import { CloudArrowUpIcon } from "@heroicons/react/24/solid";
+import { CloudArrowUpIcon, DocumentTextIcon, PencilSquareIcon, FilmIcon, CubeTransparentIcon } from "@heroicons/react/24/outline";
 
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -127,16 +127,53 @@ export default function Page({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {isLoading && <div>Loading Project Info...</div>}
-      {data?.project?.done === "done" && !isLoaded && (
-        <div>
-          {loadingVideo && "Loading Video..."}
-          <br />
-          {loadingKeypoint && "Loading Keypoint..."}
-          <br />
-          {loadingCSV && "Loading Result..."}
-          <br />
+    <div className="h-full flex items-center justify-center bg-gray-800 gap-10">
+      {isLoading && 
+        <div 
+          className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+        >
+            <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+              <PencilSquareIcon className="h-12 w-12 text-slate-400"/>
+              <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading<br/>Project Info...</div>
+            </div>
+          <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+        </div>
+      }
+      {true && true && (
+        <div className="flex items-center justify-center gap-10">
+          {loadingVideo && 
+            <div 
+              className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+                <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                  <FilmIcon className="h-12 w-12 text-slate-400"/>
+                  <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Video...</div>
+                </div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+          }
+          {loadingKeypoint && 
+            <div 
+              className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+                <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                  <CubeTransparentIcon className="h-12 w-12 text-slate-400"/>
+                  <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Keypoint...</div>
+                </div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+          }
+          {loadingCSV && 
+            <div 
+              className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+                <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                  <DocumentTextIcon className="h-12 w-12 text-slate-400"/>
+                  <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Result...</div>
+                </div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+          }
         </div>
       )}
       {isError && (
@@ -161,7 +198,7 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {isLoaded && (
+      {false && (
         <>
           <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
             <div className="bg-slate-900 p-4 text-white">
