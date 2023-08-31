@@ -342,8 +342,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   }, [isPlayingRange, currentTime, playingRange]);
 
   return (
-    <div className="w-[80%]">
-      <video ref={videoRef} src={videoSrc} />
+    <div className="w-[85%] mt-8">
+      <video ref={videoRef} src={videoSrc} className="" />
       <div
         className="h-2.5 my-1.5 cursor-pointer bg-stone-300 rounded w-full"
         ref={progressRef}
@@ -364,7 +364,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
           />
         </div>
       </div>
-      <div className=" flex">
+      <div className="flex">
         <div className="h-10 w-3/4 pl-20 flex justify-center items-center">
           <button className={`m-2`} onClick={() => rewind(1)}>
             <FontAwesomeIcon icon={faReply} size="lg" />
