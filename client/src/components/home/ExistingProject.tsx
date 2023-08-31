@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { getProjectList } from "@/utils/api";
+import { ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 
 interface ExistingrojectProps {
     setView: React.Dispatch<React.SetStateAction<string>>;
@@ -55,9 +56,14 @@ const ExistingProject: React.FC<ExistingrojectProps> = ({ setView }) => {
                             <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">{project.description}</td>
                             <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
                               {project.done ? (
-                                <Link href={`/dashboard/${project.id}`}>
-                                  Go to dashboard
-                                </Link>
+                                <button 
+                                  className="rounded-md bg-white border border-slate-200 px-2 py-2 text-sm text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
+                                  onClick={() => window.location.href = `/dashboard/${project.id}`}
+                                >
+                                  <div className="flex items-center justify-center text-slate-500 gap-3">
+                                    Go to dashboard
+                                  </div>
+                                </button>
                               ) : (
                                 "NOT DONE"
                               )}
@@ -72,7 +78,14 @@ const ExistingProject: React.FC<ExistingrojectProps> = ({ setView }) => {
           </div>
         </div>
       </div>
-      <button onClick={() => setView("select")}>go back</button>
+      <button 
+        className="rounded-md bg-white border border-slate-200 mt-4 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
+        onClick={() => setView("select")}
+      >
+        <div className="flex items-center justify-center text-slate-500 gap-3">
+          Back
+        </div>
+      </button>
     </div>
   );
 }
