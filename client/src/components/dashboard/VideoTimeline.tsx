@@ -154,47 +154,56 @@ export default function VideoTimeline() {
 
   }
 
-  const handleScroll = () => {
-    const scrollPosition = containerRef.current.scrollLeft;
-    console.log(scrollPosition);
-    // scroll position to current time
-
-    const timeArray = csvData.map((row) => {
+  function findRowIndexByTime(csvData, currentTime) {
+    let left = 0;
+    let right = csvData.length - 1;
+    
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const row = csvData[mid];
       const startTime = timeStringToSeconds(row["In"]);
       const endTime = timeStringToSeconds(row["Out"]);
-      const duration = endTime - startTime;
-      return duration;
-    });
-
-    let accumulatedWidth = 0;
-  let accumulatedTime = 0;
-
-  for (let i = 0; i < timeArray.length; i++) {
-    const elementWidth = timeArray[i] * 500;
-
-    // If the accumulated width plus this element's width surpasses the scroll position
-    if (accumulatedWidth + elementWidth > scrollPosition) {
-      // Get the width of the part of the element that's visible
-      const partialWidth = scrollPosition - accumulatedWidth;
-      console.log(elementWidth)
-
-      // Convert this partial width to its corresponding time duration
-      const partialTime = (partialWidth / elementWidth) * (timeArray[i] * 500);
-
-      // console.log(timeStringToSeconds(accumulatedTime + partialTime))
-      setScrolledTime(accumulatedTime + partialTime);
-      return;
+      
+      if (startTime <= currentTime && currentTime <= endTime) {
+        return mid;
+      }
+      
+      if (currentTime < startTime) {
+        right = mid - 1;
+      } else {
+        left = mid + 1;
+      }
     }
-
-    accumulatedWidth += elementWidth;          // Add the width of the current element
-    accumulatedTime += timeArray[i] * 500;       // Add the time of the current element
-
-    accumulatedWidth += 10;  // Add the 10-pixel gap
+    return -1;
   }
 
-  // If you're here, it means the scroll position is beyond the last element
-  setScrolledTime(accumulatedTime)
-  // return accumulatedTime;
+  const handleScroll = () => {
+    const container = document.getElementById("scrollableTimelineContainer");
+
+    if (container) {
+      // Step 1: Get the scroll position
+      const currentScrollPosition = container.scrollLeft;
+      
+      // Step 2: Calculate the visible range
+      const lastElement = csvData[csvData.length - 1];
+      const totalDuration = timeStringToSeconds(lastElement["Out"]);
+      const totalWidth = (totalDuration * 500) + (10 * (csvData.length - 1));
+      const tempCurrentTime = (currentScrollPosition / totalWidth) * totalDuration;
+      
+      // Step 3: Find the rowIndex and calculate the relative time
+      const rowIndex = findRowIndexByTime(csvData, tempCurrentTime);
+      if (rowIndex >= csvData.length || rowIndex < 0) {
+        setScrolledTime(tempCurrentTime);
+        return;
+      }
+      const elementWidth = timeStringToSeconds(csvData[rowIndex]["Duration"]) * 500;
+      const calculatePreviousWidth = (timeStringToSeconds(csvData[rowIndex]["In"]) * 500) + (10 * rowIndex);
+      const relativePosition = currentScrollPosition - calculatePreviousWidth;
+      const baseTime = timeStringToSeconds(csvData[rowIndex]["In"]);
+      const estimatedTime = (relativePosition / elementWidth) * timeStringToSeconds(csvData[rowIndex]["Duration"]) + baseTime;
+
+      setScrolledTime(estimatedTime);
+    }
   };
 
   useEffect(() => {
@@ -494,7 +503,9 @@ export default function VideoTimeline() {
   return (
     <div className="relative w-full h-full pt-10">
       <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
-      <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">{scrolledTime}</div>      
+      <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">
+        {videoElement?.paused ? secondsToTimeString(scrolledTime) : secondsToTimeString(currentTime)}
+        </div>      
       <div
         className="w-full relative overflow-x-scroll flex h-[10rem]"
         id="scrollableTimelineContainer"
