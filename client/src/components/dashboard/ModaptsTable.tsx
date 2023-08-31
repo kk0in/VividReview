@@ -148,7 +148,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
 
   return (
     <>
-      <div className="w-full h-full overflow-y-scroll" ref={tableContainerRef}>
+      <div className="w-full h-[90%] mt-5 overflow-y-scroll" ref={tableContainerRef}>
         <table className="w-full table-auto h-full">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
@@ -159,7 +159,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                   return (
                     <th
                       key={key}
-                      className="border-slate-600 font-medium px-3 py-3 text-slate-100 text-left"
+                      className="border-slate-600 font-medium px-2 py-2 text-slate-100 text-left"
                     >
                       {key}
                     </th>
@@ -183,7 +183,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                   return (
                     <td
                       key={cellIndex}
-                      className={`border-b border-slate-700 px-3 py-2 font-mono ${
+                      className={`border-b border-slate-700 px-2 py-[0.4rem] font-mono ${
                         rowIndex === highlightedRow
                           ? "text-slate-800"
                           : "text-slate-200"
