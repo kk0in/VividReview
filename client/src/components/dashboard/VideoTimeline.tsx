@@ -90,12 +90,12 @@ export default function VideoTimeline() {
         // Get time info from your csvData using rowIndex
         const row = csvData[rowIndex];
         if (row) {
-          const startTime = timeToMilliseconds(row["In"]);
-          const endTime = timeToMilliseconds(row["Out"]);
+          const startTime = timeStringToSeconds(row["In"]);
+          const endTime = timeStringToSeconds(row["Out"]);
           const duration = endTime - startTime;
 
           // Find out where the currentTime falls within the highlighted Modapts
-          const normalizedTime = (currentTime * 1000 - startTime) / duration;
+          const normalizedTime = (currentTime - startTime) / duration;
 
           const elementRect = element.getBoundingClientRect();
           const containerRect = container.getBoundingClientRect();
@@ -122,7 +122,7 @@ export default function VideoTimeline() {
   const handleCellClick = (index) => {
     // go to cell's time
     // const row = csvData[index];
-    // const startTime = timeToMilliseconds(row["In"]);
+    // const startTime = timeStringToSeconds(row["In"]);
 
     
 
@@ -145,7 +145,7 @@ export default function VideoTimeline() {
     })
 
     const row = csvData[index];
-    const startTime = timeToMilliseconds(row["In"]) / 1000
+    const startTime = timeStringToSeconds(row["In"]) 
     setTimeout(() => {
     if (videoElement) {
       videoElement.currentTime = startTime;
@@ -160,17 +160,17 @@ export default function VideoTimeline() {
     // scroll position to current time
 
     const timeArray = csvData.map((row) => {
-      const startTime = timeToMilliseconds(row["In"]);
-      const endTime = timeToMilliseconds(row["Out"]);
+      const startTime = timeStringToSeconds(row["In"]);
+      const endTime = timeStringToSeconds(row["Out"]);
       const duration = endTime - startTime;
-      return duration / 5;
+      return duration;
     });
 
     let accumulatedWidth = 0;
   let accumulatedTime = 0;
 
   for (let i = 0; i < timeArray.length; i++) {
-    const elementWidth = timeArray[i] * 5;
+    const elementWidth = timeArray[i] * 500;
 
     // If the accumulated width plus this element's width surpasses the scroll position
     if (accumulatedWidth + elementWidth > scrollPosition) {
@@ -179,15 +179,15 @@ export default function VideoTimeline() {
       console.log(elementWidth)
 
       // Convert this partial width to its corresponding time duration
-      const partialTime = (partialWidth / elementWidth) * (timeArray[i] * 5);
+      const partialTime = (partialWidth / elementWidth) * (timeArray[i] * 500);
 
-      console.log(MillisecondsTotime(accumulatedTime + partialTime))
+      // console.log(timeStringToSeconds(accumulatedTime + partialTime))
       setScrolledTime(accumulatedTime + partialTime);
       return;
     }
 
     accumulatedWidth += elementWidth;          // Add the width of the current element
-    accumulatedTime += timeArray[i] * 5;       // Add the time of the current element
+    accumulatedTime += timeArray[i] * 500;       // Add the time of the current element
 
     accumulatedWidth += 10;  // Add the 10-pixel gap
   }
@@ -215,7 +215,7 @@ export default function VideoTimeline() {
   }, [selectedCellIndex]);
 
   function calculateLeftPosition(index: number) {
-    const base = timeToMilliseconds(csvData[index]["In"]) / 5;
+    const base = timeStringToSeconds(csvData[index]["In"]) * 500;
     const margin = index * 10; // 2px margin between each timeline
     return base + margin; //+ margin;
   }
@@ -230,12 +230,12 @@ export default function VideoTimeline() {
     const oldIn = newCsvData[index].In;
     const oldOut = newCsvData[index].Out;
 
-    const newInTime = timeToMilliseconds(newIn);
-    const oldInTime = timeToMilliseconds(oldIn);
+    const newInTime = timeStringToSeconds(newIn);
+    const oldInTime = timeStringToSeconds(oldIn);
     adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
 
-    const newOutTime = timeToMilliseconds(newOut);
-    const oldOutTime = timeToMilliseconds(oldOut);
+    const newOutTime = timeStringToSeconds(newOut);
+    const oldOutTime = timeStringToSeconds(oldOut);
     adjustRightTimeline(index, newOutTime - oldOutTime, newCsvData);
 
     newCsvData[index].label = newLabel;
@@ -248,10 +248,10 @@ export default function VideoTimeline() {
     direction: string
   ) => {
     const newCsvData = JSON.parse(JSON.stringify(csvData));
-    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
-    const oldWidth = oldDuration / 5;
+    const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
+    const oldWidth = oldDuration * 500;
     const deltaWidth = newWidth - oldWidth;
-    const deltaDuration = deltaWidth * 5;
+    const deltaDuration = deltaWidth / 500;
 
     if (direction == "left") {
       adjustLeftTimeline(index, deltaDuration, newCsvData);
@@ -288,11 +288,11 @@ export default function VideoTimeline() {
     newCsvData: any[]
   ) => {
     // when resizing to the left, it should overlap the previous timelines
-    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
 
     for (let i = index - 1; i >= 0 && remainingDuration > 0; i--) {
-      const prevDuration = timeToMilliseconds(newCsvData[i].Duration);
+      const prevDuration = timeStringToSeconds(newCsvData[i].Duration);
       if (prevDuration <= remainingDuration) {
         remainingDuration -= prevDuration;
         newCsvData.splice(i, 1);
@@ -300,9 +300,9 @@ export default function VideoTimeline() {
       } else {
         newCsvData[i].Out = subtractTimes(
           newCsvData[i].Out,
-          MillisecondsTotime(remainingDuration)
+          secondsToTimeString(remainingDuration)
         );
-        newCsvData[i].Duration = MillisecondsTotime(
+        newCsvData[i].Duration = secondsToTimeString(
           prevDuration - remainingDuration
         );
         newCsvData[i].In = subtractTimes(
@@ -312,7 +312,7 @@ export default function VideoTimeline() {
         remainingDuration = 0;
       }
     }
-    newCsvData[index].Duration = MillisecondsTotime(
+    newCsvData[index].Duration = secondsToTimeString(
       oldDuration + deltaDuration - remainingDuration
     );
     newCsvData[index].In = subtractTimes(
@@ -326,30 +326,29 @@ export default function VideoTimeline() {
     deltaDuration: number,
     newCsvData: any[]
   ) => {
-    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
-    if (oldDuration + deltaDuration <= 60) {
+    const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
+    if (oldDuration + deltaDuration <= 0.065) {
       // less than half modapts (129ms)
       const blankSpace = newCsvData[index];
       blankSpace.Modapts = "-";
       newCsvData[index] = blankSpace;
     } else {
       // Right reducing logic
-      newCsvData[index].Duration = MillisecondsTotime(
+      newCsvData[index].Duration = secondsToTimeString(
         oldDuration + deltaDuration
       );
       newCsvData[index].In = subtractTimes(
         newCsvData[index].Out,
         newCsvData[index].Duration
       );
-
       const blankSpace = {
         Modapts: "-",
         In: subtractTimes(
           newCsvData[index].In,
-          MillisecondsTotime(deltaDuration)
+          secondsToTimeString(deltaDuration)
         ),
         Out: newCsvData[index].In,
-        Duration: MillisecondsTotime(deltaDuration),
+        Duration: secondsToTimeString(deltaDuration),
       };
       newCsvData.splice(index, 0, blankSpace);
     }
@@ -360,7 +359,7 @@ export default function VideoTimeline() {
     deltaDuration: number,
     newCsvData: any
   ) => {
-    // console.log("adjustTimeline before- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeToMilliseconds(newCsvData[index].In));
+    // console.log("adjustTimeline before- newCsvData: ", newCsvData[index], "newCsvData[index].In-mili: ", timeStringToSeconds(newCsvData[index].In));
     if (deltaDuration >= 0) {
       // Left resize logic
       handleRightIncrease(index, deltaDuration, newCsvData);
@@ -386,7 +385,8 @@ export default function VideoTimeline() {
     newCsvData: any[]
   ) => {
     // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
-    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
+    console.log(newCsvData[index])
+    const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
 
     for (
@@ -395,7 +395,7 @@ export default function VideoTimeline() {
       i++
     ) {
       // need to optimize?
-      const nextDuration = timeToMilliseconds(newCsvData[i].Duration);
+      const nextDuration = timeStringToSeconds(newCsvData[i].Duration);
 
       if (nextDuration <= remainingDuration) {
         remainingDuration -= nextDuration;
@@ -404,16 +404,16 @@ export default function VideoTimeline() {
       } else {
         newCsvData[i].In = addTimes(
           newCsvData[i].In,
-          MillisecondsTotime(remainingDuration)
+          secondsToTimeString(remainingDuration)
         );
-        newCsvData[i].Duration = MillisecondsTotime(
+        newCsvData[i].Duration = secondsToTimeString(
           nextDuration - remainingDuration
         );
         newCsvData[i].Out = addTimes(newCsvData[i].In, newCsvData[i].Duration);
         remainingDuration = 0;
       }
     }
-    newCsvData[index].Duration = MillisecondsTotime(
+    newCsvData[index].Duration = secondsToTimeString(
       oldDuration + deltaDuration - remainingDuration
     );
     newCsvData[index].Out = addTimes(
@@ -427,14 +427,14 @@ export default function VideoTimeline() {
     deltaDuration: number,
     newCsvData: any[]
   ) => {
-    const oldDuration = timeToMilliseconds(newCsvData[index].Duration);
-    if (oldDuration + deltaDuration <= 60) {
+    const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
+    if (oldDuration + deltaDuration <= 0.065) {
       // less than half modapts (129ms)
       const blankSpace = newCsvData[index];
       blankSpace.Modapts = "-";
       newCsvData[index] = blankSpace;
     } else {
-      newCsvData[index].Duration = MillisecondsTotime(
+      newCsvData[index].Duration = secondsToTimeString(
         oldDuration + deltaDuration
       );
       newCsvData[index].Out = addTimes(
@@ -447,20 +447,19 @@ export default function VideoTimeline() {
         In: newCsvData[index].Out,
         Out: addTimes(
           newCsvData[index].Out,
-          MillisecondsTotime(-deltaDuration)
+          secondsToTimeString(-deltaDuration)
         ),
-        Duration: MillisecondsTotime(-deltaDuration),
+        Duration: secondsToTimeString(-deltaDuration),
       };
       newCsvData.splice(index + 1, 0, blankSpace);
     }
   };
 
   const isInCurrentTime = (start: string, end: string) => {
-    const startTimeMillis = timeToMilliseconds(start);
-    const endTimeMillis = timeToMilliseconds(end);
-    const _currentTime = currentTime * 1000;
+    const startTimeMillis = timeStringToSeconds(start);
+    const endTimeMillis = timeStringToSeconds(end);
 
-    return _currentTime >= startTimeMillis && _currentTime < endTimeMillis;
+    return currentTime >= startTimeMillis && currentTime < endTimeMillis;
   };
 
   const handleMouseMove = (e: {
@@ -531,11 +530,11 @@ export default function VideoTimeline() {
                 onMouseUp={handleMouseUp}
               >
                 <Resizable
-                  key={`${rowIndex}-${row["Modapts"]}-${timeToMilliseconds(
+                  key={`${rowIndex}-${row["Modapts"]}-${timeStringToSeconds(
                     row["Duration"]
                   )}`}
                   defaultSize={{
-                    width: timeToMilliseconds(row["Duration"]) / 5,
+                    width: timeStringToSeconds(row["Duration"]) * 500,
                     height: 70,
                   }}
                   enable={{
@@ -559,7 +558,7 @@ export default function VideoTimeline() {
 
                     if (videoElement) {
                       videoElement.currentTime =
-                        timeToMilliseconds(row[timeKey]) / 1000;
+                        timeStringToSeconds(row[timeKey]);
                       setCurrentTime(videoElement.currentTime);
                     }
                   }}
@@ -571,11 +570,11 @@ export default function VideoTimeline() {
                     }
                     ref.style.width = `${newWidth}px`;
                     const adjustingTime =
-                      timeToMilliseconds(row[timeKey]) +
+                      timeStringToSeconds(row[timeKey]) +
                       (direction === "left" ? -1 : 1) *
-                        ((newWidth - initialWidth.current) * 5);
+                        ((newWidth - initialWidth.current) / 500);
                     if (videoElement) {
-                      videoElement.currentTime = adjustingTime / 1000;
+                      videoElement.currentTime = adjustingTime;
                       setCurrentTime(videoElement.currentTime);
                     }
                   }}
@@ -731,51 +730,52 @@ const colormap = (label: string) => {
 };
 
 function addTimes(time1: string, time2: string): string {
-  let ms1 = timeToMilliseconds(time1);
-  let ms2 = timeToMilliseconds(time2);
-  return MillisecondsTotime(ms1 + ms2);
+  let ms1 = timeStringToSeconds(time1);
+  let ms2 = timeStringToSeconds(time2);
+  return secondsToTimeString(ms1 + ms2);
 }
 
 function subtractTimes(time1: string, time2: string): string {
-  let ms1 = timeToMilliseconds(time1);
-  let ms2 = timeToMilliseconds(time2);
-  return MillisecondsTotime(ms1 - ms2);
+  let ms1 = timeStringToSeconds(time1);
+  let ms2 = timeStringToSeconds(time2);
+  return secondsToTimeString(ms1 - ms2);
 }
 
-function MillisecondsTotime(duration: number): string {
-  let absoluteDuration = Math.abs(duration);
+// function timeToMilliseconds(duration: number): string {
+//   let absoluteDuration = Math.abs(duration);
 
-  const frames = Math.round(((absoluteDuration % 1000) * 60) / 1000);
-  const seconds = Math.floor((absoluteDuration / 1000) % 60);
-  const minutes = Math.floor((absoluteDuration / (1000 * 60)) % 60);
+//   const frames = Math.round(((absoluteDuration % 1000) * 60) / 1000);
+//   const seconds = Math.floor((absoluteDuration / 1000) % 60);
+//   const minutes = Math.floor((absoluteDuration / (1000 * 60)) % 60);
 
-  return `${String(minutes).padStart(1, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}:${String(frames).padStart(2, "0")}`;
-}
+//   return `${String(minutes).padStart(1, "0")}:${String(seconds).padStart(
+//     2,
+//     "0"
+//   )}:${String(frames).padStart(2, "0")}`;
+// }
 
-function timeToMilliseconds(timeString: string): number {
-  if (!timeString) return 0;
-  const timeArray = timeString.split(":");
-  const minute = parseInt(timeArray[0]);
-  const second = parseInt(timeArray[1]);
-  const frame = parseInt(timeArray[2]);
-  //console.log(minute, second, frame)
-  return minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
-}
+// function timeStringToSeconds(timeString: string): number {
+//   if (!timeString) return 0;
+//   const timeArray = timeString.split(":");
+//   const minute = parseInt(timeArray[0]);
+//   const second = parseInt(timeArray[1]);
+//   const frame = parseInt(timeArray[2]);
+//   //console.log(minute, second, frame)
+//   return minute * 60 * 1000 + second * 1000 + (frame * 1000) / 60;
+// }
 
-function secondsToTime(seconds: number): string {
+function secondsToTimeString(seconds: number): string {
+  let absoluteSeconds = Math.abs(seconds);
   // sec with decimal to M:SS:FF
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  const frames = Math.round((seconds % 1) * 60);
+  const minutes = Math.floor(absoluteSeconds / 60);
+  const remainingSeconds = Math.floor(absoluteSeconds % 60);
+  const frames = Math.round((absoluteSeconds % 1) * 60);
   return `${String(minutes).padStart(1, "0")}:${String(
     remainingSeconds
   ).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
 }
 
-function timeToSeconds(timeString: string): number {
+function timeStringToSeconds(timeString: string): number {
   const timeArray = timeString.split(":");
   const minute = parseInt(timeArray[0]);
   const second = parseInt(timeArray[1]);
