@@ -265,19 +265,21 @@ export default function VideoTimeline() {
     newOut: string,
     newLabel: string
   ) => {
+    console.log("index: ", index, "newIn: ", newIn, "newOut: ", newOut, "newLabel: ", newLabel);
     const newCsvData = JSON.parse(JSON.stringify(csvData));
+    newCsvData[index].Modapts = newLabel;
     const oldIn = newCsvData[index].In;
     const oldOut = newCsvData[index].Out;
 
     const newInTime = timeStringToSeconds(newIn);
     const oldInTime = timeStringToSeconds(oldIn);
+    
     adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
 
     const newOutTime = timeStringToSeconds(newOut);
     const oldOutTime = timeStringToSeconds(oldOut);
     adjustRightTimeline(index, newOutTime - oldOutTime, newCsvData);
 
-    newCsvData[index].label = newLabel;
     setCSVData(newCsvData);
   };
 
