@@ -198,7 +198,7 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {false && (
+      {isLoaded && (
         <>
           <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
             <div className="bg-slate-900 p-4 text-white">
