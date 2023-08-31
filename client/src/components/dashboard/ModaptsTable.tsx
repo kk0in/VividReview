@@ -4,7 +4,9 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { currentTimeState } from "@/app/recoil/currentTimeState";
 import { videoRefState } from "@/app/recoil/videoRefState";
 import { csvDataState } from "@/app/recoil/DataState";
-import isEqual from "lodash/isEqual";
+import isEqual from 'lodash/isEqual';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheck } from "@fortawesome/free-solid-svg-icons";
 
 const ModaptsTable = ({ setCurrentModapts }) => {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
@@ -16,20 +18,10 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   const [editedCell, setEditedCell] = useState<Object | null>(null);
   const videoElement = useRecoilValue(videoRefState);
   const [sums, setSums] = useState({ ctSum: 0, stSum: 0 });
+  const inputRef = useRef<HTMLInputElement | null>(null); 
+  const [isButtonClicked, setIsButtonClicked] = useState(false);
 
   useEffect(() => {
-    // for (let i = 1; i < csvData.length; i++) {
-    //   const row = csvData[i];
-    //   const startTime = timeToMilliseconds(row[2]);
-    //   const endTime = timeToMilliseconds(row[3]);
-    //   const current = currentTime * 1000;
-    //   console.log("row[2]", timeToMilliseconds(row[2]));
-    //   if (current >= startTime && current <= endTime) {
-    //     setHighlightedRow(i - 1);
-    //     setCurrentModapts(row[1]);
-    //     return;
-    //   }
-
     // iterate through each csvdata, and check if current time is between start and end time
     if (csvData.length > 0) {
       csvData.forEach((row: any, index: number) => {
@@ -44,21 +36,17 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     }
   }, [currentTime, csvData]);
 
-  var ctSum = 0;
-  var stSum = 0;
-
   useEffect(() => {
     // update csvData to include duration in miliseconds and ST
-    const updatedData = csvData.map((item) => ({
-      Modapts: item["Modapts"],
-      In: item["In"],
-      Out: item["Out"],
-      Duration: item["Duration"],
-      Topk: item["Topk"],
-      "C/T": Number(timeToSeconds(item["Duration"]).toFixed(2)),
-      "S/T": Number(
-        (convertLastCharToNumber(item["Modapts"]) * 0.129 * 1.05).toFixed(2)
-      ),
+    const updatedData = csvData.map((row: Object, rowIndex: number) => ({
+      Idx: rowIndex+1,
+      Modapts: row["Modapts"],
+      In: row["In"],
+      Out: row["Out"],
+      Duration: row["Duration"],
+      Topk: row["Topk"],
+      "C/T": Number(timeToSeconds(row["Duration"]).toFixed(2)),
+      "S/T": Number((convertLastCharToNumber(row["Modapts"]) * 0.129 * 1.05).toFixed(2))
     }));
     if (!isEqual(csvData, updatedData)) {
       setCSVData(updatedData);
@@ -87,10 +75,9 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   }, [highlightedRow]);
 
   function updateTotalTime() {
-    ctSum = csvData.reduce((sum, item) => sum + item["C/T"], 0);
-    stSum = csvData.reduce((sum, item) => sum + item["S/T"], 0);
+    const ctSum = csvData.reduce((sum, item) => sum + item["C/T"], 0);
+    const stSum = csvData.reduce((sum, item) => sum + item["S/T"], 0);
     setSums({ ctSum, stSum });
-    console.log(`ctSum: ${ctSum}, stSum: ${stSum}`);
   }
 
   function timeToSeconds(timeString: string): number {
@@ -104,9 +91,9 @@ const ModaptsTable = ({ setCurrentModapts }) => {
       const second = parseInt(timeArray[1]);
       const frame = parseInt(timeArray[2]);
 
-      const milliseconds = minute * 60 + second + frame / 60;
+      const seconds = minute * 60 + second + frame / 60;
 
-      return milliseconds;
+      return seconds;
     }
   }
 
@@ -136,26 +123,33 @@ const ModaptsTable = ({ setCurrentModapts }) => {
   };
 
   const handleCellClick = (rowIndex: number, key: string) => {
+    if (key !== "Modapts") return;
     setEditedCell({ rowIndex, key });
   };
 
   const handleCellHover = (rowIndex: number, key: string) => {
     // setHighlightedRow(rowIndex);
-    console.log(rowIndex, key);
-  };
+    // console.log(rowIndex, key)
+  }
 
-  // const handleInputChange = (event: React.FocusEvent<HTMLInputElement, Element>, rowIndex: number, key: string) => {
-  //   if (!event.target) return;
-  //   const newData = [...csvData];
-  //   newData[rowIndex][key] = event.target.value;
-  //   setCSVData(newData);
-  //   setEditedCell(null);
-  // };
+  const handleInputChange = (rowIndex: number, key: string) => {
+    console.log(`rowIndex: ${rowIndex}, key: ${key}, value: ${inputRef.current.value}, buttonClicked: ${isButtonClicked}`) 
+    if (inputRef.current == null) return;
+    setEditedCell(null);
+    if (!isButtonClicked) return;
+    setIsButtonClicked(false);
+    console.log("buttonClicked = false")
+    if (inputRef.current.value === "") return;
+    const newData = csvData.map((item, index) =>
+      index === rowIndex ? { ...item, [key]: inputRef.current.value } : item
+    );
+    setCSVData(newData);
+  };
 
   return (
     <>
       <div className="w-full h-full overflow-y-scroll" ref={tableContainerRef}>
-        <table className="w-[80%] table-auto h-full">
+        <table className="w-full table-auto h-full">
           <thead className="sticky top-0 bg-slate-700" ref={headerRef}>
             <tr>
               {/* read object keys to generate header */}
@@ -195,23 +189,45 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                           : "text-slate-200"
                       }`}
                       onMouseOver={() => handleCellHover(rowIndex, key)}
-                      // onClick={() => handleCellClick(rowIndex, key)}
+                      onClick={() => handleCellClick(rowIndex, key)}
                     >
-                      {/* {editedCell &&
+                      {editedCell &&
                     editedCell.rowIndex === rowIndex &&
                     editedCell.key === key ? (
-                      <input
-                        type="text"
-                        defaultValue={row[key]}
-                        onBlur={(event) => handleInputChange(event, rowIndex, key)}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <input
+                          ref={inputRef}
+                          size={2}
+                          type="text"
+                          style={{ 
+                            color: 'black',
+                            height: '1.5em', 
+                            paddingLeft: '5px',
+                            paddingRight: '5px',
+                          }}
+                          placeholder={row[key]}
+                          autoFocus
+                          onBlur={(event) => {
+                            setTimeout(() => {
+                              handleInputChange(rowIndex, key);
+                            }, 300); // delay to allow button click
+                          }}
+                        />
+                        <button 
+                          style={{ paddingLeft: '10px' }}
+                          onClick={() => {
+                            setIsButtonClicked(true)
+                            console.log("buttonClicked = true")
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faCheck} size="s" />
+                        </button>
+                      </div>
                     ) : (
                       value
-                    )} */}
-                      {value}
-                    </td>
-                  );
-                })}
+                    )}
+                  </td>
+                )})}
                 {/* {row.entries().map((cell, cellIndex) => (
                   <td
                     key={cellIndex}
@@ -227,7 +243,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
               </tr>
             ))}
           </tbody>
-          <tfoot className="sticky bottom-0 bg-slate-700" ref={headerRef}>
+          <tfoot className="sticky bottom-0 bg-slate-700">
             <tr>
               {csvData[0] &&
                 Object.keys(csvData[0]).map((key, index) => {
@@ -250,14 +266,14 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                       </td>
                     );
                   if (key === "Topk") return;
-                  else return <td></td>;
+                  else return ( <td key={key} ></td> )
                 })}
             </tr>
           </tfoot>
         </table>
       </div>
     </>
-  );
+  )
 };
 
 function convertLastCharToNumber(inputString: string): number {
