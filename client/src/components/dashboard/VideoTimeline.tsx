@@ -65,6 +65,12 @@ export default function VideoTimeline() {
     if (popoverRef.current && !popoverRef.current.contains(event.target)) {
       event.preventDefault();
       event.stopPropagation();
+      setIsPopoverOpen(false);
+      setPopoverIndex(null);
+      setPopoverIn("");
+      setPopoverOut("");
+      setPopoverLabel("");
+      
       // console.log("You clicked outside of me!");
     }
   };
@@ -521,7 +527,7 @@ export default function VideoTimeline() {
         {videoElement?.paused ? secondsToTimeString(scrolledTime) : secondsToTimeString(currentTime)}
         </div>
       <div
-        className="w-full relative overflow-x-scroll flex h-[10rem]"
+        className="w-full relative overflow-x-scroll flex h-[18rem]"
         id="scrollableTimelineContainer"
         ref={containerRef}
         onScroll={handleScroll}
