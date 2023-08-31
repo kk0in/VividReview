@@ -697,11 +697,12 @@ export default function VideoTimeline() {
                 {({ close }) => (
                   <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
                     <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
-                      <div className="flex flex-row">
-                        <div>{popoverIndex + 1}</div>
+                      <div className="flex flex-row items-center">
+                        <div className="text-sm ml-2 mr-1">{popoverIndex + 1}</div>
                         {/* {csvData[popoverIndex]["Modapts"]} */}
                         <input
-                          className="text-sm p-1 w-full"
+                          className="text-sm w-full ml-3 rounded border-2 bg-slate-100 text-slate-800 py-1 px-2"
+                          style={{borderColor: topKColormap(popoverLabel)}}
                           placeholder={csvData[popoverIndex]["Modapts"]}
                           onChange={(e) => {setPopoverLabel(e.target.value)}}
                           value={popoverLabel}
@@ -728,7 +729,7 @@ export default function VideoTimeline() {
                         </div>
                         <div className="flex-1">
                           Duration
-                          <div className="mt-1 p-1 font-normal">
+                          <div className="mt-[0.3rem] p-1 font-normal text-slate-700">
                             {subtractTimes(csvData[popoverIndex]["Out"], csvData[popoverIndex]["In"])}
                           </div>
                         </div>
@@ -760,7 +761,7 @@ export default function VideoTimeline() {
                       </div>
                       <div className="flex flex-row">
                         <div className="flex mx-auto mt-2 text-sm">
-                        <button
+                        {/* <button
                           className="flex mx-3"
                           onClick={() => {
                             setIsPopoverOpen(false);
@@ -772,8 +773,8 @@ export default function VideoTimeline() {
                           }}
                         >
                           CLOSE
-                        </button>
-                        <button className="flex mx-3" onClick={handlePopoverSave}>SAVE</button>
+                        </button> */}
+                        <button className="flex mx-3 mt-2 bg-white border-emerald-700 border-2 text-emerald-700 px-4 py-1 rounded text-xs hover:bg-emerald-700 hover:text-white hover:-translate-y-0.5 hover:shadow-lg duration-200 transition" onClick={handlePopoverSave}>SAVE</button>
                         </div>
                       </div>
                     </div>
@@ -829,10 +830,10 @@ const topKColormap = (label: string) => {
       return "#76B7B2";
     case "A":
       return "#59A14F";
-    case "-": // BG
+    default: // BG
       return "#BAB0AC";
-    default: // Blank
-      return "transparent";
+    // default: // Blank
+    //   return "transparent";
   }
 };
 
