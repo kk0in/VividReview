@@ -11,15 +11,17 @@ import {
   keypointDataState,
   videoDataState,
 } from "@/app/recoil/DataState";
-import { getProject, getVideo, getKeypoint, getResult } from "@/utils/api";
-import { useQuery } from "@tanstack/react-query";
+import { getProject, getVideo, getKeypoint, getResult, updateResult } from "@/utils/api";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
+import { CloudArrowUpIcon } from "@heroicons/react/24/solid";
 
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [videoData, setVideoData] = useRecoilState(videoDataState);
   const [keypointData, setKeypointData] = useRecoilState(keypointDataState);
+  const [uploadStatus, setUploadStatus] = useState("");
 
   // GET Project List
   const { data, isError, isLoading, refetch } = useQuery(
@@ -67,7 +69,7 @@ export default function Page({ params }: { params: { id: string } }) {
     getResult,
     {
       onSuccess: (data) => {
-        console.log(data)
+        console.log(data);
         setCSVData(data.result);
         //   const reader = new FileReader();
         //   reader.readAsText(data);
@@ -105,6 +107,24 @@ export default function Page({ params }: { params: { id: string } }) {
     // get project status, if it is not ready, then redirect to home
     // project
   }, []);
+
+  const updateMutation = useMutation(updateResult);
+
+  const handleExportClick = () => {
+    // console.log(csvData)
+    updateMutation.mutateAsync({project_id: params.id, result: csvData})
+    .then((res) => {
+      // console.log(res);
+      setUploadStatus("Success !")
+
+      setTimeout(() => {
+        setUploadStatus("")
+      }, 3000);
+      
+    }).catch((err) => {
+      console.log(err);
+    })
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -144,7 +164,7 @@ export default function Page({ params }: { params: { id: string } }) {
       {isLoaded && (
         <>
           <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
-          <div className="bg-slate-900 p-4 text-white">
+            <div className="bg-slate-900 p-4 text-white">
               <div className="flex justify-between mt-1 mb-3 pr-5">
                 <h5 className="my-1 text-sm font-bold">자세 정보</h5>
               </div>
@@ -167,13 +187,18 @@ export default function Page({ params }: { params: { id: string } }) {
               </div>
               <VideoViewer videoSrc={videoData} />
             </div>
-            
+
             <div className="flex-auto bg-slate-900 p-4 text-white">
               <div className="flex justify-between mt-1 mb-3 pr-5">
                 <h5 className="my-1 text-sm font-bold">MODAPTS 테이블</h5>
-                <button className="font-mono">
+                <button className="flex flex-row items-center gap-2 px-2 py-1 hover:bg-slate-600 rounded-md text-sm"
+                onClick={handleExportClick}>
                   {/* <FontAwesomeIcon  icon={faFileExport} size="xs" /> */}
-                  Export
+                  <CloudArrowUpIcon className="h-5 w-5 text-white" />
+                  {uploadStatus == "" ? 
+                  (updateMutation.isLoading ? "Uploading..." : "Save & Upload") :
+                  uploadStatus }
+                  
                 </button>
               </div>
               <ModaptsTable csvData={csvData} />

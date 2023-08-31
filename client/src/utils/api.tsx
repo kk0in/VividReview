@@ -44,8 +44,8 @@ export async function getResult({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
-export async function updateResult(project_id: string, result: any) {
-    const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, result);
+export async function updateResult({project_id, result}: {project_id: string, result: any}) {
+    const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, {data: result});
     return response.data;
 }
 
