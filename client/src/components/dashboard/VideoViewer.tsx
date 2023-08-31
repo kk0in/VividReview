@@ -140,6 +140,14 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       if (event.key === " ") {
         handlePlayPause();
       }
+      // left arrow
+      if (event.key === "ArrowLeft") {
+        rewind(1);
+      }
+      // right arrow
+      if (event.key === "ArrowRight") {
+        rewind(-1);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
