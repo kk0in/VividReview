@@ -5,8 +5,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import random
-import joblib
-from datetime import datetime
+
 import os
 import cv2
 import pickle
@@ -44,49 +43,23 @@ class CustomDataset(Dataset):
         return x, y
 
 class BaseDataLoader():
-    def __init__(self, data_dir, scaler_dir, batch_size=256, shuffle=True, window=8, num_workers=8, augment=False):
+    def __init__(self, data_path, scaler_dir, batch_size=256, shuffle=True, window=8, num_workers=8, augment=False):
         scaler = StandardScaler()
-        Y = load_data(data_dir, 'Y_train').reshape(-1)
-        X = load_data(data_dir, 'X_train').reshape((len(Y)*window, -1))
+        Y = load_data(data_path['trainY']).reshape(-1)
+        X = load_data(data_path['trainX']).reshape((len(Y)*window, -1))
         scaler.fit(X)
         X = X.reshape((len(Y), window, -1))
         train_dataset = CustomDataset(X, Y, window, scaler, augment)
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
         
-        Y = load_data(data_dir, 'Y_val').reshape(-1)
-        X = load_data(data_dir, 'X_val').reshape((len(Y), window, -1))
+        Y = load_data(data_path['valY']).reshape(-1)
+        X = load_data(data_path['valX']).reshape((len(Y), window, -1))
         val_dataset = CustomDataset(X, Y, window, scaler, augment)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         
-        Y = load_data(data_dir, 'Y_test').reshape(-1)
-        X = load_data(data_dir, 'X_test').reshape((len(Y), window, -1))
+        Y = load_data(data_path['testY']).reshape(-1)
+        X = load_data(data_path['testX']).reshape((len(Y), window, -1))
         test_dataset = CustomDataset(X, Y, window, scaler, augment)
         self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        scaler_save = scaler_dir+f"scaler_{timestamp}.joblib"
-        joblib.dump(scaler, scaler_save)
-
-class LargeDataLoader():
-    def __init__(self, data_dir, scaler_dir, batch_size=256, shuffle=True, window=64, num_workers=1, augment=False):
-        scaler = StandardScaler()
-        Y = load_data(data_dir, 'Y_train').reshape((-1, window))
-        X = load_data(data_dir, 'X_train').reshape((len(Y)*window, -1))
-        scaler.fit(X)
-        X = X.reshape((len(Y), window, -1))
-        train_dataset = CustomDataset(X, Y, window, scaler, augment)
-        self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        
-        Y = load_data(data_dir, 'Y_val').reshape((-1, window))
-        X = load_data(data_dir, 'X_val')
-        val_dataset = CustomDataset(X, Y, window, scaler, augment)
-        self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        
-        Y = load_data(data_dir, 'Y_test').reshape((-1, window))
-        X = load_data(data_dir, 'X_test')
-        test_dataset = CustomDataset(X, Y, window, scaler, augment)
-        self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        scaler_save = scaler_dir+f"scaler_{timestamp}.joblib"
-        joblib.dump(scaler, scaler_save)
+        self.scaler = scaler
+    

@@ -16,7 +16,7 @@ class Trainer():
     Trainer class
     """
     def __init__(self, model, criterion, optimizer, config, device,
-                 train_loader, val_loader=None, test_loader=None, lr_scheduler=None, tta=False):
+                 train_loader, val_loader=None, test_loader=None, lr_scheduler=None, model_path=""):
         self.model = model
         self.optimizer = optimizer
         self.config = config['trainer']
@@ -28,11 +28,8 @@ class Trainer():
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.lr_scheduler = lr_scheduler
-        self.tta = tta
         self.num_classes = config['arch']['args']['output_size']
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        os.makedirs("checkpoints", exist_ok=True)
-        self.model_save_path = f"checkpoints/model_{timestamp}.pth"
+        self.model_path = model_path
         
         
     def train(self):
@@ -103,7 +100,7 @@ class Trainer():
                 
                 if val_accuracy > best_accuracy:
                     best_accuracy = val_accuracy
-                    torch.save(net.state_dict(), self.model_save_path) #Save the checkpoint
+                    torch.save(net.state_dict(), self.model_path) #Save the checkpoint
                     predictions = []
                     targets = []
                     with torch.no_grad():
@@ -120,9 +117,9 @@ class Trainer():
                             val_loss += loss.item()
                             targets += labels.cpu().tolist()
                     test_accuracy = accuracy_score(targets, predictions)
-                    if self.window_size == 180:
-                        overlap_test = overlap_accuracy(targets, predictions, self.window_size, 10)
-                        print(f"Overlap Accuracy: {overlap_test:.4f}")
+                    # if self.window_size == 180:
+                    #     overlap_test = overlap_accuracy(targets, predictions, self.window_size, 10)
+                    #     print(f"Overlap Accuracy: {overlap_test:.4f}")
                     f1 = f1_score(targets, predictions, average='macro')
                     precision = precision_score(targets, predictions, average='macro')
                     print(f"Test Accuracy: {test_accuracy:.4f}, F1-score: {f1:.4f}, precision: {precision:.4f}")

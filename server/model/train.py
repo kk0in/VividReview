@@ -7,6 +7,9 @@ import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
 from parse_config import ConfigParser
+import joblib
+from datetime import datetime
+import os
 from trainer import Trainer
 from utils import prepare_device
 
@@ -18,13 +21,21 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
-def main(config):
+def train_model(config):
 
     # setup data_loader instances
     data_loader = config.init_obj('data_loader', module_data)
     train_loader = data_loader.train_loader
     val_loader = data_loader.val_loader
     test_loader = data_loader.test_loader
+    scaler = data_loader.scaler
+    
+    scaler_dir = config['scaler_dir']
+    os.makedirs(scaler_dir, exist_ok=True)
+    scalers_count = len(os.listdir(scaler_dir))
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
+    scaler_path = os.path.join(scaler_dir, f"scaler_{scalers_count}_{timestamp}.joblib")
+    joblib.dump(scaler, scaler_path)
 
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
@@ -42,6 +53,12 @@ def main(config):
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
     lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
+    
+    model_dirs = config['model_dirs']
+    os.makedirs(model_dirs, exist_ok=True)
+    model_count = len(os.listdir(model_dirs))
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
+    model_path = os.path.join(model_dirs, f"model_{model_count}_{timestamp}.pth")
 
     trainer = Trainer(model, criterion, optimizer,
                       config=config,
@@ -49,9 +66,11 @@ def main(config):
                       train_loader=train_loader,
                       val_loader=val_loader,
                       test_loader=test_loader,
-                      lr_scheduler=lr_scheduler)
+                      lr_scheduler=lr_scheduler,
+                      model_path=model_path)
 
     trainer.train()
+    return scaler_path, model_path
 
 
 if __name__ == '__main__':
@@ -63,11 +82,5 @@ if __name__ == '__main__':
     args.add_argument('-d', '--device', default=None, type=str,
                       help='indices of GPUs to enable (default: all)')
 
-    # custom cli options to modify configuration from default values given in json file.
-    CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')
-    options = [
-        CustomArgs(['--lr', '--learning_rate'], type=float, target='optimizer;args;lr'),
-        CustomArgs(['--bs', '--batch_size'], type=int, target='data_loader;args;batch_size')
-    ]
-    config = ConfigParser.from_args(args, options)
-    main(config)
+    config = ConfigParser.from_args(args, "")
+    train_model(config)

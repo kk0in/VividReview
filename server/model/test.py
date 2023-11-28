@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from .preprocess import run_pipe
+from .preprocess import run_inference_pipe
 import joblib
 import json
 from .model.model import SimpleNet
@@ -361,7 +361,7 @@ def run_inference(input_video:str, gt_path:str=None, config_path:str=None)->str:
     frame_rate = config['frame_rate']
     window = config['window']
     
-    json_path, csv_path = run_pipe(input_video, frame_rate, window, inference=True)
+    json_path, csv_path = run_inference_pipe(input_video, frame_rate, window, inference=True)
 
     result_folder = inference(csv_path, gt_path, config)
     return result_folder

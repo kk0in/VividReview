@@ -1,0 +1,15 @@
+{
+    "device": "cuda:0",
+    "model": {
+        "input_size": 138,
+        "output_size": 8,
+        "linear_layers": 0,
+        "lstm_hidden": 1024,
+        "dropout_prob": 0.2
+    },
+    "frame_rate": 60,
+    "window": 8,
+
+    "checkpoint_path": "TBD",
+    "scaler_path" : "TBD"
+}

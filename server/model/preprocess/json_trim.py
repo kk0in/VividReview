@@ -37,8 +37,11 @@ def validate_trimmed_data(trimmed_data, start_time, end_time, frame_rate):
 
 def run_json_trim(input_path:str, output_dir:str, frame_rate:int):
     """Split json file into separate files which correspond to each modaps
+    
+    {output_dir}/{basename}/{basename}_{idx}_{modapts}.json
 
-    :param input_path: input file path
+    :param input_path: input file path | input directory path
+            Dir should contain a pair of json(pose) and csv(label) files
     :type input_path: str
     :param output_dir: output directory
     :type output_dir: str

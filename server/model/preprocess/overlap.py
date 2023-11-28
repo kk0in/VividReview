@@ -68,7 +68,7 @@ def main():
             run_overlap(prev_X_path, prev_Y_path, new_X_path, new_Y_path, frame_count, overlap)
             
 
-def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str, frame_count:int, overlap:int):
+def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str, window_size:int, overlap:int):
     """overlap frames and generate training data.
 
     :param prev_X_path: prev_X_path
@@ -79,8 +79,8 @@ def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str
     :type new_X_path: str
     :param new_Y_path: new_Y_path
     :type new_Y_path: str
-    :param frame_count: window size
-    :type frame_count: int
+    :param window_size: window size
+    :type window_size: int
     :param overlap: overlapped window size
     :type overlap: int
     """
@@ -92,10 +92,10 @@ def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str
 
     with open(new_X_path, 'w') as x_file, open(new_Y_path, 'w') as y_file:
         for x_this_modapts, label in zip(x_list, y_list):
-            for i in range(0, len(x_this_modapts), frame_count - overlap):
-                if (i + frame_count > len(x_this_modapts)):
+            for i in range(0, len(x_this_modapts), window_size - overlap):
+                if (i + window_size > len(x_this_modapts)):
                     break
-                for j in range(i, frame_count + i):
+                for j in range(i, window_size + i):
                     x_file.write(x_this_modapts[j])
                 y_file.write(label)
 

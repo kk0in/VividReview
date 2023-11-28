@@ -199,18 +199,15 @@ def run_feature_extraction(json_file:str, target_folder:str)->str:
     :rtype: str
     """
 
-    FV = os.path.join(target_folder, 'feature_vectors')
-    os.makedirs(FV, exist_ok=True)
+    FV_FOLDER = os.path.join(target_folder, 'feature_vectors')
+    os.makedirs(FV_FOLDER, exist_ok=True)
     
     video_name = os.path.basename(json_file).split(".")[0]
-    global DATA_PATH, TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH
-    TXT_PATH = DATA_PATH = FV
-    X_FV_PKL_PATH = os.path.join(TXT_PATH, 'X_pkl/')
-    X_FV_CSV_PATH = os.path.join(TXT_PATH, 'X_csv/')
+    X_FV_PKL_PATH = os.path.join(FV_FOLDER, 'X_pkl/')
+    X_FV_CSV_PATH = os.path.join(FV_FOLDER, 'X_csv/')
 
-    PATH_LIST = [TXT_PATH, X_FV_PKL_PATH, X_FV_CSV_PATH]
-    for path in PATH_LIST:
-        os.makedirs(path, exist_ok=True)
+    PATH_LIST = [FV_FOLDER, X_FV_PKL_PATH, X_FV_CSV_PATH]
+    for path in PATH_LIST: os.makedirs(path, exist_ok=True)
     
     x_file = []
     
