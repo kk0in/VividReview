@@ -82,9 +82,9 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
     :rtype: Dict[str, Tuple[str, str, str]]
     """
     
-    split_cache = os.path.join(HOME, "cache_pose")
+    split_cache = os.path.join(HOME, "cache_split")
     pose_cache = os.path.join(HOME, "cache_pose")
-    feature_cache = os.path.join(HOME, "cache_pose")
+    feature_cache = os.path.join(HOME, "cache_feature")
     
     
     # extract pose from new single video
