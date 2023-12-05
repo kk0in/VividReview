@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torchvision.utils import make_grid
-from utils import inf_loop, MetricTracker
+from ..utils import inf_loop, MetricTracker
 import wandb
 import time
 from datetime import datetime

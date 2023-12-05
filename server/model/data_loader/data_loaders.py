@@ -11,13 +11,15 @@ import cv2
 import pickle
 from .augment import augment_tensor 
 
-def load_data(dirname, filename):
+def load_data(full_path):
+    dirname = os.path.dirname(full_path) + '/'
+    filename = os.path.basename(full_path).split('.')[0]
     if os.path.exists(dirname+f'{filename}.pkl'):
         with open(dirname+f'{filename}.pkl', 'rb') as f:
             data = pickle.load(f)
     else:
         data = pd.read_csv(dirname+f'{filename}.csv', header=None, engine="pyarrow").astype(float).values
-    return data
+    return np.array(data)
 
 class CustomDataset(Dataset):
     def __init__(self, X, Y, window, scaler, augment=False):
@@ -43,7 +45,7 @@ class CustomDataset(Dataset):
         return x, y
 
 class BaseDataLoader():
-    def __init__(self, data_path, scaler_dir, batch_size=256, shuffle=True, window=8, num_workers=8, augment=False):
+    def __init__(self, data_path, batch_size=256, shuffle=True, window=8, num_workers=8, augment=False):
         scaler = StandardScaler()
         Y = load_data(data_path['trainY']).reshape(-1)
         X = load_data(data_path['trainX']).reshape((len(Y)*window, -1))

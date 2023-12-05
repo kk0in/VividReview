@@ -71,11 +71,11 @@ def main():
 def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str, window_size:int, overlap:int):
     """overlap frames and generate training data.
 
-    :param prev_X_path: prev_X_path
+    :param prev_X_path: prev_X_path: csv
     :type prev_X_path: str
     :param prev_Y_path: prev_Y_path
     :type prev_Y_path: str
-    :param new_X_path: new_X_path
+    :param new_X_path: new_X_path: csv
     :type new_X_path: str
     :param new_Y_path: new_Y_path
     :type new_Y_path: str

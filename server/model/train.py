@@ -1,17 +1,17 @@
 import argparse
-import collections
 import torch
 import numpy as np
-import data_loader.data_loaders as module_data
-import model.loss as module_loss
-import model.metric as module_metric
-import model.model as module_arch
-from parse_config import ConfigParser
+from .data_loader import data_loaders as module_data
+from .model import loss as module_loss
+from .model import metric as module_metric
+from .model import model as module_arch
+
+from .parse_config import ConfigParser
 import joblib
 from datetime import datetime
 import os
-from trainer import Trainer
-from utils import prepare_device
+from .trainer import Trainer
+from .utils import prepare_device
 
 
 # fix random seeds for reproducibility
@@ -54,11 +54,11 @@ def train_model(config):
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
     lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
     
-    model_dirs = config['model_dirs']
-    os.makedirs(model_dirs, exist_ok=True)
-    model_count = len(os.listdir(model_dirs))
+    checkpoint_dir = config['checkpoint_dir']
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    model_count = len(os.listdir(checkpoint_dir))
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
-    model_path = os.path.join(model_dirs, f"model_{model_count}_{timestamp}.pth")
+    model_path = os.path.join(checkpoint_dir, f"model_{model_count}_{timestamp}.pth")
 
     trainer = Trainer(model, criterion, optimizer,
                       config=config,

@@ -30,6 +30,41 @@ def run_inference_pipe(input_video:str)->Tuple[str, str]:
     return json_file, feature_csv_file
 
 
+def run_prefill_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rate:int, window_size:int):
+    """prefill pose extractions
+
+    :param input_video: _description_
+    :type input_video: str
+    :param input_labels: _description_
+    :type input_labels: str
+    :param pose_folder: _description_
+    :type pose_folder: str
+    :param frame_rate: _description_
+    :type frame_rate: int
+    :param window_size: _description_
+    :type window_size: int
+    """
+    
+    pose_cache = os.path.join(HOME, "cache_pose")
+    
+    ## extract pose from new single video
+    print("Extracting pose from video...")
+    shutil.rmtree(pose_cache, ignore_errors=True)
+    os.makedirs(pose_cache, exist_ok=True)
+    json_file = rtmpose(
+        i_path=input_video, 
+        o_path=pose_cache, 
+        device_="cuda:0"
+    )
+    
+    # copy json file, label to pose_folder
+    print("Copying json file, label to pose_folder...")
+    os.makedirs(pose_folder, exist_ok=True)
+    filename = json_file.split("/")[-1]
+    shutil.copy(json_file, os.path.join(pose_folder, filename+".json"))
+    shutil.copy(input_labels, os.path.join(pose_folder, filename+".csv"))
+    
+
 def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rate:int, window_size:int)->Dict[str, Tuple[str, str, str]]:
     """Run Pipeline for single video
 
@@ -47,14 +82,12 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
     :rtype: Dict[str, Tuple[str, str, str]]
     """
     
-    split_cache = os.path.join(HOME, "split_cache")
-    pose_cache = os.path.join(HOME, "pose_cache")
-    feature_cache = os.path.join(HOME, "feature_cache")
-    new_X_csv = os.path.join(feature_cache, "overlapX.csv")
-    new_Y_csv = os.path.join(feature_cache, "overlapY.csv")
+    split_cache = os.path.join(HOME, "cache_pose")
+    pose_cache = os.path.join(HOME, "cache_pose")
+    feature_cache = os.path.join(HOME, "cache_pose")
     
     
-    ## extract pose from new single video
+    # extract pose from new single video
     print("Extracting pose from video...")
     shutil.rmtree(pose_cache, ignore_errors=True)
     os.makedirs(pose_cache, exist_ok=True)
@@ -67,7 +100,7 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
     # copy json file, label to pose_folder
     print("Copying json file, label to pose_folder...")
     os.makedirs(pose_folder, exist_ok=True)
-    filename = json_file.split("/")[-1]
+    filename = json_file.split("/")[-1].split(".")[0]
     shutil.copy(json_file, os.path.join(pose_folder, filename+".json"))
     shutil.copy(input_labels, os.path.join(pose_folder, filename+".csv"))
     
@@ -82,25 +115,41 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
     )
     
     
-    ## extract feature and split into train/val/test
+    # extract feature and split into train/val/test
     print("Extracting feature and split into train/val/test...")
     shutil.rmtree(feature_cache, ignore_errors=True)
     os.makedirs(feature_cache, exist_ok=True)
     csv_path_dict = train_extract_feature(
-        json_file=split_cache, 
-        output_dir=feature_cache
-    )
-
-    print("Running overlap...")
-    run_overlap(
-        prev_X_path=csv_path_dict["train"][0],
-        prev_Y_path=csv_path_dict["train"][1],
-        new_X_path= new_X_csv,
-        new_Y_path= new_Y_csv,
-        window_size=window_size,
-        overlap=6
+        json_folder=split_cache, 
+        target_folder=feature_cache
     )
     
-    csv_path_dict["train"] = [new_X_csv, new_Y_csv, csv_path_dict["train"][2]]
+    
+    # csv_path_dict = {
+    #     "train": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/X_train.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/Y_train.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/Y_train_wo.txt"],
+    #     "val": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/X_val.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/Y_val.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/Y_val_wo.txt"],
+    #     "test": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/X_test.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/Y_test.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/Y_test_wo.txt"]
+    # }
+    
+    for split in ["train", "val", "test"]:
+        print(f"Running overlap... {split}")
+        original_X_csv = csv_path_dict[split][0]
+        original_Y_csv = csv_path_dict[split][1]
+        run_overlap(
+            prev_X_path=original_X_csv,
+            prev_Y_path=original_Y_csv,
+            new_X_path= original_X_csv.replace(".csv", "_overlap.csv"),
+            new_Y_path= original_Y_csv.replace(".csv", "_overlap.csv"),
+            window_size=window_size,
+            overlap=6
+        )
+    
+        csv_path_dict[split] = [
+            original_X_csv.replace(".csv", "_overlap.csv"), 
+            original_Y_csv.replace(".csv", "_overlap.csv"), 
+            csv_path_dict[split][2]
+        ]
+    
+    
     
     return csv_path_dict

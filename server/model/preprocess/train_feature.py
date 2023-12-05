@@ -5,6 +5,9 @@ import pickle
 import csv
 from typing import Tuple, List, Dict
 import glob
+from tqdm import tqdm
+import parmap
+from collections import defaultdict
 
 NOSE = 0
 LEFT_EYE = 1
@@ -194,9 +197,10 @@ labels_mx_topk_wo = ['M', 'G', 'P', 'R', 'A', 'BG']
 
 # dist_dic = {'0701_MX_0001': 327.29605716722875, '0701_MX_0002': 337.8149799059089, '0701_MX_0003': 342.82928728718804, '0701_MX_0004': 345.6524830913372, '0707_MX_0001': 305.3282361763116, '0707_MX_0002': 351.68448105305936, '0707_MX_0003': 323.7594350962371, '0707_MX_0004': 297.96658218571497, '0714_MX_0001': 253.75454345681757, '0714_MX_0002': 327.72359341151486, '0714_MX_0003': 366.3059702455931, '0721_MX_0001': 284.89477031860423, '0721_MX_0002': 292.61099491541233, '0721_MX_0003': 366.2456829279402, '0721_MX_0004': 294.5088006199761, '0721_MX_0005': 278.7827992896253, '0729_MX_0001': 226.1348980725326, '0729_MX_0002': 245.1382931677766, '0804_MX_0001': 300.95501724123636, '0804_MX_0002': 276.21455425945635, '0816_MX_0001': 225.19156811287934}
 sep_info_dic = {
-    'train': ['0701_MX_0001', '0701_MX_0002', '0701_MX_0003', '0707_MX_0001', '0707_MX_0004', '0714_MX_0001', '0714_MX_0002', '0714_MX_0003', '0721_MX_0001', '0721_MX_0004', '0721_MX_0005', '0729_MX_0001', '0729_MX_0002', '0804_MX_0001', '0804_MX_0002', '0816_MX_0001'], 
-    'test': ['0707_MX_0002', '0707_MX_0003'], 
-    'val': ['0701_MX_0004', '0721_MX_0002']
+    "0707_MX_0002": "test",
+    "0707_MX_0003": "test",
+    "0701_MX_0004": "val",
+    "0721_MX_0002": "val"
 }
 
 
@@ -226,7 +230,7 @@ def get_deg(x1, y1, x2, y2):
     return degree
 
 
-def train_extract_feature(json_folder:str, home_folder:str)->Dict[str, Tuple[str, str, str]]:
+def train_extract_feature(json_folder:str, target_folder:str)->Dict[str, Tuple[str, str, str]]:
     """Extracts the feature and returns the path of the feature files x, y
 
     :param json_folder: folder of {json_folder}/{basename}/{basename}_{idx}_{modapts}.json
@@ -237,10 +241,23 @@ def train_extract_feature(json_folder:str, home_folder:str)->Dict[str, Tuple[str
     :rtype: Dict[str, Tuple[str, str, str]]
     """
 
-    target_folder = os.path.join(home_folder, 'feature_vectors')
+    target_folder = os.path.join(target_folder, 'feature_vectors/')
     return_paths = {}
     
+    json_split_map = {}
+    json_list = glob.glob(os.path.join(json_folder, f'*/*.json'))
+    for file in json_list:
+        filename = file.split('/')[-2].replace("result_", "")
+        if filename in sep_info_dic.keys():
+            json_split_map[file] = sep_info_dic[filename]
+        else:
+            json_split_map[file] = "train"
+    json_split = defaultdict(list)
+    for file, split in json_split_map.items():
+        json_split[split].append(file)
+        
     for split in ['train', 'test', 'val']:
+        print(f"Extracting feature for {split}...")
         TXT_PATH = target_folder + f'{split}/'
         X_FV_PKL_PATH = target_folder + 'X_pkl/'
         Y_FV_PKL_PATH = target_folder + 'Y_pkl/'
@@ -255,123 +272,36 @@ def train_extract_feature(json_folder:str, home_folder:str)->Dict[str, Tuple[str
             createDirectory(i)
 
 
-        target_sep = sep_info_dic[split]
-        json_list = glob.glob(os.path.join(json_folder, f'*/*.json'))
-        if split != 'train':
-            json_list = [file for file in json_list if file.split("/")[-2] in target_sep]
+        json_list = json_split[split]
             
         X_pickle_path = os.path.join(TXT_PATH + f'X_{split}.pkl')
         Y_pickle_path = os.path.join(TXT_PATH + f'Y_{split}.pkl')
         Y_pickle_path_wo = os.path.join(TXT_PATH + f'Y_{split}_wo.pkl')
         
-        return_paths[split] = [X_pickle_path, Y_pickle_path, Y_pickle_path_wo]
+        X_csv_path = os.path.join(TXT_PATH + f'X_{split}.csv')
+        Y_csv_path = os.path.join(TXT_PATH + f'Y_{split}.csv')
+        Y_csv_path_wo = os.path.join(TXT_PATH + f'Y_{split}_wo.csv')
+        
+        # return_paths[split] = [X_pickle_path, Y_pickle_path, Y_pickle_path_wo]
+        return_paths[split] = [X_csv_path, Y_csv_path, Y_csv_path_wo]
             
         tp = open(X_pickle_path, 'wb')
         yp = open(Y_pickle_path, 'wb')
         yp_wo = open(Y_pickle_path_wo, 'wb')
 
-        tc = open(os.path.join(TXT_PATH + f'X_{split}.csv'), 'w', newline='')
-        yc = open(os.path.join(TXT_PATH + f'Y_{split}.csv'), 'w', newline='')
-        yc_wo = open(os.path.join(TXT_PATH + f'Y_{split}_wo.csv'), 'w', newline='')
+        tc = open(X_csv_path, 'w', newline='')
+        yc = open(Y_csv_path, 'w', newline='')
+        yc_wo = open(Y_csv_path_wo, 'w', newline='')
 
-        x_total = []
-        y_total = []
-        y_wo_total = []
+        
+        
+        results = parmap.map(run_file, json_list, pm_pbar=True, pm_processes=30)
+        x_total, y_total, y_wo_total = zip(*results)
+        
+        x_total = [item for sublist in x_total for item in sublist]
+        y_total = [item for sublist in y_total for item in sublist]
+        y_wo_total = [item for sublist in y_wo_total for item in sublist]
 
-        for file in json_list:
-            # x_file = []
-            # y_file = []
-            # y_wo_file = []
-            
-            video_name = file.split('/')[-2]
-            file_name = file.split('/')[-1].split('.')[0]
-            _, _, modapts = file_name.split('_')
-            label = modapts
-
-            # t1 = open(os.path.join(X_FV_PKL_PATH + f'X_fv_{file_name}.pkl'), 'wb')
-            # y1 = open(os.path.join(Y_FV_PKL_PATH + f'Y_fv_{file_name}.pkl'), 'wb')
-            # y1_wo = open(os.path.join(Y_FV_PKL_WO_PATH + f'Y_fv_wo_{file_name}.pkl'), 'wb')
-
-            # t2 = open(os.path.join(X_FV_CSV_PATH + f'X_fv_{file_name}.csv'), 'w', newline='')
-            # y2 = open(os.path.join(Y_FV_CSV_PATH + f'Y_fv_{file_name}.csv'), 'w', newline='')
-            # y2_wo = open(os.path.join(Y_FV_CSV_WO_PATH + f'Y_fv_wo_{file_name}.csv'), 'w', newline='')
-
-            if label not in labels_mx_topk:
-                label = 'BG'
-
-            with open(file, 'r') as f:
-                try:
-                    json_data = json.load(f)
-                except:
-                    continue
-            
-            instances = json_data["instance_info"]
-            for ins in range(len(instances)-1):
-                dist_list = []
-                deg_list = []
-                cur_deg_list = []
-                
-                j = []
-                n_j = []
-
-                try:
-                    k = instances[ins]["instances"][0]["keypoints"]
-                    n_k = instances[ins+1]["instances"][0]["keypoints"]
-                except:
-                    continue
-
-                for i in range(len(k)):
-                    j.append(k[i][0])
-                    j.append(k[i][1])
-                    n_j.append(n_k[i][0])
-                    n_j.append(n_k[i][1])
-                
-                for i in range(len(change_part)):
-                    part = change_part[i]
-                    dist_list.append(abs(get_dist(j[part*2], n_j[part*2], j[part*2+1], n_j[part*2+1])))
-                    # dist_list.append(abs(get_dist(j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1]) / dist_dic[video_name]))
-
-                    pair_1 = change_pair[i * 2]
-                    pair_2 = change_pair[i * 2 + 1]
-
-                    deg = get_deg(j[pair_1*2], j[pair_1*2+1], j[pair_2*2], j[pair_2*2+1])
-                    n_deg = get_deg(n_j[pair_1*2], n_j[pair_1*2+1], n_j[pair_2*2], n_j[pair_2*2+1])
-
-                    cur_deg_list.append(n_deg)
-
-                    if deg==0 or n_deg==0:
-                        deg_list.append(0.0)
-                    else:
-                        deg_list.append(abs(deg-n_deg))
-
-                fv = []
-                for i in range(len(change_part)):
-                    fv.append(dist_list[i])
-                    fv.append(deg_list[i])
-                    fv.append(cur_deg_list[i])
-                # x_file.append(fv)
-                x_total.append(fv)
-
-                # y_file.append([labels_mx_topk.index(label)])
-                y_total.append([labels_mx_topk.index(label)])
-                newstring = ''.join([i for i in label if not i.isdigit()])
-                # y_wo_file.append([labels_mx_topk_wo.index(newstring)])
-                y_wo_total.append([labels_mx_topk_wo.index(newstring)])
-
-            # pickle.dump(x_file, t1)
-            # pickle.dump(y_file, y1)
-            # pickle.dump(y_wo_file, y1_wo)
-            # csv.writer(t2).writerows(x_file)
-            # csv.writer(y2).writerows(y_file)
-            # csv.writer(y2_wo).writerows(y_wo_file)
-            
-            # t1.close()
-            # y1.close()
-            # y1_wo.close()
-            # t2.close()
-            # y2.close()
-            # y2_wo.close()
-                
 
         pickle.dump(x_total, tp)
         pickle.dump(y_total, yp)
@@ -389,3 +319,86 @@ def train_extract_feature(json_folder:str, home_folder:str)->Dict[str, Tuple[str
         
     return return_paths
 
+
+def run_file(file):
+    
+    x_total = []
+    y_total = []
+    y_wo_total = []
+    
+    file_name = file.split('/')[-1].split('.')[0]
+    modapts = file_name.split('_')[-1]
+    label = modapts
+
+    # t1 = open(os.path.join(X_FV_PKL_PATH + f'X_fv_{file_name}.pkl'), 'wb')
+    # y1 = open(os.path.join(Y_FV_PKL_PATH + f'Y_fv_{file_name}.pkl'), 'wb')
+    # y1_wo = open(os.path.join(Y_FV_PKL_WO_PATH + f'Y_fv_wo_{file_name}.pkl'), 'wb')
+
+    # t2 = open(os.path.join(X_FV_CSV_PATH + f'X_fv_{file_name}.csv'), 'w', newline='')
+    # y2 = open(os.path.join(Y_FV_CSV_PATH + f'Y_fv_{file_name}.csv'), 'w', newline='')
+    # y2_wo = open(os.path.join(Y_FV_CSV_WO_PATH + f'Y_fv_wo_{file_name}.csv'), 'w', newline='')
+
+    if label not in labels_mx_topk:
+        label = 'BG'
+
+    with open(file, 'r') as f:
+        try:
+            json_data = json.load(f)
+        except:
+            print("ERRORRORORORRRORORO")
+            return
+    
+    instances = json_data["instance_info"]
+    for ins in range(len(instances)-1):
+        dist_list = []
+        deg_list = []
+        cur_deg_list = []
+        
+        j = []
+        n_j = []
+
+        try:
+            k = instances[ins]["instances"][0]["keypoints"]
+            n_k = instances[ins+1]["instances"][0]["keypoints"]
+        except:
+            continue
+
+        for i in range(len(k)):
+            j.append(k[i][0])
+            j.append(k[i][1])
+            n_j.append(n_k[i][0])
+            n_j.append(n_k[i][1])
+        
+        for i in range(len(change_part)):
+            part = change_part[i]
+            dist_list.append(abs(get_dist(j[part*2], n_j[part*2], j[part*2+1], n_j[part*2+1])))
+            # dist_list.append(abs(get_dist(j[part*2], j[part*2+1], n_j[part*2], n_j[part*2+1]) / dist_dic[video_name]))
+
+            pair_1 = change_pair[i * 2]
+            pair_2 = change_pair[i * 2 + 1]
+
+            deg = get_deg(j[pair_1*2], j[pair_1*2+1], j[pair_2*2], j[pair_2*2+1])
+            n_deg = get_deg(n_j[pair_1*2], n_j[pair_1*2+1], n_j[pair_2*2], n_j[pair_2*2+1])
+
+            cur_deg_list.append(n_deg)
+
+            if deg==0 or n_deg==0:
+                deg_list.append(0.0)
+            else:
+                deg_list.append(abs(deg-n_deg))
+
+        fv = []
+        for i in range(len(change_part)):
+            fv.append(dist_list[i])
+            fv.append(deg_list[i])
+            fv.append(cur_deg_list[i])
+        # x_file.append(fv)
+        x_total.append(fv)
+
+        # y_file.append([labels_mx_topk.index(label)])
+        y_total.append([labels_mx_topk.index(label)])
+        newstring = ''.join([i for i in label if not i.isdigit()])
+        # y_wo_file.append([labels_mx_topk_wo.index(newstring)])
+        y_wo_total.append([labels_mx_topk_wo.index(newstring)])
+        
+    return x_total, y_total, y_wo_total

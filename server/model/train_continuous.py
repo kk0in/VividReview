@@ -2,26 +2,31 @@ import argparse
 import collections
 import torch
 import numpy as np
-from parse_config import ConfigParser
+from .parse_config import ConfigParser
 import json
+from glob import glob
+import os
 
 
-from train import train_model
+from .train import train_model
 
-from .preprocess import run_train_pipe
+from .preprocess import run_train_pipe, run_prefill_pipe
 
+CURRENT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 
-def run_train(input_video:str, input_label_csv:str, prefill_paths=None):
+def run_train(input_video:str, input_label_csv:str):
     
-    with open("train_config.json", "r") as f:
+    with open(os.path.join(CURRENT_FOLDER, "train_config.json"), "r") as f:
         config_obj = json.load(f)
-        
-    ## if prefill, fill pose_dir folder with existing videos and labels for train data.
-    if prefill_paths:
-        prefill(prefill_paths, config_obj['pose_folder'])
+    pose_folder = config_obj['pose_dir']
+    
+    ## prefill pose_folder folder with existing videos and labels for train data.
+    ## Early exit if pose_folder is already prefilled.
+    print("Prefilling pose_folder...")
+    prefill(pose_folder)
     
     ## all extracted pose data (.json, .csv) are stored in pose_foler
-    pose_folder = config_obj['pose_folder']
+    
     csv_path_dict = run_train_pipe(input_video, input_label_csv, pose_folder, 60, 8)
     
     data_path = {
@@ -39,9 +44,16 @@ def run_train(input_video:str, input_label_csv:str, prefill_paths=None):
     return scaler_path, checkpoint_path
 
 
-def prefill(video_folder, pose_folder):
-    ## TODO: fill pose_folder with existing videos and labels for train data.
-    pass
+def prefill(pose_folder):
+    csv_list = sorted(glob("/data/samsung/sec/RAW/*/*.csv"))
+    mp4_list = sorted(glob("/data/samsung/sec/RAW/*/*.mp4"))
+    for prefill_csv, prefill_mp4 in zip(csv_list, mp4_list):
+        filename = prefill_csv.split("/")[-1].split(".")[0]
+        if not os.path.exists(os.path.join(pose_folder, filename+".json")):
+            print(f"Prefilling {filename} in {pose_folder}...")
+            run_prefill_pipe(prefill_mp4, prefill_csv, pose_folder, 60, 8)
+
+
     
 if __name__ == '__main__':
     
