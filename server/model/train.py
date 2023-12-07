@@ -22,6 +22,15 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
 def train_model(config):
+    """
+    Train the model.
+
+    :param config: Configuration object containing various parameters for training.
+    :type config: dict
+    :return: Path to the scaler file and path to the trained model file.
+    :rtype: tuple
+    """
+    
 
     # setup data_loader instances
     data_loader = config.init_obj('data_loader', module_data)

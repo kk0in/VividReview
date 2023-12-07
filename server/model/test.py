@@ -49,7 +49,7 @@ def load_inf(path, window):
     X_ = np.array(np.split(X_,blocks))
     X_ = X_.reshape(len(X_), window, -1)
 
-    return X_ 
+    return X_
 
 
 def scale_input(input_array, scaler_path, window):
@@ -203,8 +203,6 @@ def convert_timestamp(label_array, dic, output_csv_path, output_json_path):
     
 
 # voting between inferences with different frame ranges, counting only the ones with confidence above a threshold
-
-
 def decide_label(label_array, confidence_array):
     final_labels = []
     dic = {}
@@ -247,15 +245,16 @@ def decide_label(label_array, confidence_array):
     return np.array(final_labels), dic
 
 def inference(input_path:str, gt_path:str=None, config:Dict[str, str]={})->str:
-    """run inference
+    """
+    Perform inference on the input data.
 
-    :param input_path: input feature file path
+    :param input_path: Path to the input data.
     :type input_path: str
-    :param gt_path: ground truth path, defaults to None
+    :param gt_path: Path to the ground truth data, defaults to None.
     :type gt_path: str, optional
-    :param config: config dictionary, defaults to {}
-    :type config: _type_, optional
-    :return: result folder
+    :param config: Configuration parameters, defaults to {}.
+    :type config: Dict[str, str], optional
+    :return: Absolute path to the output folder.
     :rtype: str
     """
     

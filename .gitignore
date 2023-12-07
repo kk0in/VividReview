@@ -9,3 +9,7 @@ __pycache__/
 *.json
 *.pth
 !*config.json
+
+server/scalers/
+server/*cache*/
+server/wandb/

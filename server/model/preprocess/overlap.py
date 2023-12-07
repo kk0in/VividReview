@@ -48,41 +48,44 @@ def cut_btw_modaps(x_raw_path:str, y_raw_path:str)->Tuple[List, List]:
     return x_list, y_list
 
 
-def main():
-    for folder in ['features']:
-        for type in tqdm(["train", "val", "test"]):
-            prev_X_path = f"./assets/train/BG/{folder}/X_{type}.csv"
-            prev_Y_path = f"./assets/train/BG/{folder}/Y_{type}.csv"
-            new_X_path =  f"./assets/train/BG/overlap/X_{type}.csv"
-            new_Y_path =  f"./assets/train/BG/overlap/Y_{type}.csv"
+# def main():
+#     for folder in ['features']:
+#         for type in tqdm(["train", "val", "test"]):
+#             prev_X_path = f"./assets/train/BG/{folder}/X_{type}.csv"
+#             prev_Y_path = f"./assets/train/BG/{folder}/Y_{type}.csv"
+#             new_X_path =  f"./assets/train/BG/overlap/X_{type}.csv"
+#             new_Y_path =  f"./assets/train/BG/overlap/Y_{type}.csv"
             
-            os.makedirs(os.path.dirname(prev_X_path), exist_ok=True)
-            os.makedirs(os.path.dirname(prev_Y_path), exist_ok=True)
-            os.makedirs(os.path.dirname(new_X_path), exist_ok=True)
-            os.makedirs(os.path.dirname(new_Y_path), exist_ok=True)
+#             os.makedirs(os.path.dirname(prev_X_path), exist_ok=True)
+#             os.makedirs(os.path.dirname(prev_Y_path), exist_ok=True)
+#             os.makedirs(os.path.dirname(new_X_path), exist_ok=True)
+#             os.makedirs(os.path.dirname(new_Y_path), exist_ok=True)
             
-            frame_count = 8 # the number of frames in each overlapped video clips
-            overlap = 6 # how many frames be overlapped between two adjacent video clips
-            # for example, if frame_count = 6 and overlap = 4, then the first video clip will be 1-6, the second will be 3-8, the third will be 5-10, etc.
+#             frame_count = 8 # the number of frames in each overlapped video clips
+#             overlap = 6 # how many frames be overlapped between two adjacent video clips
+#             # for example, if frame_count = 6 and overlap = 4, then the first video clip will be 1-6, the second will be 3-8, the third will be 5-10, etc.
 
-            run_overlap(prev_X_path, prev_Y_path, new_X_path, new_Y_path, frame_count, overlap)
+#             run_overlap(prev_X_path, prev_Y_path, new_X_path, new_Y_path, frame_count, overlap)
             
 
 def run_overlap(prev_X_path:str, prev_Y_path:str, new_X_path:str, new_Y_path:str, window_size:int, overlap:int):
-    """overlap frames and generate training data.
+    """
+    Run overlap preprocessing on input data.
 
-    :param prev_X_path: prev_X_path: csv
+    :param prev_X_path: Path to the previous X data file.
     :type prev_X_path: str
-    :param prev_Y_path: prev_Y_path
+    :param prev_Y_path: Path to the previous Y data file.
     :type prev_Y_path: str
-    :param new_X_path: new_X_path: csv
+    :param new_X_path: Path to the new X data file.
     :type new_X_path: str
-    :param new_Y_path: new_Y_path
+    :param new_Y_path: Path to the new Y data file.
     :type new_Y_path: str
-    :param window_size: window size
+    :param window_size: Size of the window for overlap.
     :type window_size: int
-    :param overlap: overlapped window size
+    :param overlap: Amount of overlap between windows.
     :type overlap: int
+    :return: None
+    :rtype: None
     """
     
     x_list, y_list = cut_btw_modaps(prev_X_path, prev_Y_path)

@@ -89,7 +89,20 @@ def process_one_image(img,
         
     return data_samples.get('pred_instances', None)
 
-def rtmpose(i_path, o_path, device_, f_idx=0):
+def rtmpose(i_path:str, o_path:str, device_:str, f_idx:int=0)->str:
+    """Run real-time pose estimation on a video file.
+
+    :param i_path: The input video file path.
+    :type i_path: str
+    :param o_path: The output directory path.
+    :type o_path: str
+    :param device_: The device to run the pose estimation on.
+    :type device_: str
+    :param f_idx: The starting frame index, defaults to 0.
+    :type f_idx: int, optional
+    :return: The path to the keypoints file.
+    :rtype: str
+    """
     assert has_mmdet, 'Please install mmdet to run this code'
 
     VIDEOS = os.path.join(o_path, 'rtm_videos')

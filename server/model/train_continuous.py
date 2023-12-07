@@ -14,7 +14,21 @@ from .preprocess import run_train_pipe, run_prefill_pipe
 
 CURRENT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 
-def run_train(input_video:str, input_label_csv:str):
+
+
+def run_train(input_video:str, input_label_csv:str, prefill_folder:str="/data/samsung/sec/RAW"):
+    """
+    Train the model using the provided input video and label CSV file.
+
+    :param input_video: Path to the input video file.
+    :type input_video: str
+    :param input_label_csv: Path to the label CSV file.
+    :type input_label_csv: str
+    :param prefill_folder: Path to the prefill folder, defaults to "/data/samsung/sec/RAW".
+    :type prefill_folder: str, optional
+    :return: A tuple containing the scaler path and checkpoint path.
+    :rtype: tuple
+    """
     
     with open(os.path.join(CURRENT_FOLDER, "train_config.json"), "r") as f:
         config_obj = json.load(f)
@@ -23,7 +37,7 @@ def run_train(input_video:str, input_label_csv:str):
     ## prefill pose_folder folder with existing videos and labels for train data.
     ## Early exit if pose_folder is already prefilled.
     print("Prefilling pose_folder...")
-    prefill(pose_folder)
+    prefill(prefill_folder, pose_folder)
     
     ## all extracted pose data (.json, .csv) are stored in pose_foler
     
@@ -44,9 +58,22 @@ def run_train(input_video:str, input_label_csv:str):
     return scaler_path, checkpoint_path
 
 
-def prefill(pose_folder):
-    csv_list = sorted(glob("/data/samsung/sec/RAW/*/*.csv"))
-    mp4_list = sorted(glob("/data/samsung/sec/RAW/*/*.mp4"))
+
+
+
+def prefill(prefill_folder: str, pose_folder: str) -> None:
+    """
+    This function pre-fills the pose folder with data from the pre-fill folder.
+
+    :param prefill_folder: The path to the pre-fill folder.
+    :type prefill_folder: str
+    :param pose_folder: The path to the pose folder.
+    :type pose_folder: str
+    """
+    
+    csv_list = sorted(glob(os.path.join(prefill_folder, "**/*.csv"), recursive=True))
+    mp4_list = sorted(glob(os.path.join(prefill_folder, "**/*.mp4"), recursive=True))
+    
     for prefill_csv, prefill_mp4 in zip(csv_list, mp4_list):
         filename = prefill_csv.split("/")[-1].split(".")[0]
         if not os.path.exists(os.path.join(pose_folder, filename+".json")):
