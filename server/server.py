@@ -92,6 +92,12 @@ def get_filename(id):
 
 @app.get('/api/get_project', status_code=200)
 async def get_project():
+    """
+    Get the project list from the metadata files.
+
+    :return: A dictionary containing the list of projects.
+    :rtype: dict
+    """
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
     project_list = []
 
@@ -105,6 +111,15 @@ async def get_project():
 
 @app.get('/api/get_project/{project_id}', status_code=200)
 async def get_project(project_id: int):
+    """
+    Get project by project ID.
+
+    :param project_id: The ID of the project.
+    :type project_id: int
+    :raises HTTPException: If the project is not found or multiple projects are found.
+    :return: The project information.
+    :rtype: dict
+    """
     metadata_file = [file for file in os.listdir(META_DATA) if file.startswith(f'{project_id}_') and file.endswith('.json')]
 
     if not metadata_file:
@@ -130,6 +145,15 @@ async def get_video(project_id: int):
     
 @app.get('/api/get_keypoint/{project_id}', status_code=200)
 async def get_keypoint(project_id: int):
+    """
+    Get the keypoint for a given project ID.
+
+    :param project_id: The ID of the project.
+    :type project_id: int
+    :raises HTTPException: If the keypoint is not found or if multiple keypoints are found.
+    :return: The keypoint as a dictionary.
+    :rtype: dict
+    """
     keypoint_file = [file for file in os.listdir(KEYPOINT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
 
     if not keypoint_file:
@@ -144,6 +168,16 @@ async def get_keypoint(project_id: int):
 
 @app.get('/api/get_result/{project_id}', status_code=200)
 async def get_result(project_id: int):
+    """
+    Get the result for a specific project ID.
+
+    :param project_id: The ID of the project.
+    :type project_id: int
+    :raises HTTPException: If the result is not found.
+    :return: The result data.
+    :rtype: dict
+    """
+    
     result_file = [file for file in os.listdir(RESULT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
 
     if not result_file:
@@ -161,6 +195,17 @@ async def get_result(project_id: int):
         
 @app.options('/api/update_result/{project_id}', status_code=200)
 async def update_result(project_id: int, result: Any = Body(...)):
+    """
+    [Summary]
+
+    :param project_id: [ParamDescription]
+    :type project_id: int
+    :param result: [ParamDescription], defaults to Body(...)
+    :type result: Any, optional
+    :raises [ErrorType]: [ErrorDescription]
+    :return: [ReturnDescription]
+    :rtype: [ReturnType]
+    """
     version = issue_version(project_id)
     file_name = get_filename(project_id)
 
@@ -174,6 +219,25 @@ async def update_result(project_id: int, result: Any = Body(...)):
         
 @app.post('/api/upload_project', status_code=201)
 async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
+    """
+    [Summary]
+
+    :param gbm: [ParamDescription], defaults to Form(...)
+    :type gbm: str, optional
+    :param product: [ParamDescription], defaults to Form(...)
+    :type product: str, optional
+    :param plant: [ParamDescription], defaults to Form(...)
+    :type plant: str, optional
+    :param route: [ParamDescription], defaults to Form(...)
+    :type route: str, optional
+    :param description: [ParamDescription], defaults to Form(...)
+    :type description: str, optional
+    :param file: [ParamDescription], defaults to File(...)
+    :type file: UploadFile, optional
+    :raises [ErrorType]: [ErrorDescription]
+    :return: [ReturnDescription]
+    :rtype: [ReturnType]
+    """   
     id = issue_id()
 
     metadata = {  
@@ -222,6 +286,7 @@ async def test_download_csv():
 
 @app.get('/test/get_json')
 async def test_get_json():
+    
     # return FileResponse('test_file/0707_MX_0002_TEST.json', media_type='application/json')
     # jsonify
     with open('test_file/0707_MX_0002_TEST.json') as f:
