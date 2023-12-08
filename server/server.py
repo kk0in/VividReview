@@ -133,6 +133,16 @@ async def get_project(project_id: int):
         
 @app.get('/api/get_video/{project_id}', status_code=200)
 async def get_video(project_id: int):
+    """
+    Get the video file for a given project ID.
+
+    :param project_id: The ID of the project.
+    :type project_id: int
+
+    :return: The video file as a FileResponse object.
+    :rtype: FileResponse
+    """
+    
     video_file = [file for file in os.listdir(VIDEO) if file.startswith(f'{project_id}_') and file.endswith('.mp4')]
 
     if not video_file:
@@ -196,15 +206,15 @@ async def get_result(project_id: int):
 @app.options('/api/update_result/{project_id}', status_code=200)
 async def update_result(project_id: int, result: Any = Body(...)):
     """
-    [Summary]
+    Update the result for a specific project.
 
-    :param project_id: [ParamDescription]
+    :param project_id: The ID of the project.
     :type project_id: int
-    :param result: [ParamDescription], defaults to Body(...)
-    :type result: Any, optional
-    :raises [ErrorType]: [ErrorDescription]
-    :return: [ReturnDescription]
-    :rtype: [ReturnType]
+    :param result: The result to be updated.
+    :type result: Any
+
+    :return: A dictionary containing the project ID and the updated version.
+    :rtype: dict
     """
     version = issue_version(project_id)
     file_name = get_filename(project_id)
@@ -220,24 +230,25 @@ async def update_result(project_id: int, result: Any = Body(...)):
 @app.post('/api/upload_project', status_code=201)
 async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
     """
-    [Summary]
+    Uploads a project with the given parameters and file.
 
-    :param gbm: [ParamDescription], defaults to Form(...)
-    :type gbm: str, optional
-    :param product: [ParamDescription], defaults to Form(...)
-    :type product: str, optional
-    :param plant: [ParamDescription], defaults to Form(...)
-    :type plant: str, optional
-    :param route: [ParamDescription], defaults to Form(...)
-    :type route: str, optional
-    :param description: [ParamDescription], defaults to Form(...)
-    :type description: str, optional
-    :param file: [ParamDescription], defaults to File(...)
-    :type file: UploadFile, optional
-    :raises [ErrorType]: [ErrorDescription]
-    :return: [ReturnDescription]
-    :rtype: [ReturnType]
-    """   
+    :param gbm: The GBM parameter.
+    :type gbm: str
+    :param product: The product parameter.
+    :type product: str
+    :param plant: The plant parameter.
+    :type plant: str
+    :param route: The route parameter.
+    :type route: str
+    :param description: The description parameter.
+    :type description: str
+    :param file: The file to upload.
+    :type file: UploadFile
+
+    :return: The ID of the uploaded project.
+    :rtype: dict
+    """
+    
     id = issue_id()
 
     metadata = {  
