@@ -23,7 +23,7 @@ export default function VideoTimeline() {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
   const [openState, setOpenState] = useState(false);
-  
+
   const [scrollPosition, setScrollPosition] = useState<number | null>(null);
   const timecellRefs = useRef([]);
   const [totalWidth, setTotalWidth] = useState(0);
@@ -40,14 +40,10 @@ export default function VideoTimeline() {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   //popover value state
-  const [popoverIndex, setPopoverIndex] = useState<number | null>(
-    null
-  );
+  const [popoverIndex, setPopoverIndex] = useState<number | null>(null);
   const [popoverIn, setPopoverIn] = useState("");
   const [popoverOut, setPopoverOut] = useState("");
   const [popoverLabel, setPopoverLabel] = useState("");
-
-
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickPopoverOutside);
@@ -143,14 +139,14 @@ export default function VideoTimeline() {
       };
     }
   }, []);
-  
+
   const handleWheelScroll = (e) => {
     const container = document.getElementById("scrollableTimelineContainer");
     if (container) {
       container.scrollLeft += e.deltaY;
     }
   };
-  
+
   const handleCellClick = (index) => {
     // go to cell's time
     // const row = csvData[index];
@@ -188,16 +184,16 @@ export default function VideoTimeline() {
   function findRowIndexByTime(csvData, currentTime) {
     let left = 0;
     let right = csvData.length - 1;
-    
+
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const row = csvData[mid];
       const startTime = timeStringToSeconds(row["In"]);
-      const endTime = timeStringToSeconds(row["Out"]);      
+      const endTime = timeStringToSeconds(row["Out"]);
       if (startTime <= currentTime && currentTime <= endTime) {
         return mid;
       }
-      
+
       if (currentTime < startTime) {
         right = mid - 1;
       } else {
@@ -213,25 +209,31 @@ export default function VideoTimeline() {
     if (container) {
       // Step 1: Get the scroll position
       const currentScrollPosition = container.scrollLeft;
-      
+
       // Step 2: Calculate the visible range
       const lastElement = csvData[csvData.length - 1];
       const totalDuration = timeStringToSeconds(lastElement["Out"]);
-      const totalWidth = (totalDuration * 500) + (10 * (csvData.length - 1));
-      const tempCurrentTime = (currentScrollPosition / totalWidth) * totalDuration;
-      
+      const totalWidth = totalDuration * 500 + 10 * (csvData.length - 1);
+      const tempCurrentTime =
+        (currentScrollPosition / totalWidth) * totalDuration;
+
       // Step 3: Find the rowIndex and calculate the relative time
       const rowIndex = findRowIndexByTime(csvData, tempCurrentTime);
       if (rowIndex >= csvData.length || rowIndex < 0) {
         setScrolledTime(tempCurrentTime);
         return;
       }
-      const elementWidth = timeStringToSeconds(csvData[rowIndex]["Duration"]) * 500;
-      const calculatePreviousWidth = (timeStringToSeconds(csvData[rowIndex]["In"]) * 500) + (10 * rowIndex);
+      const elementWidth =
+        timeStringToSeconds(csvData[rowIndex]["Duration"]) * 500;
+      const calculatePreviousWidth =
+        timeStringToSeconds(csvData[rowIndex]["In"]) * 500 + 10 * rowIndex;
       const relativePosition = currentScrollPosition - calculatePreviousWidth;
       const baseTime = timeStringToSeconds(csvData[rowIndex]["In"]);
-      const estimatedTime = (relativePosition / elementWidth) * timeStringToSeconds(csvData[rowIndex]["Duration"]) + baseTime;
-      
+      const estimatedTime =
+        (relativePosition / elementWidth) *
+          timeStringToSeconds(csvData[rowIndex]["Duration"]) +
+        baseTime;
+
       setScrolledTime(estimatedTime);
     }
   };
@@ -265,7 +267,16 @@ export default function VideoTimeline() {
     newOut: string,
     newLabel: string
   ) => {
-    console.log("index: ", index, "newIn: ", newIn, "newOut: ", newOut, "newLabel: ", newLabel);
+    console.log(
+      "index: ",
+      index,
+      "newIn: ",
+      newIn,
+      "newOut: ",
+      newOut,
+      "newLabel: ",
+      newLabel
+    );
     const newCsvData = JSON.parse(JSON.stringify(csvData));
     newCsvData[index].Modapts = newLabel;
     const oldIn = newCsvData[index].In;
@@ -273,7 +284,7 @@ export default function VideoTimeline() {
 
     const newInTime = timeStringToSeconds(newIn);
     const oldInTime = timeStringToSeconds(oldIn);
-    
+
     adjustLeftTimeline(index, -(newInTime - oldInTime), newCsvData);
 
     const newOutTime = timeStringToSeconds(newOut);
@@ -537,14 +548,16 @@ export default function VideoTimeline() {
       editTimeline(popoverIndex, popoverIn, popoverOut, popoverLabel);
       setIsPopoverOpen(false);
     }
-  }
+  };
 
   return (
     <div className="relative w-full h-full pt-5">
-      <div className="absolute z-50 mt-2 w-[0.2rem] h-24 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
+      <div className="absolute z-50 mt-2 w-[0.2rem] h-32 left-[50%] right-[50%] bg-stone-300 border-slate-600 border-1"></div>
       <div className="absolute left-[50%] top-40 transform -translate-x-[50%] font-mono">
-        {videoElement?.paused ? secondsToTimeString(scrolledTime) : secondsToTimeString(currentTime)}
-        </div>
+        {videoElement?.paused
+          ? secondsToTimeString(scrolledTime)
+          : secondsToTimeString(currentTime)}
+      </div>
       <div
         className="w-full relative overflow-x-scroll flex h-[18rem]"
         id="scrollableTimelineContainer"
@@ -595,7 +608,7 @@ export default function VideoTimeline() {
                   )}`}
                   defaultSize={{
                     width: timeStringToSeconds(row["Duration"]) * 500,
-                    height: 70,
+                    height: 100,
                   }}
                   enable={{
                     top: false,
@@ -669,7 +682,25 @@ export default function VideoTimeline() {
                     }}
                   >
                     <div className="flex-grow text-center">
-                      {row["Modapts"]}
+                      <div className="flex flex-col font-mono">
+                        <div className="text-lg">{row["Modapts"]}</div>
+                        {row["C/T"] > 0.15 && (
+                          <div className="text-xs">
+                            {row["Modapts"] === "-" ? null : (
+                              <div>{row["S/T"]}</div>
+                            )}
+                            <div>{row["C/T"]}</div>
+                            {row["Modapts"] === "-" ? null : (
+                              <div>
+                                {(row["C/T"] - row["S/T"])
+                                  .toFixed(2)
+                                  .replace(/\.00$/, "")
+                                  .replace(/(\.\d)0$/, "$1")}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {/* <div className="ml-auto">수정</div> */}
                   </div>
@@ -700,13 +731,17 @@ export default function VideoTimeline() {
                   <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
                     <div className="relative gap-8 bg-white p-3 lg:grid-cols-2 text-slate-800">
                       <div className="flex flex-row items-center">
-                        <div className="text-sm ml-2 mr-1">{popoverIndex + 1}</div>
+                        <div className="text-sm ml-2 mr-1">
+                          {popoverIndex + 1}
+                        </div>
                         {/* {csvData[popoverIndex]["Modapts"]} */}
                         <input
                           className="text-sm w-full ml-3 rounded border-2 bg-slate-100 text-slate-800 py-1 px-2"
-                          style={{borderColor: topKColormap(popoverLabel)}}
+                          style={{ borderColor: topKColormap(popoverLabel) }}
                           placeholder={csvData[popoverIndex]["Modapts"]}
-                          onChange={(e) => {setPopoverLabel(e.target.value)}}
+                          onChange={(e) => {
+                            setPopoverLabel(e.target.value);
+                          }}
                           value={popoverLabel}
                         ></input>
                       </div>
@@ -717,7 +752,9 @@ export default function VideoTimeline() {
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[popoverIndex]["In"]}
-                            onChange={(e) => {setPopoverIn(e.target.value)}}
+                            onChange={(e) => {
+                              setPopoverIn(e.target.value);
+                            }}
                           ></input>
                         </div>
                         <div className="flex-1">
@@ -726,13 +763,18 @@ export default function VideoTimeline() {
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[popoverIndex]["Out"]}
-                            onChange={e => {setPopoverOut(e.target.value)}}
+                            onChange={(e) => {
+                              setPopoverOut(e.target.value);
+                            }}
                           ></input>
                         </div>
                         <div className="flex-1">
                           Duration
                           <div className="mt-[0.3rem] p-1 font-normal text-slate-700">
-                            {subtractTimes(csvData[popoverIndex]["Out"], csvData[popoverIndex]["In"])}
+                            {subtractTimes(
+                              csvData[popoverIndex]["Out"],
+                              csvData[popoverIndex]["In"]
+                            )}
                           </div>
                         </div>
                       </div>
@@ -740,30 +782,28 @@ export default function VideoTimeline() {
                       <div className="mt-4 text-sm font-semibold">
                         Top-K
                         <div className="flex gap-3 mt-2">
-                          {csvData[popoverIndex]["Topk"]?.map(
-                            (topk, index) => (
-                              <div
-                                key={index}
-                                className={`flex-1 rounded px-2 py-1 hover:shadow-md hover:-translate-y-0.5 transition duration-200`}
-                                style={{
-                                  backgroundColor: topKColormap(topk.Modapts),
-                                }}
-                                onClick={() => setPopoverLabel(topk.Modapts)}
-                              >
-                                <div className="flex flex-row text-white">
-                                  <div>{topk.Modapts}</div>
-                                  <div className="ml-auto">
-                                    {topk.Score.toFixed(2)}
-                                  </div>
+                          {csvData[popoverIndex]["Topk"]?.map((topk, index) => (
+                            <div
+                              key={index}
+                              className={`flex-1 rounded px-2 py-1 hover:shadow-md hover:-translate-y-0.5 transition duration-200`}
+                              style={{
+                                backgroundColor: topKColormap(topk.Modapts),
+                              }}
+                              onClick={() => setPopoverLabel(topk.Modapts)}
+                            >
+                              <div className="flex flex-row text-white">
+                                <div>{topk.Modapts}</div>
+                                <div className="ml-auto">
+                                  {topk.Score.toFixed(2)}
                                 </div>
                               </div>
-                            )
-                          )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                       <div className="flex flex-row">
                         <div className="flex mx-auto mt-2 text-sm">
-                        {/* <button
+                          {/* <button
                           className="flex mx-3"
                           onClick={() => {
                             setIsPopoverOpen(false);
@@ -776,7 +816,12 @@ export default function VideoTimeline() {
                         >
                           CLOSE
                         </button> */}
-                        <button className="flex mx-3 mt-2 bg-white border-emerald-700 border-2 text-emerald-700 px-4 py-1 rounded text-xs hover:bg-emerald-700 hover:text-white hover:-translate-y-0.5 hover:shadow-lg duration-200 transition" onClick={handlePopoverSave}>SAVE</button>
+                          <button
+                            className="flex mx-3 mt-2 bg-white border-emerald-700 border-2 text-emerald-700 px-4 py-1 rounded text-xs hover:bg-emerald-700 hover:text-white hover:-translate-y-0.5 hover:shadow-lg duration-200 transition"
+                            onClick={handlePopoverSave}
+                          >
+                            SAVE
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -850,7 +895,6 @@ function subtractTimes(time1: string, time2: string): string {
   let ms2 = timeStringToSeconds(time2);
   return secondsToTimeString(ms1 - ms2);
 }
-
 
 function secondsToTimeString(seconds: number): string {
   let absoluteSeconds = Math.abs(seconds);
