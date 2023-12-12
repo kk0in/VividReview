@@ -19,12 +19,10 @@ import {
 import { useRouter } from "next/navigation";
 import { Listbox, Transition, Dialog } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
+import Link from "next/link"
 
-interface AddProjectProps {
-  setView: React.Dispatch<React.SetStateAction<string>>;
-}
 
-const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
+const AddProject: React.FC = () => {
   const router = useRouter();
 
   const [csvData, setCSVData] = useRecoilState(csvDataState);
@@ -89,7 +87,7 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
         .mutateAsync({ metadata, file: videoFile })
         .then((res) => {
           console.log(res);
-          setView("existing");
+          // setView("existing");
           setIsModalOpen(false);
         })
         .catch((err) => {
@@ -429,10 +427,10 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
         </button> */}
         <button 
           className="rounded-md bg-white border border-slate-200 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-          onClick={() => setView("select")}
+          // onClick={() => setView("select")}
         >
           <div className="flex items-center justify-center text-slate-500 gap-3">
-            Back
+            <Link href="/">Back</Link>
           </div>
         </button>
 
