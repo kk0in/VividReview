@@ -7,12 +7,17 @@ from concurrent.futures import ThreadPoolExecutor
 from model.test import run_inference
 
 from typing import Any
+from fastapi.responses import StreamingResponse
 
 import zipfile
 import shutil
 import json
 import os
 import numpy as np 
+import csv
+import io
+
+
 
 app = FastAPI()
 
@@ -158,7 +163,62 @@ async def get_result(project_id: int):
         with open(os.path.join(RESULT, result_file[0]), 'r') as f:
             data = json.load(f)
         return {"result": data}
-        
+
+
+@app.get('/api/get_csv/{project_id}', status_code=200)
+async def get_csv(project_id: int):
+    result_file = [file for file in os.listdir(RESULT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
+
+    if not result_file:
+        raise HTTPException(status_code=404, detail="Result not found")
+    
+    if len(result_file) > 1:
+        result_file = sorted(result_file, key=lambda x: int(x.split('_')[-1].split('.')[0]))
+        result_name = result_file[-1].split('.')[0]
+        with open(os.path.join(RESULT, result_file[-1]), 'r') as f:
+            json_data = json.load(f)
+    else:
+        result_name = result_file[0].split('.')[0]
+        with open(os.path.join(RESULT, result_file[0]), 'r') as f:
+            json_data = json.load(f)
+
+    csv_data = io.StringIO()
+    csv_writer = csv.writer(csv_data)
+    csv_writer.writerow(['Modapts', 'In', 'Out', 'Duration'])  
+    for entry in json_data:
+        csv_writer.writerow([entry['Modapts'], entry['In'], entry['Out'], entry['Duration']])
+
+    csv_data.seek(0)
+
+    return StreamingResponse(iter([csv_data.getvalue()]),
+                             media_type="text/csv",
+                             headers={"Content-Disposition": f"attachment; filename={result_name}.csv"})
+
+
+@app.delete('/api/delete_project/{project_id}', status_code=200)
+async def delete_project(project_id: int):
+    def delete_project_files(directory):
+        if not os.path.exists(directory):
+            return
+        for file in os.listdir(directory):
+            if file.startswith(f'{project_id}_'):
+                os.remove(os.path.join(directory, file))
+    try:
+        delete_project_files(VIDEO)
+        delete_project_files(META_DATA)
+        delete_project_files(KEYPOINT)
+        delete_project_files(os.path.join(FEATURE_VECTOR, 'X_csv'))
+        delete_project_files(os.path.join(FEATURE_VECTOR, 'X_pkl'))
+        delete_project_files(RESULT)
+        delete_project_files(VOTING_TABLE)
+        delete_project_files(CONFIDENCE_TABLE)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during deletion: {e}")
+
+    return {"detail": "Project deleted successfully"}
+
+
+
 @app.options('/api/update_result/{project_id}', status_code=200)
 async def update_result(project_id: int, result: Any = Body(...)):
     version = issue_version(project_id)
@@ -229,5 +289,5 @@ async def test_get_json():
     return data
 
 # if __name__ == '__main__':
-#     import uvicornß
+#     import uvicorn
 #     uvicorn.run(app, host='0.0.0.0', port=9998)
