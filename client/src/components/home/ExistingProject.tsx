@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Fragment } from "react";
+import React, { useState, Fragment, useEffect } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
@@ -12,7 +12,8 @@ import {
   videoDataState,
   keypointDataState,
 } from "@/app/recoil/DataState";
-import { Dialog, Transition } from "@headlessui/react";
+import { Listbox, Dialog, Transition } from "@headlessui/react";
+import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 
 const ExistingProject: React.FC = () => {
   const setCSVData = useSetRecoilState(csvDataState);
@@ -26,6 +27,74 @@ const ExistingProject: React.FC = () => {
   });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedGBM, setSeletedGBM] = useState<string | null>("ALL");
+  const [selectedProduct, setSeletedProduct] = useState<string | null>("ALL");
+  const [selectedPlant, setSeletedPlant] = useState<string | null>("ALL");
+  const [selectedRoute, setSeletedRoute] = useState<string | null>("ALL");
+  const [filteredProjects, setFilteredProjects] = useState(projectListData?.projects);
+  const [selectedUserID, setSelectedUserID] = useState<string | null>(null);
+  const [selectedInsertedDate, setSelectedInsertedDate] = useState<Date | null>(null);
+
+    const formFieldbyGBM: Object = {
+      "ALL":
+      {
+        product: ["ALL"],
+        plant: ["ALL"],
+        route: ["ALL"],
+      },  
+      "MX(S)": {
+        product: ["MOBILE", "APS", "PC", "TNP", "PKG"],
+        plant: ["GUMI", "SEIL(N)", "SEV", "SEVT", "SEIN"],
+        route: ["1000", "3000", "5000", "9000", "9100"],
+      },
+      "MX(P)": {
+        product: ["CAMERA", "CNC", "GLASS", "INJ ASSY"],
+        plant: ["SEV"],
+        route: ["MC01", "MN01", "MLU1", "MI01", "MS01"],
+      },
+      VD: {
+        product: ["TV", "LCM", "MONITOR", "AV"],
+        plant: ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
+        route: ["2260", "2660", "3560", "4260", "7160"],
+      },
+      DA: {
+        product: ["REF", "A/C", "W/M", "MWO", "COMP"],
+        plant: ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
+        route: ["2260", "2660", "3560", "4260", "7160"],
+      },
+      NET_SYS: {
+        product: ["SYSTEM", "PBX"],
+        plant: ["SUWON", "SEV", "SEIN"],
+        route: ["2260", "2660", "3560", "4260", "7160"],
+      },
+  };
+
+  useEffect( () => {
+    setFilteredProjects(projectListData?.projects.filter((project: any) => {
+      const gbmFilter = selectedGBM === "ALL" || project.gbm === selectedGBM;
+      const productFilter = selectedProduct === "ALL" || project.product === selectedProduct;
+      const plantFilter = selectedPlant === "ALL" || project.plant === selectedPlant;
+      const routeFilter = selectedRoute === "ALL" || project.route === selectedRoute;
+      const userIDFilter =
+        !selectedUserID || project.userid && project.userid.includes(selectedUserID);
+      const insertedDateFilter =
+          !selectedInsertedDate ||
+          new Date(project.insertedDate).toDateString() ===
+            selectedInsertedDate.toDateString();
+    
+      return (
+        gbmFilter &&
+        productFilter &&
+        plantFilter &&
+        routeFilter &&
+        userIDFilter &&
+        insertedDateFilter
+      );
+    }));
+
+    console.log(filteredProjects);
+
+  } , [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selectedUserID, selectedInsertedDate, projectListData?.projects]);
 
   return (
     <>
@@ -93,6 +162,321 @@ const ExistingProject: React.FC = () => {
             Project information
           </h4>
         </div>
+        <div className="mt-2 grid grid-cols-6 gap-x-6 gap-y-6">
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="GBM"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              GBM
+            </label>
+            <div className="mt-2">
+              <div className="flex w-full rounded-md ring-gray-300">
+                <Listbox value={selectedGBM} onChange={(value) => {
+                  setSeletedGBM(value);
+                  setSeletedProduct("ALL");
+                  setSeletedPlant("ALL");
+                  setSeletedRoute("ALL");
+                }}>
+                  <div className="relative w-full mt-1">
+                    <input
+                      type="text"
+                      name="GBM"
+                      value={selectedGBM ? selectedGBM : undefined}
+                      hidden
+                      required
+                    />
+                    <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                      <span
+                        className={`block truncate ${
+                          selectedGBM ? "" : "text-gray-500"
+                        }`}
+                      >
+                        {selectedGBM ? selectedGBM : "ALL"}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronUpDownIcon
+                          className="h-5 w-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </Listbox.Button>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute mt-1 max-h-60 w-full z-10 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                        {formFieldbyGBM && Object.keys(formFieldbyGBM).map((gbm) => (
+                          <Listbox.Option
+                            key={gbm}
+                            value={gbm}
+                            className={({ active }) =>
+                              `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                active
+                                  ? "bg-slate-100 text-slate-900 font-semibold"
+                                  : "text-gray-900"
+                              }`
+                            }
+                          >
+                            {gbm}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                </Listbox>
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="Product"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              Product
+            </label>
+            <div className="mt-2">
+              <div className="flex w-full rounded-md ring-gray-300">
+                <Listbox
+                  value={selectedProduct}
+                  onChange={setSeletedProduct}
+                  disabled={!selectedGBM}
+                >
+                  <div className="relative w-full mt-1">
+                    <input
+                      type="text"
+                      name="product"
+                      value={selectedProduct ? selectedProduct : undefined}
+                      hidden
+                      required
+                    />
+                    <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                      <span
+                        className={`block truncate ${
+                          selectedProduct ? "" : "text-gray-500"
+                        }`}
+                      >
+                        {selectedProduct ? selectedProduct : "ALL"}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronUpDownIcon
+                          className="h-5 w-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </Listbox.Button>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute mt-1 max-h-60 w-full z-10 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                        {selectedGBM &&
+                          formFieldbyGBM[selectedGBM as keyof Object].product.map(
+                            (product) => (
+                              <Listbox.Option
+                                key={product}
+                                value={product}
+                                className={({ active }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active
+                                      ? "bg-slate-100 text-slate-900 font-semibold"
+                                      : "text-gray-900"
+                                  }`
+                                }
+                              >
+                                {product}
+                              </Listbox.Option>
+                            )
+                          )}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                </Listbox>
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="Plant"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              Plant
+            </label>
+            <div className="mt-2">
+              <div className="flex w-full rounded-md ring-gray-300">
+                <Listbox
+                  value={selectedPlant}
+                  onChange={setSeletedPlant}
+                  disabled={!selectedGBM}
+                >
+                  <div className="relative w-full mt-1">
+                    <input
+                      type="text"
+                      name="plant"
+                      value={selectedPlant ? selectedPlant : undefined}
+                      hidden
+                      required
+                    />
+                    <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                      <span
+                        className={`block truncate ${
+                          selectedPlant ? "" : "text-gray-500"
+                        }`}
+                      >
+                        {selectedPlant ? selectedPlant : "ALL"}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronUpDownIcon
+                          className="h-5 w-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </Listbox.Button>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto z-10 rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                        {selectedGBM &&
+                          formFieldbyGBM[selectedGBM as keyof Object].plant.map(
+                            (plant) => (
+                              <Listbox.Option
+                                key={plant}
+                                value={plant}
+                                className={({ active }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active
+                                      ? "bg-slate-100 text-slate-900 font-semibold"
+                                      : "text-gray-900"
+                                  }`
+                                }
+                              >
+                                {plant}
+                              </Listbox.Option>
+                            )
+                          )}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                </Listbox>
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="Route"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              Route
+            </label>
+            <div className="mt-2">
+              <div className="flex w-full rounded-md ring-gray-300">
+                <Listbox
+                  value={selectedRoute}
+                  onChange={setSeletedRoute}
+                  disabled={!selectedGBM}
+                >
+                  <div className="relative w-full mt-1">
+                    <input
+                      type="text"
+                      name="route"
+                      value={selectedRoute ? selectedRoute : undefined}
+                      hidden
+                      required
+                    />
+                    <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+                      <span
+                        className={`block truncate ${
+                          selectedRoute ? "" : "text-gray-500"
+                        }`}
+                      >
+                        {selectedRoute ? selectedRoute : "ALL"}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronUpDownIcon
+                          className="h-5 w-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </Listbox.Button>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto z-10 rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                        {selectedGBM &&
+                          formFieldbyGBM[selectedGBM as keyof Object].route.map(
+                            (route) => (
+                              <Listbox.Option
+                                key={route}
+                                value={route}
+                                className={({ active }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active
+                                      ? "bg-slate-100 text-slate-900 font-semibold"
+                                      : "text-gray-900"
+                                  }`
+                                }
+                              >
+                                {route}
+                              </Listbox.Option>
+                            )
+                          )}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                </Listbox>
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="userid"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              User ID
+            </label>
+            <div className="mt-2">
+              <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+                <input
+                  type="text"
+                  name="userid"
+                  id="userid"
+                  placeholder="User ID"
+                  className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+                  value={selectedUserID ?? ""}
+                  onChange={(e) => setSelectedUserID(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-1">
+            <label
+              htmlFor="date"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              Insert Date
+            </label>
+            <div className="mt-2">
+              <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+                <input
+                  type="date"
+                  name="date"
+                  id="date"
+                  className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+                />
+              </div>
+            </div>
+          </div>
+        </div>
         <div>
           <div className="mt-4 mb-3">
             <div className="not-prose relative bg-slate-50 rounded-xl overflow-hidden dark:bg-slate-800/25">
@@ -124,6 +508,15 @@ const ExistingProject: React.FC = () => {
                           Description
                         </th>
                         <th className="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
+                          User ID
+                        </th>
+                        <th className="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
+                          Insert Date
+                        </th>
+                        <th className="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
+                          Update Date
+                        </th>
+                        <th className="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
                           Status
                         </th>
                         <th className="border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
@@ -132,8 +525,8 @@ const ExistingProject: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-slate-800">
-                      {projectListData &&
-                        projectListData.projects.map((project: any) => (
+                      {filteredProjects && 
+                        filteredProjects.map((project: any) => (
                           <tr key={project.id}>
                             <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
                               {project.id}
@@ -152,6 +545,15 @@ const ExistingProject: React.FC = () => {
                             </td>
                             <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
                               {project.description}
+                            </td>
+                            <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
+                              {project.userid}
+                            </td>
+                            <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
+                              {project.insertDate}
+                            </td>
+                            <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
+                              {project.updateDate}
                             </td>
                             <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400">
                               {project.done ? (

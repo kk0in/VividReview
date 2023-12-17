@@ -233,7 +233,7 @@ async def update_result(project_id: int, result: Any = Body(...)):
     
         
 @app.post('/api/upload_project', status_code=201)
-async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
+async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), userid: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
     id = issue_id()
 
     metadata = {  
@@ -242,6 +242,9 @@ async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: 
         'product': product,  
         'plant': plant,  
         'route': route,  
+        'userid': userid,
+        'insertDate': insertDate,
+        'updateDate': updateDate,
         'description': description,
         'done': False
     }

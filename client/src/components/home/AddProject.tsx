@@ -63,7 +63,7 @@ const AddProject: React.FC = () => {
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
     NET_SYS: {
-      proudct: ["SYSTEM", "PBX"],
+      product: ["SYSTEM", "PBX"],
       plant: ["SUWON", "SEV", "SEIN"],
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
@@ -79,6 +79,8 @@ const AddProject: React.FC = () => {
       product: selectedProduct,
       plant: selectedPlant,
       route: selectedRoute,
+      userid: e.currentTarget.userid.value,
+      date: e.currentTarget.date.value,
       description: e.currentTarget.description.value,
     };
 
@@ -383,6 +385,45 @@ const AddProject: React.FC = () => {
             </div>
           </div>
         </div>
+        <div className="sm:col-span-1">
+          <label
+            htmlFor="userid"
+            className="block text-sm font-medium leading-6 text-gray-900"
+          >
+            User ID
+          </label>
+          <div className="mt-2">
+            <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+              <input
+                type="text"
+                name="userid"
+                id="userid"
+                placeholder="User ID"
+                className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+              />
+            </div>
+          </div>
+        </div>
+        <div className="sm:col-span-1">
+          <label
+            htmlFor="date"
+            className="block text-sm font-medium leading-6 text-gray-900"
+          >
+            Insert Date
+          </label>
+          <div className="mt-2">
+            <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+              <input
+                type="date"
+                name="date"
+                id="date"
+                value={new Date().toISOString().slice(0, 10)}
+                className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+                disabled
+              />
+            </div>
+          </div>
+        </div>
         <div className="sm:col-span-2">
           <label
             htmlFor="description"
@@ -401,7 +442,6 @@ const AddProject: React.FC = () => {
                 className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
               />
             </div>
-            <div></div>
           </div>
         </div>
         <div className="col-span-full">
