@@ -51,14 +51,6 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, [data]);
 
-  useEffect(() => {
-    console.log('isLoading changed:', isLoading);
-  }, [isLoading]);
-
-  useEffect(() => {
-    console.log('isLoaded changed:', isLoaded);
-  }, [isLoaded]);
-
 
   const { refetch: refetchVideo, isLoading: loadingVideo } = useQuery(
     ["videoData", params.id],
@@ -68,7 +60,6 @@ export default function Page({ params }: { params: { id: string } }) {
         const videoUrl = URL.createObjectURL(data);
         // console.log(videoUrl)
         setVideoData(videoUrl);
-        console.log("finished video fetch")
       },
       enabled: false,
     }
@@ -81,7 +72,6 @@ export default function Page({ params }: { params: { id: string } }) {
       onSuccess: (data) => {
         console.log(data);
         setCSVData(data.result);
-        console.log("finished csv fetch")
         //   const reader = new FileReader();
         //   reader.readAsText(data);
         //   reader.onload = function () {
@@ -101,7 +91,6 @@ export default function Page({ params }: { params: { id: string } }) {
       onSuccess: (data) => {
         console.log(data);
         setKeypointData(data.keypoint);
-        console.log("finished keypoint fetch")
       },
       enabled: false,
     }
