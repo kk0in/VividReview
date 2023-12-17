@@ -128,7 +128,7 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="h-full flex items-center justify-center bg-gray-800 gap-10">
+      <div className=" flex items-center justify-center bg-gray-800 gap-10">
         {isLoading && 
           <div 
             className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
