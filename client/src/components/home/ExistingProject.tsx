@@ -32,8 +32,8 @@ const ExistingProject: React.FC = () => {
   const [selectedPlant, setSeletedPlant] = useState<string | null>("ALL");
   const [selectedRoute, setSeletedRoute] = useState<string | null>("ALL");
   const [filteredProjects, setFilteredProjects] = useState(projectListData?.projects);
-  const [selectedUserID, setSelectedUserID] = useState<string | null>(null);
-  const [selectedInsertedDate, setSelectedInsertedDate] = useState<Date | null>(null);
+  const [selecteduserID, setSelecteduserID] = useState<string | null>(null);
+  const [selectedInsertDate, setSelectedInsertDate] = useState<Date | null>(null);
 
     const formFieldbyGBM: Object = {
       "ALL":
@@ -76,11 +76,11 @@ const ExistingProject: React.FC = () => {
       const plantFilter = selectedPlant === "ALL" || project.plant === selectedPlant;
       const routeFilter = selectedRoute === "ALL" || project.route === selectedRoute;
       const userIDFilter =
-        !selectedUserID || project.userid && project.userid.includes(selectedUserID);
-      const insertedDateFilter =
-          !selectedInsertedDate ||
-          new Date(project.insertedDate).toDateString() ===
-            selectedInsertedDate.toDateString();
+        !selecteduserID || project.userID && project.userID.includes(selecteduserID);
+      const insertDateFilter =
+          !selectedInsertDate ||
+          new Date(project.insertDate).toDateString() ===
+            selectedInsertDate.toDateString();
     
       return (
         gbmFilter &&
@@ -88,13 +88,13 @@ const ExistingProject: React.FC = () => {
         plantFilter &&
         routeFilter &&
         userIDFilter &&
-        insertedDateFilter
+        insertDateFilter
       );
     }));
 
     console.log(filteredProjects);
 
-  } , [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selectedUserID, selectedInsertedDate, projectListData?.projects]);
+  } , [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selecteduserID, selectedInsertDate, projectListData?.projects]);
 
   return (
     <>
@@ -439,7 +439,7 @@ const ExistingProject: React.FC = () => {
               </div>
               <div className="sm:col-span-1">
                 <label
-                  htmlFor="userid"
+                  htmlFor="userID"
                   className="block text-sm font-medium leading-6 text-gray-900"
                 >
                   User ID
@@ -449,12 +449,12 @@ const ExistingProject: React.FC = () => {
                     <div className="flex w-full rounded-md ring-gray-300">
                       <input
                         type="text"
-                        name="userid"
-                        id="userid"
+                        name="userID"
+                        id="userID"
                         placeholder="User ID"
                         className="block flex-1 border-0 py-2 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
-                        value={selectedUserID ?? ""}
-                        onChange={(e) => setSelectedUserID(e.target.value)}
+                        value={selecteduserID ?? ""}
+                        onChange={(e) => setSelecteduserID(e.target.value)}
                       />
                     </div>
                   </div>
@@ -548,7 +548,7 @@ const ExistingProject: React.FC = () => {
                                 {project.description}
                               </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
-                                {project.userid}
+                                {project.userID}
                               </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
                                 {project.insertDate}

@@ -79,8 +79,9 @@ const AddProject: React.FC = () => {
       product: selectedProduct,
       plant: selectedPlant,
       route: selectedRoute,
-      userid: e.currentTarget.userid.value,
-      date: e.currentTarget.date.value,
+      userID: e.currentTarget.userID.value,
+      insertDate: e.currentTarget.insertDate.value,
+      updateDate: e.currentTarget.updateDate.value,
       description: e.currentTarget.description.value,
     };
 
@@ -387,7 +388,7 @@ const AddProject: React.FC = () => {
         </div>
         <div className="sm:col-span-1">
           <label
-            htmlFor="userid"
+            htmlFor="userID"
             className="block text-sm font-medium leading-6 text-gray-900"
           >
             User ID
@@ -396,8 +397,8 @@ const AddProject: React.FC = () => {
             <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
               <input
                 type="text"
-                name="userid"
-                id="userid"
+                name="userID"
+                id="userID"
                 placeholder="User ID"
                 className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
               />
@@ -406,7 +407,7 @@ const AddProject: React.FC = () => {
         </div>
         <div className="sm:col-span-1">
           <label
-            htmlFor="date"
+            htmlFor="insertDate"
             className="block text-sm font-medium leading-6 text-gray-900"
           >
             Insert Date
@@ -415,8 +416,8 @@ const AddProject: React.FC = () => {
             <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
               <input
                 type="date"
-                name="date"
-                id="date"
+                name="insertDate"
+                id="insertDate"
                 value={new Date().toISOString().slice(0, 10)}
                 className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
                 disabled

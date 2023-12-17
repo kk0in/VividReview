@@ -25,13 +25,13 @@ os.makedirs('videos', exist_ok=True)
 os.makedirs('metadata', exist_ok=True)
 
 @app.post('/api/uploadfile', status_code=201)
-async def upload_file(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), userid: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), : str = Form(...), file: UploadFile = File(...)):
+async def upload_file(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), userID: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
     metadata = {  
         'gbm': gbm,  
         'product': product,  
         'plant': plant,  
         'route': route,  
-        'userid': userid,
+        'userID': userID,
         'insertDate': insertDate,
         'updateDate': updateDate,
         'description': description,  
