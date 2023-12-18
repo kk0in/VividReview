@@ -81,7 +81,7 @@ const AddProject: React.FC = () => {
       route: selectedRoute,
       userID: e.currentTarget.userID.value,
       insertDate: e.currentTarget.insertDate.value,
-      updateDate: e.currentTarget.updateDate.value,
+      updateDate: e.currentTarget.insertDate.value,
       description: e.currentTarget.description.value,
     };
 

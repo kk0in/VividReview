@@ -33,7 +33,7 @@ const ExistingProject: React.FC = () => {
   const [selectedRoute, setSeletedRoute] = useState<string | null>("ALL");
   const [filteredProjects, setFilteredProjects] = useState(projectListData?.projects);
   const [selecteduserID, setSelecteduserID] = useState<string | null>(null);
-  const [selectedInsertDate, setSelectedInsertDate] = useState<Date | null>(null);
+  const [selectedInsertDate, setSelectedInsertDate] = useState<string | null>(null);
 
     const formFieldbyGBM: Object = {
       "ALL":
@@ -79,8 +79,7 @@ const ExistingProject: React.FC = () => {
         !selecteduserID || project.userID && project.userID.includes(selecteduserID);
       const insertDateFilter =
           !selectedInsertDate ||
-          new Date(project.insertDate).toDateString() ===
-            selectedInsertDate.toDateString();
+          project.insertDate === selectedInsertDate;
     
       return (
         gbmFilter &&
@@ -462,7 +461,7 @@ const ExistingProject: React.FC = () => {
               </div>
               <div className="sm:col-span-1">
                 <label
-                  htmlFor="date"
+                  htmlFor="insertDate"
                   className="block text-sm font-medium leading-6 text-gray-900"
                 >
                   Insert Date
@@ -471,9 +470,10 @@ const ExistingProject: React.FC = () => {
                   <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
                     <input
                       type="date"
-                      name="date"
-                      id="date"
+                      name="insertDate"
+                      id="insertDate"
                       className="block flex-1 border-0 py-2 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+                      onChange={(e) => setSelectedInsertDate(e.target.value)}
                     />
                   </div>
                 </div>

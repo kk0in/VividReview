@@ -14,7 +14,7 @@ export async function postProject({ metadata, file }) {
     formData.append('plant', metadata.plant);
     formData.append('route', metadata.route);
     formData.append('userID', metadata.userID);
-    formData.append('insertDate', metadata.insertdate);
+    formData.append('insertDate', metadata.insertDate);
     formData.append('updateDate', metadata.updateDate);
     formData.append('description', metadata.description);
     formData.append('file', file);
