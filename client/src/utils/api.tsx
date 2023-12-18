@@ -66,3 +66,8 @@ export async function getTestKeypoint() {
     const response = await axios.get(SERVER_ENDPOINT+'test/get_json');
     return response.data;
 }
+
+export async function deleteProject(projectId: string) {
+    const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);
+    return response.data;
+}

@@ -2,9 +2,9 @@
 
 import React, { useState, Fragment, useEffect } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 
-import { getProjectList } from "@/utils/api";
+import { getProjectList, deleteProject } from "@/utils/api";
 import { ArrowUturnLeftIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSetRecoilState } from "recoil";
 import {
@@ -16,6 +16,7 @@ import { Listbox, Dialog, Transition } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 
 const ExistingProject: React.FC = () => {
+  const queryClient = useQueryClient();
   const setCSVData = useSetRecoilState(csvDataState);
   const setVideoData = useSetRecoilState(videoDataState);
   const setKeypointData = useSetRecoilState(keypointDataState);
@@ -26,7 +27,21 @@ const ExistingProject: React.FC = () => {
     },
   });
 
+  const deleteProjectMutation = useMutation((projectId: string) => deleteProject(projectId), {
+    onSuccess: () => {
+      queryClient.invalidateQueries(["projectList"]);
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
+    },
+  });
+
+  const handleProjectDelete = (projectId: string) => {
+    setProjectToDelete(projectId);
+    deleteProjectMutation.mutate(projectId);
+  };
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null); 
   const [selectedGBM, setSeletedGBM] = useState<string | null>("ALL");
   const [selectedProduct, setSeletedProduct] = useState<string | null>("ALL");
   const [selectedPlant, setSeletedPlant] = useState<string | null>("ALL");
@@ -102,7 +117,10 @@ const ExistingProject: React.FC = () => {
         <Transition appear show={isDeleteModalOpen} as={Fragment}>
           <Dialog
             open={isDeleteModalOpen}
-            onClose={() => setIsDeleteModalOpen(false)}
+            onClose={() => {
+              setIsDeleteModalOpen(false);
+              setProjectToDelete(null);
+            }}
             className="fixed inset-0 flex items-center justify-center"
             >
               <Transition.Child
@@ -143,7 +161,11 @@ const ExistingProject: React.FC = () => {
                   <button
                     type="button"
                     className="inline-flex justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 text-sm font-medium text-red-900 hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                    onClick={() => setIsDeleteModalOpen(false)}
+                    onClick={() => {
+                      projectToDelete && handleProjectDelete(projectToDelete);
+                      setIsDeleteModalOpen(false)
+                      setProjectToDelete(null);
+                    }}
                   >
                     Delete
                   </button>
@@ -577,7 +599,10 @@ const ExistingProject: React.FC = () => {
                                 {/* delete */}
                                 <button
                                   className="rounded-md items-center justify-center text-slate-500 gap-3 bg-white  border-slate-200 px-2 py-2 text-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-                                  onClick={() => setIsDeleteModalOpen(true)}
+                                  onClick={() => {
+                                    setIsDeleteModalOpen(true);
+                                    setProjectToDelete(project.id);
+                                  }}
                                 >
                                   <TrashIcon className="h-4 w-4" />
                                 </button>
