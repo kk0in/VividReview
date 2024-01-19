@@ -6,6 +6,7 @@ from .parse_config import ConfigParser
 import json
 from glob import glob
 import os
+from typing import List
 
 
 from .train import train_model
@@ -16,14 +17,14 @@ CURRENT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 
 
 
-def run_train(input_video:str, input_label_csv:str, prefill_folder:str="/data/samsung/sec/RAW"):
+def run_train(input_video_list:List[str], input_label_csv_list:List[str], prefill_folder:str="/data/samsung/sec/RAW"):
     """
     Train the model using the provided input video and label CSV file.
 
-    :param input_video: Path to the input video file.
-    :type input_video: str
-    :param input_label_csv: Path to the label CSV file.
-    :type input_label_csv: str
+    :param input_video_list: Path to the input video file.
+    :type input_video_list: List[str]
+    :param input_label_csv_list: Path to the label CSV file.
+    :type input_label_csv_list: List[str]
     :param prefill_folder: Path to the prefill folder, defaults to "/data/samsung/sec/RAW".
     :type prefill_folder: str, optional
     :return: A tuple containing the scaler path and checkpoint path.
@@ -41,7 +42,8 @@ def run_train(input_video:str, input_label_csv:str, prefill_folder:str="/data/sa
     
     ## all extracted pose data (.json, .csv) are stored in pose_foler
     
-    csv_path_dict = run_train_pipe(input_video, input_label_csv, pose_folder, 60, 8)
+    for input_video, input_label_csv in zip(input_video_list, input_label_csv_list):
+        csv_path_dict = run_train_pipe(input_video, input_label_csv, pose_folder, 60, 8)
     
     data_path = {
         "trainX": csv_path_dict["train"][0],
@@ -82,9 +84,9 @@ def prefill(prefill_folder: str, pose_folder: str) -> None:
 
 
     
-if __name__ == '__main__':
+# if __name__ == '__main__':
     
-    input_video = "~~.mp4"
-    input_label_csv = "~~.csv"
+#     input_video = "~~.mp4"
+#     input_label_csv = "~~.csv"
 
-    run_train(input_video, input_label_csv)
+#     run_train(input_video, input_label_csv)

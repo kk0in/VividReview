@@ -124,13 +124,6 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
         target_folder=feature_cache
     )
     
-    
-    # csv_path_dict = {
-    #     "train": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/X_train.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/Y_train.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/train/Y_train_wo.txt"],
-    #     "val": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/X_val.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/Y_val.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/val/Y_val_wo.txt"],
-    #     "test": ["/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/X_test.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/Y_test.csv", "/data/minsuk/SEC-ST/server/feature_cache/feature_vectors/test/Y_test_wo.txt"]
-    # }
-    
     for split in ["train", "val", "test"]:
         print(f"Running overlap... {split}")
         original_X_csv = csv_path_dict[split][0]
