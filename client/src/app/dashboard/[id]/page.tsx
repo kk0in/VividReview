@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import VideoViewer from "@/components/dashboard/VideoViewer";
 import ModaptsTable from "@/components/dashboard/ModaptsTable";
 import KeypointsDrawing from "@/components/dashboard/KeypointsDrawing";
@@ -50,6 +50,7 @@ export default function Page({ params }: { params: { id: string } }) {
       //   setIsLoaded(true);
     }
   }, [data]);
+
 
   const { refetch: refetchVideo, isLoading: loadingVideo } = useQuery(
     ["videoData", params.id],
@@ -128,56 +129,48 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="h-full flex items-center justify-center bg-gray-800 gap-10">
-        {isLoading && 
-          <div 
-            className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-              <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
-                <PencilSquareIcon className="h-12 w-12 text-slate-400"/>
-                <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading<br/>Project Info...</div>
-              </div>
-            <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
-          </div>
-        }
-        {data?.project?.done === "done" && !isLoaded && (
+      <div className="h-full flex items-center align-center justify-center bg-gray-800 gap-10">
+        {!isLoaded && (
           <div className="flex items-center justify-center gap-10">
-            {loadingVideo && 
-              <div 
-                className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              >
-                  <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
-                    <FilmIcon className="h-12 w-12 text-slate-400"/>
-                    <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Video...</div>
-                  </div>
-                <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            <div className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+              <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                <PencilSquareIcon className={`h-12 w-12 ${isLoading ? "text-slate-400" : "text-slate-700"}`} />
+                <div className={`border-slate-100 dark:border-slate-700 px-4  ${isLoading ? "text-slate-400" : "text-slate-700"} dark:text-slate-400 h-12 flex justify-center items-center text-center`}> {isLoading ? "Loading" : "Loaded" }<br />Project Info{isLoading ? "..." : "" }</div>
               </div>
-            }
-            {loadingKeypoint && 
-              <div 
-                className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              >
-                  <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
-                    <CubeTransparentIcon className="h-12 w-12 text-slate-400"/>
-                    <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Keypoint...</div>
-                  </div>
-                <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+
+            <div className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+              <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                <FilmIcon className={`h-12 w-12 ${loadingVideo ? "text-slate-400" : "text-slate-700"}`} />
+                <div className={`border-slate-100 dark:border-slate-700 px-4  ${loadingVideo ? "text-slate-400" : "text-slate-700"} dark:text-slate-400 h-12 flex justify-center items-center text-center`}> {loadingVideo ? "Loading" : "Loaded" }<br />Video{loadingVideo ? "..." : "" }</div>
               </div>
-            }
-            {loadingCSV && 
-              <div 
-                className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              >
-                  <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
-                    <DocumentTextIcon className="h-12 w-12 text-slate-400"/>
-                    <div className="border-slate-100 dark:border-slate-700 px-4 text-slate-500 dark:text-slate-400 h-12 flex justify-center items-center text-center">Loading Result...</div>
-                  </div>
-                <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+
+            <div className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+              <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                <CubeTransparentIcon className={`h-12 w-12 ${loadingKeypoint ? "text-slate-400" : "text-slate-700"}`} />
+                <div className={`border-slate-100 dark:border-slate-700 px-4  ${loadingKeypoint ? "text-slate-400" : "text-slate-700"} dark:text-slate-400 h-12 flex justify-center items-center text-center`}> {loadingKeypoint ? "Loading" : "Loaded" }<br />Keypoint{loadingKeypoint ? "..." : "" }</div>
               </div>
-            }
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>
+
+            <div className="not-prose relative bg-white flex justify-center items-center rounded-xl overflow-hidden w-48 h-60 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+              <div className="relative overflow-auto flex flex-col justify-center items-center h-80 gap-4">
+                <DocumentTextIcon className={`h-12 w-12 ${loadingCSV ? "text-slate-400" : "text-slate-700"}`} />
+                <div className={`border-slate-100 dark:border-slate-700 px-4  ${loadingCSV ? "text-slate-400" : "text-slate-700"} dark:text-slate-400 h-12 flex justify-center items-center text-center`}> {loadingCSV ? "Loading" : "Loaded" }<br />Result{loadingCSV ? "..." : "" }</div>
+              </div>
+              <div className="absolute inset-0 pointer-events-none border border-black/5 rounded-xl dark:border-white/5"></div>
+            </div>   
           </div>
+          
+        )}
+        {data?.project?.done === "done" && (
+          <div className="flex items-center justify-center gap-10"></div>
         )}
       </div>
+
 
       {isError && (
           <div className="mx-auto my-auto">

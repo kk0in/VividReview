@@ -19,12 +19,10 @@ import {
 import { useRouter } from "next/navigation";
 import { Listbox, Transition, Dialog } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
+import Link from "next/link"
 
-interface AddProjectProps {
-  setView: React.Dispatch<React.SetStateAction<string>>;
-}
 
-const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
+const AddProject: React.FC = () => {
   const router = useRouter();
 
   const [csvData, setCSVData] = useRecoilState(csvDataState);
@@ -65,7 +63,7 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
     NET_SYS: {
-      proudct: ["SYSTEM", "PBX"],
+      product: ["SYSTEM", "PBX"],
       plant: ["SUWON", "SEV", "SEIN"],
       route: ["2260", "2660", "3560", "4260", "7160"],
     },
@@ -81,6 +79,9 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
       product: selectedProduct,
       plant: selectedPlant,
       route: selectedRoute,
+      userID: e.currentTarget.userID.value,
+      insertDate: e.currentTarget.insertDate.value,
+      updateDate: e.currentTarget.insertDate.value,
       description: e.currentTarget.description.value,
     };
 
@@ -89,7 +90,7 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
         .mutateAsync({ metadata, file: videoFile })
         .then((res) => {
           console.log(res);
-          setView("existing");
+          // setView("existing");
           setIsModalOpen(false);
         })
         .catch((err) => {
@@ -385,6 +386,45 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
             </div>
           </div>
         </div>
+        <div className="sm:col-span-1">
+          <label
+            htmlFor="userID"
+            className="block text-sm font-medium leading-6 text-gray-900"
+          >
+            User ID
+          </label>
+          <div className="mt-2">
+            <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+              <input
+                type="text"
+                name="userID"
+                id="userID"
+                placeholder="User ID"
+                className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+              />
+            </div>
+          </div>
+        </div>
+        <div className="sm:col-span-1">
+          <label
+            htmlFor="insertDate"
+            className="block text-sm font-medium leading-6 text-gray-900"
+          >
+            Insert Date
+          </label>
+          <div className="mt-2">
+            <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
+              <input
+                type="date"
+                name="insertDate"
+                id="insertDate"
+                value={new Date().toISOString().slice(0, 10)}
+                className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
+                disabled
+              />
+            </div>
+          </div>
+        </div>
         <div className="sm:col-span-2">
           <label
             htmlFor="description"
@@ -403,7 +443,6 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
                 className="block flex-1 border-0 py-1.5 pl-3 text-gray-900 text-sm placeholder:text-gray-400 focus:ring-0  bg-slate-100 rounded-md "
               />
             </div>
-            <div></div>
           </div>
         </div>
         <div className="col-span-full">
@@ -429,10 +468,10 @@ const AddProject: React.FC<AddProjectProps> = ({ setView }) => {
         </button> */}
         <button 
           className="rounded-md bg-white border border-slate-200 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-          onClick={() => setView("select")}
+          // onClick={() => setView("select")}
         >
           <div className="flex items-center justify-center text-slate-500 gap-3">
-            Back
+            <Link href="/">Back</Link>
           </div>
         </button>
 

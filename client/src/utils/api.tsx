@@ -13,6 +13,9 @@ export async function postProject({ metadata, file }) {
     formData.append('product', metadata.product);
     formData.append('plant', metadata.plant);
     formData.append('route', metadata.route);
+    formData.append('userID', metadata.userID);
+    formData.append('insertDate', metadata.insertDate);
+    formData.append('updateDate', metadata.updateDate);
     formData.append('description', metadata.description);
     formData.append('file', file);
 
@@ -61,5 +64,10 @@ export async function getTestCSV() {
 
 export async function getTestKeypoint() {
     const response = await axios.get(SERVER_ENDPOINT+'test/get_json');
+    return response.data;
+}
+
+export async function deleteProject(projectId: string) {
+    const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);
     return response.data;
 }
