@@ -21,7 +21,9 @@ import { Listbox, Transition, Dialog } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 import Link from "next/link"
 
-
+// component for adding new project
+// renders form for inputting project metadata
+// organizes form input and video file
 const AddProject: React.FC = () => {
   const router = useRouter();
 
@@ -41,6 +43,7 @@ const AddProject: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
 
+  // corresponding form fields for each GBM
   const formFieldbyGBM: Object = {
     "MX(S)": {
       product: ["MOBILE", "APS", "PC", "TNP", "PKG"],
@@ -69,6 +72,8 @@ const AddProject: React.FC = () => {
     },
   };
 
+  // handle form submit
+  // create new video metadata from form input
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 

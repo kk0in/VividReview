@@ -8,6 +8,7 @@ import isEqual from 'lodash/isEqual';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
 
+// render the modapts table
 const ModaptsTable = ({ setCurrentModapts }) => {
   const [csvData, setCSVData] = useRecoilState(csvDataState);
   const [currentTime, setCurrentTime] = useRecoilState(currentTimeState);
@@ -74,12 +75,14 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     }
   }, [highlightedRow]);
 
+  // update total time in the footer
   function updateTotalTime() {
     const ctSum = csvData.reduce((sum, item) => sum + item["C/T"], 0);
     const stSum = csvData.reduce((sum, item) => sum + item["S/T"], 0);
     setSums({ ctSum, stSum });
   }
 
+  // convert time string to seconds
   function timeToSeconds(timeString: string): number {
     // time string format hh:mm:ss.frame
     // fps = 60
@@ -109,8 +112,9 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
-
+    }, []);
+  
+  // when click on a row, move to the time of the row['start']
   const handleRowClick = (rowIndex: number) => {
     // move to the time of the row['start']
     console.log(rowIndex);
@@ -122,6 +126,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     }
   };
 
+  // when click on a modapts cell, edit the label
   const handleCellClick = (rowIndex: number, key: string) => {
     if (key !== "Modapts") return;
     setEditedCell({ rowIndex, key });
@@ -136,6 +141,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     setEditedCell(null);
   }
 
+  // on completing label edit, update the csvData
   const handleLabelEdit = (rowIndex: number, key: string) => {
     console.log(`rowIndex: ${rowIndex}, key: ${key}, value: ${inputRef.current.value}`) 
     setEditedCell(null);

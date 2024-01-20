@@ -3,6 +3,7 @@
 import { CloudArrowDownIcon, PlusCircleIcon } from "@heroicons/react/24/solid";
 import Link from "next/link"
 
+// select whether to create new project or load existing project
 export default function SelectProject() {
   return (
     <div className="flex items-center justify-center gap-10"> 

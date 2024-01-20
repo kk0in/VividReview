@@ -7,6 +7,7 @@ interface FileUploadProps {
   filetype: string;
 }
 
+// render component to upload video file
 const FileUpload: React.FC<FileUploadProps> = ({
   onFileUploaded,
   // filetype,

@@ -15,6 +15,7 @@ import {
 import { Listbox, Dialog, Transition } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 
+// render filter dropdowns and existing project list
 const ExistingProject: React.FC = () => {
   const queryClient = useQueryClient();
   const setCSVData = useSetRecoilState(csvDataState);
@@ -50,7 +51,8 @@ const ExistingProject: React.FC = () => {
   const [selecteduserID, setSelecteduserID] = useState<string | null>(null);
   const [selectedInsertDate, setSelectedInsertDate] = useState<string | null>(null);
 
-    const formFieldbyGBM: Object = {
+  // correstponding form field by GBM
+  const formFieldbyGBM: Object = {
       "ALL":
       {
         product: ["ALL"],
@@ -84,6 +86,7 @@ const ExistingProject: React.FC = () => {
       },
   };
 
+  // update project list when filter is changed
   useEffect( () => {
     setFilteredProjects(projectListData?.projects.filter((project: any) => {
       const gbmFilter = selectedGBM === "ALL" || project.gbm === selectedGBM;
