@@ -41,6 +41,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     }
   };
 
+  // set current modapts
   useEffect(() => {
     if (csvData.length > 0) {
       csvData.forEach((row, index) => {
@@ -55,6 +56,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       });
     }
   }, [currentTime, csvData]);
+
   function timeToSeconds(timeString: string): number {
     if (timeString) {
       const timeArray = timeString.split(":");
@@ -68,6 +70,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       return milliseconds;
     }
   }
+
+  // update timestamp from video time
   const updateTimestamp = () => {
     const video = videoRef.current;
     if (video) {
@@ -85,6 +89,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     return () => cancelAnimationFrame(animationFrameRef.current);
   }, [currentTime]);
 
+  // update progress bar from click event 
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) {
       return;
@@ -124,6 +129,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     setIsPlaying(false);
   };
 
+  // add event listener for video end
   useEffect(() => {
     const video = videoRef.current;
 
@@ -135,6 +141,8 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
       };
     }
   }, []);
+
+  // add event listener for space bar and arrow keys
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === " ") {
@@ -157,6 +165,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     };
   }, [isPlaying]);
 
+  // time formatting function
   const formatTime = (timeInSeconds: number): string => {
     const date = new Date(null);
     date.setSeconds(timeInSeconds);
@@ -178,6 +187,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
   const [isPlayingRange, setIsPlayingRange] = useState<boolean>(false);
   const [playingRange, setPlayingRange] = useState<[number, number]>();
 
+  // rewind function
   const rewind = (seconds: number) => {
     if (videoRef.current) {
       const newCurrentTime = videoRef.current.currentTime - seconds;
@@ -222,6 +232,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     }
   };
 
+  // update video time from input
   const handleInputBlur = () => {
     setIsInputMode(false);
     const timeComponents = inputTime.split(":");
@@ -309,6 +320,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ videoSrc }) => {
     }
   };
 
+  // colormap by modapts label
   const colormap = (label: string) => {
     if (!label) {
       return;

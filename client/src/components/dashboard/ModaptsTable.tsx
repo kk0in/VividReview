@@ -183,7 +183,6 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                 ref={rowIndex === highlightedRow ? rowRef : null}
                 onClick={() => handleRowClick(rowIndex)}
               >
-                {/* {console.log(Object.entries(row))} */}
                 {Object.entries(row).map(([key, value], cellIndex) => {
                   if (key === "Topk") return;
                   return (
@@ -235,18 +234,6 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                     )}
                   </td>
                 )})}
-                {/* {row.entries().map((cell, cellIndex) => (
-                  <td
-                    key={cellIndex}
-                    className={`border-b border-slate-700 p-[0.5] pl-6 font-mono ${
-                      rowIndex === highlightedRow
-                        ? "text-slate-800"
-                        : "text-slate-200"
-                    }`}
-                  >
-                    {cell}
-                  </td>
-                ))} */}
               </tr>
             ))}
           </tbody>

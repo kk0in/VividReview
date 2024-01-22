@@ -22,12 +22,14 @@ const ExistingProject: React.FC = () => {
   const setVideoData = useSetRecoilState(videoDataState);
   const setKeypointData = useSetRecoilState(keypointDataState);
 
+  // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
     onSuccess: (data) => {
       console.log(data);
     },
   });
 
+  // delete project request
   const deleteProjectMutation = useMutation((projectId: string) => deleteProject(projectId), {
     onSuccess: () => {
       queryClient.invalidateQueries(["projectList"]);
@@ -36,13 +38,14 @@ const ExistingProject: React.FC = () => {
     },
   });
 
+  // delete project
   const handleProjectDelete = (projectId: string) => {
     setProjectToDelete(projectId);
     deleteProjectMutation.mutate(projectId);
   };
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<string | null>(null); 
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [selectedGBM, setSeletedGBM] = useState<string | null>("ALL");
   const [selectedProduct, setSeletedProduct] = useState<string | null>("ALL");
   const [selectedPlant, setSeletedPlant] = useState<string | null>("ALL");
@@ -53,41 +56,41 @@ const ExistingProject: React.FC = () => {
 
   // correstponding form field by GBM
   const formFieldbyGBM: Object = {
-      "ALL":
-      {
-        product: ["ALL"],
-        plant: ["ALL"],
-        route: ["ALL"],
-      },  
-      "MX(S)": {
-        product: ["MOBILE", "APS", "PC", "TNP", "PKG"],
-        plant: ["GUMI", "SEIL(N)", "SEV", "SEVT", "SEIN"],
-        route: ["1000", "3000", "5000", "9000", "9100"],
-      },
-      "MX(P)": {
-        product: ["CAMERA", "CNC", "GLASS", "INJ ASSY"],
-        plant: ["SEV"],
-        route: ["MC01", "MN01", "MLU1", "MI01", "MS01"],
-      },
-      VD: {
-        product: ["TV", "LCM", "MONITOR", "AV"],
-        plant: ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
-        route: ["2260", "2660", "3560", "4260", "7160"],
-      },
-      DA: {
-        product: ["REF", "A/C", "W/M", "MWO", "COMP"],
-        plant: ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
-        route: ["2260", "2660", "3560", "4260", "7160"],
-      },
-      NET_SYS: {
-        product: ["SYSTEM", "PBX"],
-        plant: ["SUWON", "SEV", "SEIN"],
-        route: ["2260", "2660", "3560", "4260", "7160"],
-      },
+    "ALL":
+    {
+      product: ["ALL"],
+      plant: ["ALL"],
+      route: ["ALL"],
+    },
+    "MX(S)": {
+      product: ["MOBILE", "APS", "PC", "TNP", "PKG"],
+      plant: ["GUMI", "SEIL(N)", "SEV", "SEVT", "SEIN"],
+      route: ["1000", "3000", "5000", "9000", "9100"],
+    },
+    "MX(P)": {
+      product: ["CAMERA", "CNC", "GLASS", "INJ ASSY"],
+      plant: ["SEV"],
+      route: ["MC01", "MN01", "MLU1", "MI01", "MS01"],
+    },
+    VD: {
+      product: ["TV", "LCM", "MONITOR", "AV"],
+      plant: ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
+      route: ["2260", "2660", "3560", "4260", "7160"],
+    },
+    DA: {
+      product: ["REF", "A/C", "W/M", "MWO", "COMP"],
+      plant: ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
+      route: ["2260", "2660", "3560", "4260", "7160"],
+    },
+    NET_SYS: {
+      product: ["SYSTEM", "PBX"],
+      plant: ["SUWON", "SEV", "SEIN"],
+      route: ["2260", "2660", "3560", "4260", "7160"],
+    },
   };
 
   // update project list when filter is changed
-  useEffect( () => {
+  useEffect(() => {
     setFilteredProjects(projectListData?.projects.filter((project: any) => {
       const gbmFilter = selectedGBM === "ALL" || project.gbm === selectedGBM;
       const productFilter = selectedProduct === "ALL" || project.product === selectedProduct;
@@ -96,9 +99,9 @@ const ExistingProject: React.FC = () => {
       const userIDFilter =
         !selecteduserID || project.userID && project.userID.includes(selecteduserID);
       const insertDateFilter =
-          !selectedInsertDate ||
-          project.insertDate === selectedInsertDate;
-    
+        !selectedInsertDate ||
+        project.insertDate === selectedInsertDate;
+
       return (
         gbmFilter &&
         productFilter &&
@@ -109,14 +112,13 @@ const ExistingProject: React.FC = () => {
       );
     }));
 
-    console.log(filteredProjects);
+    // console.log(filteredProjects);
 
-  } , [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selecteduserID, selectedInsertDate, projectListData?.projects]);
+  }, [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selecteduserID, selectedInsertDate, projectListData?.projects]);
 
   return (
     <>
-     <div className="flex place-items-center my-auto mx-auto">
-
+      <div className="flex place-items-center my-auto mx-auto">
         <Transition appear show={isDeleteModalOpen} as={Fragment}>
           <Dialog
             open={isDeleteModalOpen}
@@ -125,8 +127,8 @@ const ExistingProject: React.FC = () => {
               setProjectToDelete(null);
             }}
             className="fixed inset-0 flex items-center justify-center"
-            >
-              <Transition.Child
+          >
+            <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
               enterFrom="opacity-0"
@@ -212,9 +214,8 @@ const ExistingProject: React.FC = () => {
                         />
                         <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                           <span
-                            className={`block truncate ${
-                              selectedGBM ? "" : "text-gray-500"
-                            }`}
+                            className={`block truncate ${selectedGBM ? "" : "text-gray-500"
+                              }`}
                           >
                             {selectedGBM ? selectedGBM : "ALL"}
                           </span>
@@ -237,10 +238,9 @@ const ExistingProject: React.FC = () => {
                                 key={gbm}
                                 value={gbm}
                                 className={({ active }) =>
-                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                    active
-                                      ? "bg-slate-100 text-slate-900 font-semibold"
-                                      : "text-gray-900"
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                    ? "bg-slate-100 text-slate-900 font-semibold"
+                                    : "text-gray-900"
                                   }`
                                 }
                               >
@@ -278,9 +278,8 @@ const ExistingProject: React.FC = () => {
                         />
                         <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                           <span
-                            className={`block truncate ${
-                              selectedProduct ? "" : "text-gray-500"
-                            }`}
+                            className={`block truncate ${selectedProduct ? "" : "text-gray-500"
+                              }`}
                           >
                             {selectedProduct ? selectedProduct : "ALL"}
                           </span>
@@ -305,10 +304,9 @@ const ExistingProject: React.FC = () => {
                                     key={product}
                                     value={product}
                                     className={({ active }) =>
-                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                        active
-                                          ? "bg-slate-100 text-slate-900 font-semibold"
-                                          : "text-gray-900"
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                        ? "bg-slate-100 text-slate-900 font-semibold"
+                                        : "text-gray-900"
                                       }`
                                     }
                                   >
@@ -347,9 +345,8 @@ const ExistingProject: React.FC = () => {
                         />
                         <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                           <span
-                            className={`block truncate ${
-                              selectedPlant ? "" : "text-gray-500"
-                            }`}
+                            className={`block truncate ${selectedPlant ? "" : "text-gray-500"
+                              }`}
                           >
                             {selectedPlant ? selectedPlant : "ALL"}
                           </span>
@@ -374,10 +371,9 @@ const ExistingProject: React.FC = () => {
                                     key={plant}
                                     value={plant}
                                     className={({ active }) =>
-                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                        active
-                                          ? "bg-slate-100 text-slate-900 font-semibold"
-                                          : "text-gray-900"
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                        ? "bg-slate-100 text-slate-900 font-semibold"
+                                        : "text-gray-900"
                                       }`
                                     }
                                   >
@@ -416,9 +412,8 @@ const ExistingProject: React.FC = () => {
                         />
                         <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                           <span
-                            className={`block truncate ${
-                              selectedRoute ? "" : "text-gray-500"
-                            }`}
+                            className={`block truncate ${selectedRoute ? "" : "text-gray-500"
+                              }`}
                           >
                             {selectedRoute ? selectedRoute : "ALL"}
                           </span>
@@ -443,10 +438,9 @@ const ExistingProject: React.FC = () => {
                                     key={route}
                                     value={route}
                                     className={({ active }) =>
-                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                        active
-                                          ? "bg-slate-100 text-slate-900 font-semibold"
-                                          : "text-gray-900"
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                        ? "bg-slate-100 text-slate-900 font-semibold"
+                                        : "text-gray-900"
                                       }`
                                     }
                                   >
@@ -551,7 +545,7 @@ const ExistingProject: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-slate-800">
-                        {filteredProjects && 
+                        {filteredProjects &&
                           filteredProjects.map((project: any) => (
                             <tr key={project.id}>
                               <td className="w-10 border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
@@ -621,15 +615,13 @@ const ExistingProject: React.FC = () => {
             </div>
             <button
               className="rounded-md bg-white border border-slate-200 mt-4 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-              // onClick={() => setView("select")}
             >
               <div className="flex items-center justify-center text-slate-500 gap-3">
                 <Link href="/">Back</Link>
               </div>
             </button>
-    {/* centering */}
-          <div>
-          </div>
+            <div>
+            </div>
           </div>
         </div>
       </div>

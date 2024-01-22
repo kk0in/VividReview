@@ -25,12 +25,6 @@ import Link from "next/link"
 // renders form for inputting project metadata
 // organizes form input and video file
 const AddProject: React.FC = () => {
-  const router = useRouter();
-
-  const [csvData, setCSVData] = useRecoilState(csvDataState);
-  const [videoData, setVideoData] = useRecoilState(videoDataState);
-  const [keypointData, setKeypointData] = useRecoilState(keypointDataState);
-
   const mutation = useMutation(postProject);
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -111,8 +105,6 @@ const AddProject: React.FC = () => {
     }
   }
 
-
-
   return (
     <form onSubmit={handleSubmit} className="min-w-[50rem]">
       <div className="mb-6">
@@ -142,9 +134,8 @@ const AddProject: React.FC = () => {
                   />
                   <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                     <span
-                      className={`block truncate ${
-                        selectedGBM ? "" : "text-gray-500"
-                      }`}
+                      className={`block truncate ${selectedGBM ? "" : "text-gray-500"
+                        }`}
                     >
                       {selectedGBM ? selectedGBM : "GBM"}
                     </span>
@@ -167,10 +158,9 @@ const AddProject: React.FC = () => {
                           key={gbm}
                           value={gbm}
                           className={({ active }) =>
-                            `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                              active
-                                ? "bg-slate-100 text-slate-900 font-semibold"
-                                : "text-gray-900"
+                            `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                              ? "bg-slate-100 text-slate-900 font-semibold"
+                              : "text-gray-900"
                             }`
                           }
                         >
@@ -208,9 +198,8 @@ const AddProject: React.FC = () => {
                   />
                   <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                     <span
-                      className={`block truncate ${
-                        selectedProduct ? "" : "text-gray-500"
-                      }`}
+                      className={`block truncate ${selectedProduct ? "" : "text-gray-500"
+                        }`}
                     >
                       {selectedProduct ? selectedProduct : "Product"}
                     </span>
@@ -235,10 +224,9 @@ const AddProject: React.FC = () => {
                               key={product}
                               value={product}
                               className={({ active }) =>
-                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                  active
-                                    ? "bg-slate-100 text-slate-900 font-semibold"
-                                    : "text-gray-900"
+                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                  ? "bg-slate-100 text-slate-900 font-semibold"
+                                  : "text-gray-900"
                                 }`
                               }
                             >
@@ -277,9 +265,8 @@ const AddProject: React.FC = () => {
                   />
                   <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                     <span
-                      className={`block truncate ${
-                        selectedPlant ? "" : "text-gray-500"
-                      }`}
+                      className={`block truncate ${selectedPlant ? "" : "text-gray-500"
+                        }`}
                     >
                       {selectedPlant ? selectedPlant : "Plant"}
                     </span>
@@ -304,10 +291,9 @@ const AddProject: React.FC = () => {
                               key={plant}
                               value={plant}
                               className={({ active }) =>
-                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                  active
-                                    ? "bg-slate-100 text-slate-900 font-semibold"
-                                    : "text-gray-900"
+                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                  ? "bg-slate-100 text-slate-900 font-semibold"
+                                  : "text-gray-900"
                                 }`
                               }
                             >
@@ -346,9 +332,8 @@ const AddProject: React.FC = () => {
                   />
                   <Listbox.Button className="relative w-full cursor-default rounded-lg bg-slate-100 py-2 pl-3 pr-10 text-left focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
                     <span
-                      className={`block truncate ${
-                        selectedRoute ? "" : "text-gray-500"
-                      }`}
+                      className={`block truncate ${selectedRoute ? "" : "text-gray-500"
+                        }`}
                     >
                       {selectedRoute ? selectedRoute : "route"}
                     </span>
@@ -373,10 +358,9 @@ const AddProject: React.FC = () => {
                               key={route}
                               value={route}
                               className={({ active }) =>
-                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                  active
-                                    ? "bg-slate-100 text-slate-900 font-semibold"
-                                    : "text-gray-900"
+                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active
+                                  ? "bg-slate-100 text-slate-900 font-semibold"
+                                  : "text-gray-900"
                                 }`
                               }
                             >
@@ -463,17 +447,8 @@ const AddProject: React.FC = () => {
         </div>
       </div>
       <div className="mt-6 flex items-center justify-between gap-x-6">
-        {/* <button
-          type="button"
-          className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-          // disabled={!isUploaded}
-          onClick={fetchData}
-        >
-          {isFetching ? "FETCHING..." : "FETCH TEST DATA"}
-        </button> */}
-        <button 
+        <button
           className="rounded-md bg-white border border-slate-200 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-          // onClick={() => setView("select")}
         >
           <div className="flex items-center justify-center text-slate-500 gap-3">
             <Link href="/">Back</Link>
@@ -483,10 +458,8 @@ const AddProject: React.FC = () => {
         <button
           type="submit"
           className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
-          // onClick={() => {                    }}
           disabled={mutation.isLoading}
         >
-          {/* <Link href="/dashboard">Submit</Link> */}
           {mutation.isLoading ? "Uploading..." : "Upload"}
           <Transition appear show={isModalOpen} as={Fragment}>
             <Dialog

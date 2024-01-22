@@ -53,6 +53,7 @@ export default function VideoTimeline() {
     };
   }, []);
 
+  // popover click handler (outside of popover)
   const handleClickPopoverOutside = (event: {
     target: any;
     preventDefault: () => void;
@@ -71,6 +72,7 @@ export default function VideoTimeline() {
     }
   };
 
+  // time line scroll handle
   useEffect(() => {
     timecellRefs.current = csvData.map(
       (_item, i) => timecellRefs.current[i] || createRef()
@@ -566,7 +568,6 @@ export default function VideoTimeline() {
       >
         <div className="relative w-[50%]" ref={leftMarginRef}></div>
         <Popover className="flex-1 relative">
-          {/* {({close}) => } */}
           <Popover.Button
             onKeyDown={(e) => {
               if (e.key === " ") {
@@ -702,27 +703,15 @@ export default function VideoTimeline() {
                         )}
                       </div>
                     </div>
-                    {/* <div className="ml-auto">수정</div> */}
                   </div>
                 </Resizable>
               </div>
             ))}
           </Popover.Button>
-          {/* <Transition
-              as={Fragment}
-              show={false}
-              enter="transition ease-out duration-200"
-              enterFrom="opacity-0 translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 translate-y-1"
-            > */}
           {popoverIndex !== null && isPopoverOpen && (
             <div className="relative">
               <Popover.Panel
                 static
-                // key={rowIndex}
                 ref={popoverRef}
                 className={`absolute z-[100] mt-6 w-screen max-w-sm -translate-x-1/2 transform px-4 `}
                 style={{ left: `${popoverLeft}px` }}
@@ -734,7 +723,6 @@ export default function VideoTimeline() {
                         <div className="text-sm ml-2 mr-1">
                           {popoverIndex + 1}
                         </div>
-                        {/* {csvData[popoverIndex]["Modapts"]} */}
                         <input
                           className="text-sm w-full ml-3 rounded border-2 bg-slate-100 text-slate-800 py-1 px-2"
                           style={{ borderColor: topKColormap(popoverLabel) }}
@@ -748,7 +736,6 @@ export default function VideoTimeline() {
                       <div className="flex text-sm font-semibold gap-3 mt-2">
                         <div className="flex-1">
                           In
-                          {/* <div>{csvData[popoverIndex]["In"]}</div> */}
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[popoverIndex]["In"]}
@@ -759,7 +746,6 @@ export default function VideoTimeline() {
                         </div>
                         <div className="flex-1">
                           Out
-                          {/* <div>{csvData[popoverIndex]["Out"]}</div> */}
                           <input
                             className="mt-1 text-sm p-1 w-full font-normal rounded-md bg-slate-100 border-slate-200"
                             placeholder={csvData[popoverIndex]["Out"]}
@@ -803,19 +789,6 @@ export default function VideoTimeline() {
                       </div>
                       <div className="flex flex-row">
                         <div className="flex mx-auto mt-2 text-sm">
-                          {/* <button
-                          className="flex mx-3"
-                          onClick={() => {
-                            setIsPopoverOpen(false);
-                            setPopoverIndex(null);
-                            setPopoverIn("");
-                            setPopoverOut("");
-                            setPopoverLabel("");
-                            close();
-                          }}
-                        >
-                          CLOSE
-                        </button> */}
                           <button
                             className="flex mx-3 mt-2 bg-white border-emerald-700 border-2 text-emerald-700 px-4 py-1 rounded text-xs hover:bg-emerald-700 hover:text-white hover:-translate-y-0.5 hover:shadow-lg duration-200 transition"
                             onClick={handlePopoverSave}
@@ -830,9 +803,7 @@ export default function VideoTimeline() {
               </Popover.Panel>
             </div>
           )}
-          {/* </Transition> */}
         </Popover>
-        {/* </div> */}
         <div
           className={`absolute h-1`}
           style={{ left: totalWidth, width: "50%" }}
