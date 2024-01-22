@@ -82,7 +82,7 @@ def issue_version(project_id):
         return max(versions) + 1
     else:
         return 1
-    
+
 def get_filename(id):
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith('.json')]
     if metadata_list:

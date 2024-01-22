@@ -15,9 +15,3 @@ WEIGHT = torch.tensor([0.7105757805690662,
 def cross_entropy(output, target):
     weight = WEIGHT[:len(output[0])].to(output.device)
     return F.cross_entropy(output, target, weight=weight, label_smoothing=0.1)
-
-
-def batch_entropy(output, target):
-    weight = WEIGHT[:len(output[0])].to(output.device)
-    batch_size, window, _ = output.shape
-    return F.cross_entropy(output.view(batch_size*window, -1), target.view(-1), weight=weight, label_smoothing=0.1)

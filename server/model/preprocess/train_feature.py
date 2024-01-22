@@ -316,7 +316,6 @@ def train_extract_feature(json_folder:str, target_folder:str)->Dict[str, Tuple[s
         yc.close()
         yc_wo.close()
         
-        
     return return_paths
 
 
@@ -345,7 +344,7 @@ def run_file(file):
         try:
             json_data = json.load(f)
         except:
-            print("ERRORRORORORRRORORO")
+            print("ERROR: JSON load error")
             return
     
     instances = json_data["instance_info"]

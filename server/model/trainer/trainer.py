@@ -117,13 +117,18 @@ class Trainer():
                             val_loss += loss.item()
                             targets += labels.cpu().tolist()
                     test_accuracy = accuracy_score(targets, predictions)
+                    
+                    ## Measuring Overlap Accuracy with large window sizes
                     # if self.window_size == 180:
                     #     overlap_test = overlap_accuracy(targets, predictions, self.window_size, 10)
                     #     print(f"Overlap Accuracy: {overlap_test:.4f}")
                     f1 = f1_score(targets, predictions, average='macro')
                     precision = precision_score(targets, predictions, average='macro')
                     print(f"Test Accuracy: {test_accuracy:.4f}, F1-score: {f1:.4f}, precision: {precision:.4f}")
-                    self.plot_and_save_information(targets, predictions)
+                    
+                    # in case plotting confusion matrix
+                    # self.plot_and_save_information(targets, predictions)
+                    
                 wandb.log({
                     "epoch": epoch,
                     "train_loss": average_train_loss,
@@ -132,7 +137,7 @@ class Trainer():
                     "test_acc": test_accuracy
                 })
                 
-                scheduler.step()  # Update the learning rate
+            scheduler.step()  # Update the learning rate
             
 
     def plot_and_save_information(self, targets, predictions, folder='confusion_matrix/'):

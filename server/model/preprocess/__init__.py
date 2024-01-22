@@ -13,7 +13,6 @@ base_path = os.path.dirname(os.path.realpath(__file__))
 HOME = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
-
 def run_inference_pipe(input_video:str)->Tuple[str, str]:
     """Run Pipeline for single video
 
@@ -33,15 +32,15 @@ def run_inference_pipe(input_video:str)->Tuple[str, str]:
 def run_prefill_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rate:int, window_size:int):
     """prefill pose extractions
 
-    :param input_video: _description_
+    :param input_video: path to the input video
     :type input_video: str
-    :param input_labels: _description_
+    :param input_labels: path to the input labels
     :type input_labels: str
-    :param pose_folder: _description_
+    :param pose_folder: path to the pose folder
     :type pose_folder: str
-    :param frame_rate: _description_
+    :param frame_rate: frame rate of the video
     :type frame_rate: int
-    :param window_size: _description_
+    :param window_size: window size
     :type window_size: int
     """
     
