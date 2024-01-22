@@ -29,10 +29,10 @@ export default function Page({ params }: { params: { id: string } }) {
     getProject,
     {
       onSuccess: (data) => {
-        console.log(data);
+        // console.log(data);
       },
       onError: (error) => {
-        console.log(error);
+        // console.log(error);
       },
       enabled: false,
     }
@@ -70,15 +70,7 @@ export default function Page({ params }: { params: { id: string } }) {
     getResult,
     {
       onSuccess: (data) => {
-        console.log(data);
         setCSVData(data.result);
-        //   const reader = new FileReader();
-        //   reader.readAsText(data);
-        //   reader.onload = function () {
-        //     console.log(reader.result);
-        //     let results = Papa.parse(reader.result as string, { header: true });
-        //     setCSVData(results.data);
-        //   };
       },
       enabled: false,
     }
@@ -89,7 +81,6 @@ export default function Page({ params }: { params: { id: string } }) {
     getKeypoint,
     {
       onSuccess: (data) => {
-        console.log(data);
         setKeypointData(data.keypoint);
       },
       enabled: false,
@@ -115,7 +106,6 @@ export default function Page({ params }: { params: { id: string } }) {
     // console.log(csvData)
     updateMutation.mutateAsync({project_id: params.id, result: csvData})
     .then((res) => {
-      // console.log(res);
       setUploadStatus("Success !")
 
       setTimeout(() => {

@@ -88,12 +88,10 @@ const AddProject: React.FC = () => {
       mutation
         .mutateAsync({ metadata, file: videoFile })
         .then((res) => {
-          console.log(res);
           // setView("existing");
           setIsModalOpen(false);
         })
         .catch((err) => {
-          console.log(err);
           setIsModalOpen(false);
         });
     }

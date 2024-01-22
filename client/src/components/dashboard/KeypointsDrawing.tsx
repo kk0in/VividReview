@@ -47,8 +47,6 @@ function Test(props: TestProps): JSX.Element {
     const key = total_skeleton_links[i];
     const value = total_skeleton_colors[i];
     skeleton_color_dic[key] = value;
-    // console.log(key)
-    // console.log(skeleton_color_dic[key])
   }
   let size = 0;
   if (
@@ -69,8 +67,6 @@ function Test(props: TestProps): JSX.Element {
     position === "wholeBody"
       ? 0.3 / (size / canvasSize_wholeBody_width)
       : 0.5 / (size / canvasSize_wholeBody_width);
-
-  // console.log(scale);
 
   const loadData = (instanceIndex: number) => {
     if (

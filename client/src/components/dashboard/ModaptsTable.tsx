@@ -52,13 +52,8 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     if (!isEqual(csvData, updatedData)) {
       setCSVData(updatedData);
     }
-    console.log(updatedData);
     updateTotalTime();
   }, [csvData]);
-
-  // useEffect(() => {
-  //   updateTotalTime();
-  // }, [csvData]);
 
   useEffect(() => {
     if (rowRef.current && headerRef.current && tableContainerRef.current) {
@@ -132,10 +127,6 @@ const ModaptsTable = ({ setCurrentModapts }) => {
     setEditedCell({ rowIndex, key });
   };
 
-  const handleCellHover = (rowIndex: number, key: string) => {
-    // setHighlightedRow(rowIndex);
-    // console.log(rowIndex, key)
-  }
 
   const cancelLabelEdit = () => {
     setEditedCell(null);

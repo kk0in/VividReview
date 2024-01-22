@@ -269,16 +269,6 @@ export default function VideoTimeline() {
     newOut: string,
     newLabel: string
   ) => {
-    console.log(
-      "index: ",
-      index,
-      "newIn: ",
-      newIn,
-      "newOut: ",
-      newOut,
-      "newLabel: ",
-      newLabel
-    );
     const newCsvData = JSON.parse(JSON.stringify(csvData));
     newCsvData[index].Modapts = newLabel;
     const oldIn = newCsvData[index].In;
@@ -439,7 +429,6 @@ export default function VideoTimeline() {
     newCsvData: any[]
   ) => {
     // Right resize logic, need to overlapp the next timeline to indicate how long the timeline is moving
-    console.log(newCsvData[index]);
     const oldDuration = timeStringToSeconds(newCsvData[index].Duration);
     let remainingDuration = deltaDuration;
 
