@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SERVER_ENDPOINT = 'http://gpu3.hcil.snu.ac.kr:9998/'
+const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT
 
 export async function getProjectList() {
     const response = await axios.get(SERVER_ENDPOINT+'api/get_project');
