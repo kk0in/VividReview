@@ -3,8 +3,8 @@ from model.test import run_inference
 
 
 ## Train Usage: Put scaler path and chekpoint to test_config.json and run the inference code below.
-input_video = ["./test_file/6_1.mp4"]
-input_label_csv = ["./test_file/6_1.csv"]
+input_video = "videos/2_test_real_assy.mp4"
+input_label_csv = "results/2_test_real_assy_0.csv"
 prefill_folder = "/data/samsung/sec/RAW" # Prefill folder: Orginal training video, csv files
 
 

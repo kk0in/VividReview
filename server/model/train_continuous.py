@@ -39,6 +39,7 @@ def run_train(input_video_list:List[str], input_label_csv_list:List[str], prefil
     ## Early exit if pose_folder is already prefilled.
     print("Prefilling pose_folder...")
     prefill(prefill_folder, pose_folder)
+    print("Prefilling done.")
     
     ## all extracted pose data (.json, .csv) are stored in pose_foler
     

@@ -2,6 +2,8 @@ import os
 import csv
 import json
 import argparse
+import parmap
+from functools import partial
 
 RTMPOSE_PREFIX = ""
 
@@ -51,43 +53,9 @@ def run_json_trim(input_path:str, output_dir:str, frame_rate:int):
     # Handle directory or single file input
     files = [input_path] if os.path.isfile(input_path) else [os.path.join(input_path, f) for f in os.listdir(input_path) if f.endswith('.json')]
     
-    for file in files:
-        # Extract basename and handle "rtmpose_" prefix
-        basename = os.path.basename(file).split('.')[0]
-        csv_filename = basename.replace(RTMPOSE_PREFIX, "") + '.csv'
-        csv_file_path = os.path.join(os.path.dirname(file), csv_filename)
-
-        result_dir = os.path.join(output_dir, f'result_{basename.replace(RTMPOSE_PREFIX, "")}')
-        os.makedirs(result_dir, exist_ok=True)
-
-        trimmed_files_count = 0
-        try:
-            # Load JSON data
-            with open(file, 'r') as json_file:
-                json_data = json.load(json_file)
-            
-            with open(csv_file_path, mode='r', encoding='utf-8-sig', errors='ignore') as csv_file:
-                csv_reader = csv.DictReader(csv_file)
-                csv_rows = list(csv_reader)
-                
-                for idx, row in enumerate(csv_rows):
-                    trimmed_data = trim_json(json_data, row['In'], row['Out'], frame_rate)
-                    clean_basename = basename.replace(RTMPOSE_PREFIX, "")
-                    output_filename = f"{clean_basename}_{idx}_{row['Modapts']}.json"
-                    
-                    if not validate_trimmed_data(trimmed_data, row['In'], row['Out'], frame_rate):
-                        raise ValueError(f"Validation failed for {output_filename}")
-                    
-                    with open(os.path.join(result_dir, output_filename), 'w') as outfile:
-                        json.dump({"instance_info": trimmed_data}, outfile, indent=4)
-                    
-                    trimmed_files_count += 1
-                    print(f"Trimmed JSON saved as {output_filename}")
-
-                if trimmed_files_count != len(csv_rows):
-                    raise ValueError(f"Number of modapts in CSV ({len(csv_rows)}) does not match the number of trimmed JSON files ({trimmed_files_count}).")
-        except Exception as e:
-            print(f"Error processing {basename}. Reason: {str(e)}")
+    _trim_file = partial(trim_file, output_dir=output_dir, frame_rate=frame_rate)
+    parmap.map(_trim_file, files, pm_pbar=True, pm_processes=30)
+        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Trim JSON files based on modapts intervals from a CSV.")
@@ -103,7 +71,43 @@ if __name__ == '__main__':
     
     run_json_trim(args.input_path, args.output_dir, args.frame_rate)
 
+def trim_file(file, output_dir, frame_rate):
+    # Extract basename and handle "rtmpose_" prefix
+    basename = os.path.basename(file).split('.')[0]
+    csv_filename = basename.replace(RTMPOSE_PREFIX, "") + '.csv'
+    csv_file_path = os.path.join(os.path.dirname(file), csv_filename)
 
+    result_dir = os.path.join(output_dir, f'result_{basename.replace(RTMPOSE_PREFIX, "")}')
+    os.makedirs(result_dir, exist_ok=True)
+
+    trimmed_files_count = 0
+    try:
+        # Load JSON data
+        with open(file, 'r') as json_file:
+            json_data = json.load(json_file)
+        
+        with open(csv_file_path, mode='r', encoding='utf-8-sig', errors='ignore') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            csv_rows = list(csv_reader)
+            
+            for idx, row in enumerate(csv_rows):
+                trimmed_data = trim_json(json_data, row['In'], row['Out'], frame_rate)
+                clean_basename = basename.replace(RTMPOSE_PREFIX, "")
+                output_filename = f"{clean_basename}_{idx}_{row['Modapts']}.json"
+                
+                if not validate_trimmed_data(trimmed_data, row['In'], row['Out'], frame_rate):
+                    raise ValueError(f"Validation failed for {output_filename}")
+                
+                with open(os.path.join(result_dir, output_filename), 'w') as outfile:
+                    json.dump({"instance_info": trimmed_data}, outfile, indent=4)
+                
+                trimmed_files_count += 1
+                # print(f"Trimmed JSON saved as {output_filename}")
+
+            if trimmed_files_count != len(csv_rows):
+                raise ValueError(f"Number of modapts in CSV ({len(csv_rows)}) does not match the number of trimmed JSON files ({trimmed_files_count}).")
+    except Exception as e:
+        print(f"Error processing {basename}. Reason: {str(e)}")
 
 '''
 json_trim.py Script Guide

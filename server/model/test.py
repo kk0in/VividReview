@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from preprocess import run_inference_pipe
+from .preprocess import run_inference_pipe
 import joblib
 import json
 from .model.model import SimpleNet

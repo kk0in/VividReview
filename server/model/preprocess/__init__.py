@@ -85,23 +85,24 @@ def run_train_pipe(input_video:str, input_labels:str, pose_folder:str, frame_rat
     pose_cache = os.path.join(HOME, "cache_pose")
     feature_cache = os.path.join(HOME, "cache_feature")
     
-    
-    # extract pose from new single video
-    print("Extracting pose from video...")
-    shutil.rmtree(pose_cache, ignore_errors=True)
-    os.makedirs(pose_cache, exist_ok=True)
-    json_file = rtmpose(
-        i_path=input_video, 
-        o_path=pose_cache, 
-        device_="cuda"
-    )
-    
-    # copy json file, label to pose_folder
-    print("Copying json file, label to pose_folder...")
-    os.makedirs(pose_folder, exist_ok=True)
     filename = json_file.split("/")[-1].split(".")[0]
-    shutil.copy(json_file, os.path.join(pose_folder, filename+".json"))
-    shutil.copy(input_labels, os.path.join(pose_folder, filename+".csv"))
+    if not os.path.exists(os.path.join(pose_folder, filename+".json")):
+    
+        # extract pose from new single video
+        print("Extracting pose from video...")
+        shutil.rmtree(pose_cache, ignore_errors=True)
+        os.makedirs(pose_cache, exist_ok=True)
+        json_file = rtmpose(
+            i_path=input_video, 
+            o_path=pose_cache, 
+            device_="cuda"
+        )
+        
+        # copy json file, label to pose_folder
+        print("Copying json file, label to pose_folder...")
+        os.makedirs(pose_folder, exist_ok=True)
+        shutil.copy(json_file, os.path.join(pose_folder, filename+".json"))
+        shutil.copy(input_labels, os.path.join(pose_folder, filename+".csv"))
     
     
     print("Trimming json file...")
