@@ -47,6 +47,12 @@ export async function getResult({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getCSV({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_csv/${project_id}`, { responseType: 'blob' });
+    return response.data;
+}
+
 export async function updateResult({project_id, result}: {project_id: string, result: any}) {
     const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, {data: result});
     return response.data;

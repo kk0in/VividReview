@@ -11,10 +11,11 @@ import {
   keypointDataState,
   videoDataState,
 } from "@/app/recoil/DataState";
-import { getProject, getVideo, getKeypoint, getResult, updateResult } from "@/utils/api";
+import { getProject, getVideo, getKeypoint, getResult, updateResult, getCSV } from "@/utils/api";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-import { CloudArrowUpIcon, DocumentTextIcon, PencilSquareIcon, FilmIcon, CubeTransparentIcon } from "@heroicons/react/24/outline";
+import { CloudArrowUpIcon, DocumentTextIcon, PencilSquareIcon, FilmIcon, CubeTransparentIcon, ArrowDownOnSquareIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import Papa from "papaparse";
 
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -117,6 +118,23 @@ export default function Page({ params }: { params: { id: string } }) {
     })
   }
 
+  const handleDownloadClick = () => {
+    getCSV({queryKey: ["getCSV", params.id]})
+    .then((res) => {
+      const blob = new Blob([res], {type: "text/csv"});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `result_project_${params.id}.csv`;
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    })
+    .catch((err) => {
+      console.log(err);
+    })
+  }
+
   return (
     <div className="h-full flex flex-col">
       <div className="h-full flex items-center align-center justify-center bg-gray-800 gap-10">
@@ -214,15 +232,26 @@ export default function Page({ params }: { params: { id: string } }) {
               <div className="flex-auto bg-slate-900 p-4 text-white">
                 <div className="flex justify-between mt-1 mb-3 pr-5">
                   <h5 className="my-1 text-sm font-bold">MODAPTS 테이블</h5>
+                  <div className="flex gap-2">
                   <button className="flex flex-row items-center gap-2 px-2 py-1 hover:bg-slate-600 rounded-md text-sm"
                   onClick={handleExportClick}>
                     {/* <FontAwesomeIcon  icon={faFileExport} size="xs" /> */}
                     <CloudArrowUpIcon className="h-5 w-5 text-white" />
                     {uploadStatus == "" ? 
-                    (updateMutation.isLoading ? "Uploading..." : "Save & Upload") :
+                    (updateMutation.isLoading ? "Uploading..." : "Save") :
                     uploadStatus }
                     
                   </button>
+                  <button className="flex flex-row items-center gap-2 px-2 py-1 hover:bg-slate-600 rounded-md text-sm"
+                  onClick={handleDownloadClick}>
+                    {/* <FontAwesomeIcon  icon={faFileExport} size="xs" /> */}
+                    <ArrowDownTrayIcon className="h-5 w-5 text-white" />
+                    {/* {uploadStatus == "" ? 
+                    (updateMutation.isLoading ? "Uploading..." : "Save") :
+                    uploadStatus } */}
+                    Download
+                  </button>
+                  </div>
                 </div>
                 <ModaptsTable csvData={csvData} />
               </div>
