@@ -184,7 +184,7 @@ const ModaptsTable = ({ setCurrentModapts }) => {
                           ? "text-slate-800"
                           : "text-slate-200"
                       }`}
-                      onMouseOver={() => handleCellHover(rowIndex, key)}
+                      // onMouseOver={() => handleCellHover(rowIndex, key)}
                       onClick={() => handleCellClick(rowIndex, key)}
                     >
                       { editedCell &&
