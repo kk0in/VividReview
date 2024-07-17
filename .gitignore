@@ -1,5 +1,5 @@
 model/preprocess/assets/*
-.venv/
+venv/
 server/metadata
 server/videos
 server/keypoints

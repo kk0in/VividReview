@@ -1,6 +1,6 @@
 "use client";
 import { useDropzone } from "react-dropzone";
-import { VideoCameraIcon, TableCellsIcon } from "@heroicons/react/24/solid";
+import { DocumentIcon, DocumentTextIcon } from "@heroicons/react/24/solid";
 
 interface FileUploadProps {
   onFileUploaded: (file: File) => void;
@@ -19,7 +19,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         onFileUploaded(file);
       },
       accept: {
-        "video/mp4": [".mp4"],
+        "application/pdf": [".pdf"],
       },
       maxFiles: 1
     });
@@ -29,7 +29,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       <input {...getInputProps()} />
       {}
       <div className="text-center">
-        <VideoCameraIcon
+        <DocumentIcon
           className="mx-auto h-12 w-12 text-gray-300"
           aria-hidden="true"
         />
@@ -39,7 +39,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           </p>
         ) : 
         <p className="text-center mt-4 text-sm leading-6 text-gray-600">
-          Drag & drop your MP4 file here, or click to select a file
+          Drag & drop your pdf file here, or click to select a file
         </p>
         }
       </div>

@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 
 from concurrent.futures import ThreadPoolExecutor
 
-from model.test import run_inference
+# from model.test import run_inference
 
 from typing import Any
 from fastapi.responses import StreamingResponse
@@ -35,19 +35,14 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-VIDEO = './videos'
-KEYPOINT = './keypoints'
-FEATURE_VECTOR = './feature_vectors'
+PDF = './pdfs'
 RESULT = './results'
 META_DATA = './metadata'
-VOTING_TABLE = './voting_table'
-CONFIDENCE_TABLE = './confidence_table'
 
 
-os.makedirs(VIDEO, exist_ok=True)
+
+os.makedirs(PDF, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
-os.makedirs(KEYPOINT, exist_ok=True)
-os.makedirs(FEATURE_VECTOR, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
 
 confidence_threshold = 0.5
@@ -160,46 +155,25 @@ async def get_project(project_id: int):
         with open(os.path.join(META_DATA, metadata_file[0]), 'r') as f:
             return {"project": json.load(f)}
         
-@app.get('/api/get_video/{project_id}', status_code=200)
-async def get_video(project_id: int):
+@app.get('/api/get_pdf/{project_id}', status_code=200)
+async def get_pdf(project_id: int):
     """
-    특정 프로젝트 ID에 해당하는 비디오 파일을 반환하는 API 엔드포인트입니다.
-    프로젝트 ID와 일치하는 비디오 파일을 찾아 FileResponse 객체로 반환합니다.
+    특정 프로젝트 ID에 해당하는 pdf 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 pdf 파일을 찾아 FileResponse 객체로 반환합니다.
     
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
     
-    video_file = [file for file in os.listdir(VIDEO) if file.startswith(f'{project_id}_') and file.endswith('.mp4')]
+    pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
 
-    if not video_file:
-        raise HTTPException(status_code=404, detail="Video not found")
+    if not pdf_file:
+        raise HTTPException(status_code=404, detail="Pdf file not found")
     
-    if len(video_file) > 1:
-        raise HTTPException(status_code=500, detail="Multiple videos found")
+    if len(pdf_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple pdf files found")
     else:
-        return FileResponse(os.path.join(VIDEO, video_file[0]), media_type='video/mp4')
+        return FileResponse(os.path.join(PDF, pdf_file[0]), media_type='application/pdf')
     
-@app.get('/api/get_keypoint/{project_id}', status_code=200)
-async def get_keypoint(project_id: int):
-    """
-    특정 프로젝트 ID에 해당하는 keypoint 정보를 반환하는 API 엔드포인트입니다.
-    프로젝트 ID와 일치하는 keypoint 파일을 찾아 해당 정보를 반환합니다.
-    
-    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
-    """
-
-    keypoint_file = [file for file in os.listdir(KEYPOINT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
-
-    if not keypoint_file:
-        raise HTTPException(status_code=404, detail="Keypoint not found")
-    
-    if len(keypoint_file) > 1:
-        raise HTTPException(status_code=500, detail="Multiple keypoints found")
-    else:
-        with open(os.path.join(KEYPOINT, keypoint_file[0]), 'r') as f:
-            return {"keypoint": json.load(f)}
-
-
 @app.get('/api/get_result/{project_id}', status_code=200)
 async def get_result(project_id: int):
     """
@@ -224,45 +198,6 @@ async def get_result(project_id: int):
             data = json.load(f)
         return {"result": data}
 
-
-@app.get('/api/get_csv/{project_id}', status_code=200)
-async def get_csv(project_id: int):
-    """
-    특정 프로젝트 ID에 해당하는 결과 데이터를 CSV 형식으로 반환하는 API 엔드포인트입니다.
-    프로젝트 ID와 일치하는 결과 파일을 찾아 CSV 형식으로 변환하여 반환합니다.
-    (inference 결과를 다시 학습에 이용하고자 할 때 사용합니다.)
-    
-    :param project_id: json 형식의 결과를 csv 형식으로 추출하고자 하는 프로젝트의 ID입니다.
-    """
-
-    result_file = [file for file in os.listdir(RESULT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
-
-    if not result_file:
-        raise HTTPException(status_code=404, detail="Result not found")
-    
-    if len(result_file) > 1:
-        result_file = sorted(result_file, key=lambda x: int(x.split('_')[-1].split('.')[0]))
-        result_name = result_file[-1].split('.')[0]
-        with open(os.path.join(RESULT, result_file[-1]), 'r') as f:
-            json_data = json.load(f)
-    else:
-        result_name = result_file[0].split('.')[0]
-        with open(os.path.join(RESULT, result_file[0]), 'r') as f:
-            json_data = json.load(f)
-
-    csv_data = io.StringIO()
-    csv_writer = csv.writer(csv_data)
-    csv_writer.writerow(['Modapts', 'In', 'Out', 'Duration'])  
-    for entry in json_data:
-        csv_writer.writerow([entry['Modapts'], entry['In'], entry['Out'], entry['Duration']])
-
-    csv_data.seek(0)
-
-    return StreamingResponse(iter([csv_data.getvalue()]),
-                             media_type="text/csv",
-                             headers={"Content-Disposition": f"attachment; filename={result_name}.csv"})
-
-
 @app.delete('/api/delete_project/{project_id}', status_code=200)
 async def delete_project(project_id: int):
     """
@@ -279,14 +214,10 @@ async def delete_project(project_id: int):
             if file.startswith(f'{project_id}_'):
                 os.remove(os.path.join(directory, file))
     try:
-        delete_project_files(VIDEO)
+        delete_project_files(PDF)
         delete_project_files(META_DATA)
-        delete_project_files(KEYPOINT)
-        delete_project_files(os.path.join(FEATURE_VECTOR, 'X_csv'))
-        delete_project_files(os.path.join(FEATURE_VECTOR, 'X_pkl'))
         delete_project_files(RESULT)
-        delete_project_files(VOTING_TABLE)
-        delete_project_files(CONFIDENCE_TABLE)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during deletion: {e}")
 
@@ -316,42 +247,36 @@ async def update_result(project_id: int, result: Any = Body(...)):
     
         
 @app.post('/api/upload_project', status_code=201)
-async def upload_project(gbm: str = Form(...), product: str = Form(...), plant: str = Form(...), route: str = Form(...), userID: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), description: str = Form(...), file: UploadFile = File(...)):
+async def upload_project(userID: str = Form(...), date: str = Form(...), updateDate: str = Form(...), userName: str = Form(...), file: UploadFile = File(...)):
     """
     새 프로젝트를 업로드하는 API 엔드포인트입니다.
-    프로젝트 metadata를 생성하고, 비디오 파일을 서버에 저장합니다. 
-    이후 비동기적으로 비디오 처리(inference)를 시작합니다.
-    
-    :param gbm, product, plant, route, userID, insertDate, updateDate, description: 프로젝트 metadata 입니다.
-    :param file: 업로드할 비디오 파일입니다.
+    프로젝트 metadata를 생성하고, PDF 파일을 서버에 저장합니다.     
+    :param userID, date, updateDate, userName: 프로젝트 metadata 입니다.
+    :param file: 업로드할 PDF 파일입니다.
     """
 
     id = issue_id()
 
     metadata = {  
         'id': id,
-        'gbm': gbm,  
-        'product': product,  
-        'plant': plant,  
-        'route': route,  
         'userID': userID,
-        'insertDate': insertDate,
+        'date': date,
         'updateDate': updateDate,
-        'description': description,
+        'userName': userName,
         'done': False
     }
 
-    video_filename = os.path.splitext(file.filename)[0]
+    pdf_filename = os.path.splitext(file.filename)[0]
 
-    video_file_path = f"{VIDEO}/{id}_{file.filename}"
-    with open(video_file_path, "wb") as buffer:
+    pdf_file_path = f"{PDF}/{id}_{file.filename}"
+    with open(pdf_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    metadata_file_path = f"{META_DATA}/{id}_{video_filename}.json"
+    metadata_file_path = f"{META_DATA}/{id}_{pdf_filename}.json"
     with open(metadata_file_path, 'w') as f:
         json.dump(metadata, f)
 
-    executor.submit(process_video, metadata_file_path, video_file_path)
+    executor.submit(metadata_file_path, pdf_file_path)
 
     return {"id": id}
 
@@ -382,6 +307,6 @@ async def test_get_json():
         data = json.load(f)
     return data
 
-# if __name__ == '__main__':
-#     import uvicorn
-#     uvicorn.run(app, host='0.0.0.0', port=9998)
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=9998)

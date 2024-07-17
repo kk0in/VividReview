@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT
+const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 
 export async function getProjectList() {
     const response = await axios.get(SERVER_ENDPOINT+'api/get_project');
@@ -9,14 +9,10 @@ export async function getProjectList() {
 
 export async function postProject({ metadata, file }) {
     const formData = new FormData();
-    formData.append('gbm', metadata.gbm);
-    formData.append('product', metadata.product);
-    formData.append('plant', metadata.plant);
-    formData.append('route', metadata.route);
     formData.append('userID', metadata.userID);
-    formData.append('insertDate', metadata.insertDate);
+    formData.append('date', metadata.date);
     formData.append('updateDate', metadata.updateDate);
-    formData.append('description', metadata.description);
+    formData.append('userName', metadata.userName);
     formData.append('file', file);
 
     const response = await axios.post(SERVER_ENDPOINT+'api/upload_project', formData);
@@ -29,9 +25,9 @@ export async function getProject({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
-export async function getVideo({queryKey}: {queryKey: string[]}) {
+export async function getPdf({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_video/${project_id}`, { responseType: 'blob' });
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_pdf/${project_id}`, { responseType: 'blob' });
     return response.data;
 }
 
