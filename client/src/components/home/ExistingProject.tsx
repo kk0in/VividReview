@@ -8,9 +8,7 @@ import { getProjectList, deleteProject } from "@/utils/api";
 import { ArrowUturnLeftIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSetRecoilState } from "recoil";
 import {
-  csvDataState,
-  videoDataState,
-  keypointDataState,
+  pdfDataState,
 } from "@/app/recoil/DataState";
 import { Listbox, Dialog, Transition } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
@@ -18,9 +16,7 @@ import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 // render filter dropdowns and existing project list
 const ExistingProject: React.FC = () => {
   const queryClient = useQueryClient();
-  const setCSVData = useSetRecoilState(csvDataState);
-  const setVideoData = useSetRecoilState(videoDataState);
-  const setKeypointData = useSetRecoilState(keypointDataState);
+  const setPdfData = useSetRecoilState(pdfDataState);
 
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
@@ -46,56 +42,13 @@ const ExistingProject: React.FC = () => {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-  const [selectedGBM, setSeletedGBM] = useState<string | null>("ALL");
-  const [selectedProduct, setSeletedProduct] = useState<string | null>("ALL");
-  const [selectedPlant, setSeletedPlant] = useState<string | null>("ALL");
-  const [selectedRoute, setSeletedRoute] = useState<string | null>("ALL");
   const [filteredProjects, setFilteredProjects] = useState(projectListData?.projects);
   const [selecteduserID, setSelecteduserID] = useState<string | null>(null);
   const [selectedInsertDate, setSelectedInsertDate] = useState<string | null>(null);
 
-  // correstponding form field by GBM
-  const formFieldbyGBM: Object = {
-    "ALL":
-    {
-      product: ["ALL"],
-      plant: ["ALL"],
-      route: ["ALL"],
-    },
-    "MX(S)": {
-      product: ["MOBILE", "APS", "PC", "TNP", "PKG"],
-      plant: ["GUMI", "SEIL(N)", "SEV", "SEVT", "SEIN"],
-      route: ["1000", "3000", "5000", "9000", "9100"],
-    },
-    "MX(P)": {
-      product: ["CAMERA", "CNC", "GLASS", "INJ ASSY"],
-      plant: ["SEV"],
-      route: ["MC01", "MN01", "MLU1", "MI01", "MS01"],
-    },
-    VD: {
-      product: ["TV", "LCM", "MONITOR", "AV"],
-      plant: ["SUWON", "SAMEX", "SEH", "SEHC", "SEEG"],
-      route: ["2260", "2660", "3560", "4260", "7160"],
-    },
-    DA: {
-      product: ["REF", "A/C", "W/M", "MWO", "COMP"],
-      plant: ["GWANGJU", "SSEC", "SEHC", "TSE", "SEPM"],
-      route: ["2260", "2660", "3560", "4260", "7160"],
-    },
-    NET_SYS: {
-      product: ["SYSTEM", "PBX"],
-      plant: ["SUWON", "SEV", "SEIN"],
-      route: ["2260", "2660", "3560", "4260", "7160"],
-    },
-  };
-
   // update project list when filter is changed
   useEffect(() => {
     setFilteredProjects(projectListData?.projects.filter((project: any) => {
-      const gbmFilter = selectedGBM === "ALL" || project.gbm === selectedGBM;
-      const productFilter = selectedProduct === "ALL" || project.product === selectedProduct;
-      const plantFilter = selectedPlant === "ALL" || project.plant === selectedPlant;
-      const routeFilter = selectedRoute === "ALL" || project.route === selectedRoute;
       const userIDFilter =
         !selecteduserID || project.userID && project.userID.includes(selecteduserID);
       const insertDateFilter =
@@ -103,10 +56,6 @@ const ExistingProject: React.FC = () => {
         project.insertDate === selectedInsertDate;
 
       return (
-        gbmFilter &&
-        productFilter &&
-        plantFilter &&
-        routeFilter &&
         userIDFilter &&
         insertDateFilter
       );
@@ -114,7 +63,7 @@ const ExistingProject: React.FC = () => {
 
     // console.log(filteredProjects);
 
-  }, [selectedGBM, selectedProduct, selectedPlant, selectedRoute, selecteduserID, selectedInsertDate, projectListData?.projects]);
+  }, [selecteduserID, selectedInsertDate, projectListData?.projects]);
 
   return (
     <>
@@ -253,7 +202,7 @@ const ExistingProject: React.FC = () => {
                             User Name
                           </th>
                           <th className="border-b dark:border-slate-600 font-medium p-4 pl-6 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
-                            Date
+                            Insert Date
                           </th>
                           <th className="border-b dark:border-slate-600 font-medium p-4 pl-6 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
                             Update Date
@@ -273,23 +222,11 @@ const ExistingProject: React.FC = () => {
                               <td className="w-10 border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
                                 {project.id}
                               </td>
-                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-4 text-slate-500 dark:text-slate-400">
-                                {project.gbm}
-                              </td>
-                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
-                                {project.product}
-                              </td>
-                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
-                                {project.plant}
-                              </td>
-                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
-                                {project.route}
-                              </td>
-                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
-                                {project.description}
-                              </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
                                 {project.userID}
+                              </td>
+                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
+                                {project.userName}
                               </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
                                 {project.insertDate}

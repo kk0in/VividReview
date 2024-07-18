@@ -21,7 +21,7 @@ export const keypointDataState = atom({
   default: null,
 });
 
-export const videoDataState = atom({
-  key: "videoDataState",
+export const pdfDataState = atom({
+  key: "pdfDataState",
   default: '',
 });

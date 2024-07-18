@@ -1,73 +1,89 @@
-import React, { useState, useRef } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
-import { PencilIcon, EraserIcon, SelectionIcon } from "@heroicons/react/24/solid";
-import "react-pdf/dist/esm/Page/AnnotationLayer.css";
-import "react-pdf/dist/esm/Page/TextLayer.css";
+"use client"; // 이 줄을 추가합니다.
 
-// PDF.js worker 설정
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+import React, { useEffect, useRef, useState } from "react";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker";
 
-interface PdfViewerProps {
-  pdfSrc: string;
-}
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-const PdfViewer: React.FC<PdfViewerProps> = ({ pdfSrc }) => {
-  const [numPages, setNumPages] = useState(null);
-  const [pageNumber, setPageNumber] = useState(1);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [tool, setTool] = useState("pencil");
+const PdfViewer = ({ pdfFile }) => {
+  const [numPages, setNumPages] = useState(0);
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const canvasRef = useRef([]);
 
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
-  };
+  useEffect(() => {
+    const loadingTask = pdfjsLib.getDocument(pdfFile);
+    loadingTask.promise.then((pdf) => {
+      setPdfDoc(pdf);
+      setNumPages(pdf.numPages);
+    });
+  }, [pdfFile]);
 
-  const handleNextPage = () => {
-    if (pageNumber < numPages) {
-      setPageNumber(pageNumber + 1);
+  useEffect(() => {
+    if (pdfDoc) {
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        pdfDoc.getPage(pageNum).then((page) => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = canvasRef.current[pageNum - 1];
+          const context = canvas.getContext("2d");
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+          page.render(renderContext);
+        });
+      }
     }
+  }, [pdfDoc, numPages]);
+
+  return (
+    <div>
+      {Array.from(new Array(numPages), (el, index) => (
+        <div key={`page_${index + 1}`}>
+          <canvas ref={(el) => (canvasRef.current[index] = el)} />
+          <DrawingCanvas pageNumber={index + 1} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DrawingCanvas = ({ pageNumber }) => {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const startDrawing = ({ nativeEvent }) => {
+    const { offsetX, offsetY } = nativeEvent;
+    canvasRef.current.getContext("2d").beginPath();
+    canvasRef.current.getContext("2d").moveTo(offsetX, offsetY);
+    setIsDrawing(true);
   };
 
-  const handlePrevPage = () => {
-    if (pageNumber > 1) {
-      setPageNumber(pageNumber - 1);
-    }
+  const draw = ({ nativeEvent }) => {
+    if (!isDrawing) return;
+    const { offsetX, offsetY } = nativeEvent;
+    canvasRef.current.getContext("2d").lineTo(offsetX, offsetY);
+    canvasRef.current.getContext("2d").stroke();
   };
 
-  const handleToolChange = (newTool) => {
-    setTool(newTool);
-  };
-
-  const handleCanvasClick = (e) => {
-    if (tool === "pencil") {
-      // Implement pencil drawing logic
-    } else if (tool === "eraser") {
-      // Implement eraser logic
-    }
+  const stopDrawing = () => {
+    canvasRef.current.getContext("2d").closePath();
+    setIsDrawing(false);
   };
 
   return (
-    <div className="pdf-viewer">
-      <div className="toolbar">
-        <button onClick={() => handleToolChange("pencil")}>
-          <PencilIcon className="h-6 w-6" />
-        </button>
-        <button onClick={() => handleToolChange("eraser")}>
-          <EraserIcon className="h-6 w-6" />
-        </button>
-        <button onClick={() => handleToolChange("selection")}>
-          <SelectionIcon className="h-6 w-6" />
-        </button>
-      </div>
-      <div className="pdf-document">
-        <Document file={pdfSrc} onLoadSuccess={onDocumentLoadSuccess}>
-          <Page pageNumber={pageNumber} canvasRef={canvasRef} onClick={handleCanvasClick} />
-        </Document>
-        <div className="navigation">
-          <button onClick={handlePrevPage} disabled={pageNumber <= 1}>Previous</button>
-          <button onClick={handleNextPage} disabled={pageNumber >= numPages}>Next</button>
-        </div>
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      onMouseDown={startDrawing}
+      onMouseMove={draw}
+      onMouseUp={stopDrawing}
+      onMouseLeave={stopDrawing}
+      className="absolute top-0 left-0"
+      style={{ pointerEvents: isDrawing ? "auto" : "none" }}
+    />
   );
 };
 

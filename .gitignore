@@ -1,7 +1,7 @@
 model/preprocess/assets/*
 venv/
 server/metadata
-server/videos
+server/pdfs
 server/keypoints
 server/results
 server/voting_table
@@ -9,7 +9,7 @@ server/test_file
 
 __pycache__/
 
-*.mp4
+*.pdf
 *.csv
 *.json
 *.pth

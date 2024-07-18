@@ -10,7 +10,7 @@ export async function getProjectList() {
 export async function postProject({ metadata, file }) {
     const formData = new FormData();
     formData.append('userID', metadata.userID);
-    formData.append('date', metadata.date);
+    formData.append('insertDate', metadata.insertDate);
     formData.append('updateDate', metadata.updateDate);
     formData.append('userName', metadata.userName);
     formData.append('file', file);

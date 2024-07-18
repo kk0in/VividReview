@@ -247,11 +247,11 @@ async def update_result(project_id: int, result: Any = Body(...)):
     
         
 @app.post('/api/upload_project', status_code=201)
-async def upload_project(userID: str = Form(...), date: str = Form(...), updateDate: str = Form(...), userName: str = Form(...), file: UploadFile = File(...)):
+async def upload_project(userID: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), userName: str = Form(...), file: UploadFile = File(...)):
     """
     새 프로젝트를 업로드하는 API 엔드포인트입니다.
     프로젝트 metadata를 생성하고, PDF 파일을 서버에 저장합니다.     
-    :param userID, date, updateDate, userName: 프로젝트 metadata 입니다.
+    :param userID, insertDate, updateDate, userName: 프로젝트 metadata 입니다.
     :param file: 업로드할 PDF 파일입니다.
     """
 
@@ -260,10 +260,10 @@ async def upload_project(userID: str = Form(...), date: str = Form(...), updateD
     metadata = {  
         'id': id,
         'userID': userID,
-        'date': date,
+        'insertDate': insertDate,
         'updateDate': updateDate,
         'userName': userName,
-        'done': False
+        'done': True
     }
 
     pdf_filename = os.path.splitext(file.filename)[0]
@@ -307,6 +307,6 @@ async def test_get_json():
         data = json.load(f)
     return data
 
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=9998)
+# if __name__ == '__main__':
+#     import uvicorn
+#     uvicorn.run(app, host='0.0.0.0', port=9998)
