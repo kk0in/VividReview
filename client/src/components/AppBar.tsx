@@ -6,6 +6,8 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline' // 여전히 
 import { FaPencilAlt, FaEraser, FaThLarge, FaSpinner, FaHighlighter, FaUndo, FaRedo, FaSearch, FaMicrophone } from 'react-icons/fa'; // react-icons에서 FontAwesome 아이콘들을 가져옵니다.
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useRecoilState } from 'recoil';
+import { toolState } from '@/app/recoil/ToolState'; // ToolState를 import합니다.
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -19,16 +21,18 @@ function classNames(...classes: string[]) {
 export default function AppBar() {
   const pathname = usePathname()
   const isViewerPage = pathname.startsWith('/viewer/');
-
   const [activeIcon, setActiveIcon] = useState<string | null>(null);
   const [temporaryActiveIcons, setTemporaryActiveIcons] = useState<Set<string>>(new Set());
   const [microphoneActive, setMicrophoneActive] = useState<boolean>(false);
+  const [selectedTool, setSelectedTool] = useRecoilState(toolState); // Recoil 상태를 사용합니다.
 
-  const handleIconClick = (iconName: string) => {
+  const handleIconClick = (iconName: string, tool: string) => {
     if (activeIcon === iconName) {
       setActiveIcon(null);
+      setSelectedTool(null);
     } else {
       setActiveIcon(iconName);
+      setSelectedTool(tool);
     }
   };
 
@@ -52,10 +56,10 @@ export default function AppBar() {
   };
 
   const icons = [
-    { name: 'pencil', icon: FaPencilAlt },
-    { name: 'highlighter', icon: FaHighlighter },
-    { name: 'eraser', icon: FaEraser },
-    { name: 'spinner', icon: FaSpinner },
+    { name: 'pencil', icon: FaPencilAlt, tool: 'pencil' },
+    { name: 'highlighter', icon: FaHighlighter, tool: 'highlighter' },
+    { name: 'eraser', icon: FaEraser, tool: 'eraser' },
+    { name: 'spinner', icon: FaSpinner, tool: 'spinner' },
   ];
 
   const temporaryIcons = [
@@ -95,14 +99,14 @@ export default function AppBar() {
           </div>
           {isViewerPage && (
             <div className="flex space-x-4">
-              {icons.map(({ name, icon: Icon }) => (
+              {icons.map(({ name, icon: Icon, tool }) => (
                 <Icon
                   key={name}
                   className={classNames(
                     'h-6 w-6 cursor-pointer transition-colors duration-300',
                     activeIcon === name ? 'text-yellow-500' : 'text-white'
                   )}
-                  onClick={() => handleIconClick(name)}
+                  onClick={() => handleIconClick(name, tool)}
                 />
               ))}
               {temporaryIcons.map(({ name, icon: Icon }) => (
