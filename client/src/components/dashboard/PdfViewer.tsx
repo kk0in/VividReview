@@ -1,8 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions
-pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';;
+pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
 type PDFViewerProps = {
   path: string;
@@ -11,6 +11,8 @@ type PDFViewerProps = {
 
 const PdfViewer = ({ path, scale }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
@@ -25,26 +27,76 @@ const PdfViewer = ({ path, scale }: PDFViewerProps) => {
     console.log("pdf locked");
   };
 
+  const goToNextPage = () => {
+    setPageNumber(prevPageNumber => Math.min(prevPageNumber + 1, numPages));
+  };
+
+  const goToPreviousPage = () => {
+    setPageNumber(prevPageNumber => Math.max(prevPageNumber - 1, 1));
+  };
+
+  useEffect(() => {
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      startXRef.current = touch.clientX;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!startXRef.current) return;
+
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - startXRef.current;
+
+      if (deltaX > 50) {
+        goToPreviousPage();
+        startXRef.current = null;
+      } else if (deltaX < -50) {
+        goToNextPage();
+        startXRef.current = null;
+      }
+    };
+
+    const startXRef = { current: null as number | null };
+
+    const viewer = viewerRef.current;
+    if (viewer) {
+      viewer.addEventListener("touchstart", handleTouchStart);
+      viewer.addEventListener("touchmove", handleTouchMove);
+    }
+
+    return () => {
+      if (viewer) {
+        viewer.removeEventListener("touchstart", handleTouchStart);
+        viewer.removeEventListener("touchmove", handleTouchMove);
+      }
+    };
+  }, [numPages]);
+
   return (
-    <div>
-      <Document
-        file={path}
-        onLoadSuccess={onDocumentLoadSuccess}
-        onLoadError={onDocumentError}
-        onPassword={onDocumentLocked}
-      >
-        {Array.from(new Array(numPages), (_, index) => {
-          return (
-            <Page
-              key={`page_${index + 1}`}
-              pageNumber={index + 1}
-              width={700}
-              renderAnnotationLayer={false}
-              scale={scale}
-            />
-          );
-        })}
-      </Document>
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ maxWidth: '90%', marginRight: '30px' }} ref={viewerRef}>
+        <Document
+          file={path}
+          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentError}
+          onPassword={onDocumentLocked}
+        >
+          <Page
+            pageNumber={pageNumber}
+            width={700}
+            renderAnnotationLayer={false}
+            scale={scale}
+          />
+        </Document>
+        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '10px' }}>
+            Previous
+          </button>
+          <button onClick={goToNextPage} disabled={pageNumber >= numPages}>
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
