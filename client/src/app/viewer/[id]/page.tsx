@@ -52,6 +52,7 @@ export default function Page({ params }: { params: { id: string } }) {
         const pdfUrl = URL.createObjectURL(data);
         console.log("pdfUrl:", pdfUrl)
         setPdfData(pdfUrl);
+        console.log("pdfData:", pdfData);
       },
       enabled: false,
     }
@@ -61,8 +62,10 @@ export default function Page({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (pdfData === "") {
       setIsLoaded(false);
+      console.log("pdfData is empty");
     } else {
       setIsLoaded(true);
+      console.log("pdfData is not empty");
     }
   }, [pdfData]);
 
@@ -98,7 +101,7 @@ export default function Page({ params }: { params: { id: string } }) {
         {isLoaded && (
         <div className="flex-grow flex flex-row h-[60%] max-h-1/2">
             <div className="flex-auto h-full bg-slate-900 p-4 text-white w-[30rem]">
-            {/* <PdfViewer pdfSrc={pdfData} /> */}
+              <PdfViewer path={pdfData} scale={1.5} />
             </div>
         </div>
         )}

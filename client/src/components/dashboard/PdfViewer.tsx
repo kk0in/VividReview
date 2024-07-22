@@ -1,89 +1,51 @@
-"use client"; // 이 줄을 추가합니다.
+import React, { useRef, useState } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
 
-import React, { useEffect, useRef, useState } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker";
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions
+pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';;
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+type PDFViewerProps = {
+  path: string;
+  scale: number;
+};
 
-const PdfViewer = ({ pdfFile }) => {
-  const [numPages, setNumPages] = useState(0);
-  const [pdfDoc, setPdfDoc] = useState(null);
-  const canvasRef = useRef([]);
+const PdfViewer = ({ path, scale }: PDFViewerProps) => {
+  const [numPages, setNumPages] = useState<number>(0);
 
-  useEffect(() => {
-    const loadingTask = pdfjsLib.getDocument(pdfFile);
-    loadingTask.promise.then((pdf) => {
-      setPdfDoc(pdf);
-      setNumPages(pdf.numPages);
-    });
-  }, [pdfFile]);
+  const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
+    setNumPages(numPages);
+    console.log(numPages);
+  };
 
-  useEffect(() => {
-    if (pdfDoc) {
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        pdfDoc.getPage(pageNum).then((page) => {
-          const viewport = page.getViewport({ scale: 1.5 });
-          const canvas = canvasRef.current[pageNum - 1];
-          const context = canvas.getContext("2d");
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
+  const onDocumentError = (error: Error) => {
+    console.log("pdf viewer error", error);
+  };
 
-          const renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-          };
-          page.render(renderContext);
-        });
-      }
-    }
-  }, [pdfDoc, numPages]);
+  const onDocumentLocked = () => {
+    console.log("pdf locked");
+  };
 
   return (
     <div>
-      {Array.from(new Array(numPages), (el, index) => (
-        <div key={`page_${index + 1}`}>
-          <canvas ref={(el) => (canvasRef.current[index] = el)} />
-          <DrawingCanvas pageNumber={index + 1} />
-        </div>
-      ))}
+      <Document
+        file={path}
+        onLoadSuccess={onDocumentLoadSuccess}
+        onLoadError={onDocumentError}
+        onPassword={onDocumentLocked}
+      >
+        {Array.from(new Array(numPages), (_, index) => {
+          return (
+            <Page
+              key={`page_${index + 1}`}
+              pageNumber={index + 1}
+              width={700}
+              renderAnnotationLayer={false}
+              scale={scale}
+            />
+          );
+        })}
+      </Document>
     </div>
-  );
-};
-
-const DrawingCanvas = ({ pageNumber }) => {
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  const startDrawing = ({ nativeEvent }) => {
-    const { offsetX, offsetY } = nativeEvent;
-    canvasRef.current.getContext("2d").beginPath();
-    canvasRef.current.getContext("2d").moveTo(offsetX, offsetY);
-    setIsDrawing(true);
-  };
-
-  const draw = ({ nativeEvent }) => {
-    if (!isDrawing) return;
-    const { offsetX, offsetY } = nativeEvent;
-    canvasRef.current.getContext("2d").lineTo(offsetX, offsetY);
-    canvasRef.current.getContext("2d").stroke();
-  };
-
-  const stopDrawing = () => {
-    canvasRef.current.getContext("2d").closePath();
-    setIsDrawing(false);
-  };
-
-  return (
-    <canvas
-      ref={canvasRef}
-      onMouseDown={startDrawing}
-      onMouseMove={draw}
-      onMouseUp={stopDrawing}
-      onMouseLeave={stopDrawing}
-      className="absolute top-0 left-0"
-      style={{ pointerEvents: isDrawing ? "auto" : "none" }}
-    />
   );
 };
 
