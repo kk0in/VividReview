@@ -2,15 +2,18 @@ import React, { useRef, useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue } from "recoil";
 import { toolState } from "@/app/recoil/ToolState";
+import { saveAnnotatedPdf } from "@/utils/api";
+import jsPDF from "jspdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
 type PDFViewerProps = {
   path: string;
   scale: number;
+  projectId: string;
 };
 
-const PdfViewer = ({ path, scale }: PDFViewerProps) => {
+const PdfViewer = ({ path, scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [drawings, setDrawings] = useState<Record<number, string>>({});
@@ -143,9 +146,47 @@ const PdfViewer = ({ path, scale }: PDFViewerProps) => {
     };
   }, [pageNumber, drawings]);
 
+  const handleSave = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      const doc = new jsPDF();
+
+      for (let i = 1; i <= numPages; i++) {
+        setPageNumber(i);
+        const dataUrl = drawings[i] || canvas.toDataURL();
+        const img = new Image();
+        img.src = dataUrl;
+
+        await new Promise<void>((resolve) => {
+          img.onload = () => {
+            const pageCanvas = document.createElement("canvas");
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = canvas.height;
+            const pageContext = pageCanvas.getContext("2d");
+            if (pageContext) {
+              pageContext.drawImage(img, 0, 0);
+              const imgData = pageCanvas.toDataURL("image/png");
+              if (i > 1) doc.addPage();
+              doc.addImage(imgData, "PNG", 0, 0, 210, 297); // A4 size
+              resolve();
+            }
+          };
+        });
+      }
+
+      const pdfBlob = doc.output("blob");
+      await saveAnnotatedPdf(projectId, pdfBlob);
+      console.log("Annotated PDF saved successfully");
+    } catch (error) {
+      console.error("Failed to save annotated PDF:", error);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ maxWidth: '80%', marginRight: '50px', position: 'relative' }} ref={viewerRef}>
+      <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
         <Document
           file={path}
           onLoadSuccess={onDocumentLoadSuccess}
@@ -162,7 +203,7 @@ const PdfViewer = ({ path, scale }: PDFViewerProps) => {
         <canvas
           ref={canvasRef}
           width={700}
-          height={980}
+          height={600}
           style={{
             position: 'absolute',
             top: 0,
@@ -179,6 +220,9 @@ const PdfViewer = ({ path, scale }: PDFViewerProps) => {
           </button>
           <button onClick={goToNextPage} disabled={pageNumber >= numPages}>
             Next
+          </button>
+          <button onClick={handleSave} style={{ marginLeft: '10px' }}>
+            Save
           </button>
         </div>
       </div>

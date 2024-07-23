@@ -2,6 +2,39 @@ import axios from 'axios';
 
 const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 
+// export async function saveAnnotations(projectId: string, annotations: any[]) {
+//     const response = await axios.post(SERVER_ENDPOINT + `api/save_annotations/${projectId}`, annotations);
+//     return response.data;
+// }
+
+// export async function loadAnnotations(projectId: string) {
+//     const response = await axios.get(SERVER_ENDPOINT + `api/load_annotations/${projectId}`);
+//     return response.data;
+// }
+
+// export async function updatePdf(project_id: string, annotations: any) {
+//     const response = await axios.options(SERVER_ENDPOINT+`api/update_pdf/${project_id}`, { data: annotations });
+//     return response.data;
+// }
+
+
+export async function saveAnnotatedPdf(projectId: string, blob: Blob) {
+    const formData = new FormData();
+    formData.append('annotated_pdf', blob, 'annotated.pdf');
+    console.log("saveAnnotatedPdf", blob);
+
+    try {
+        const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(`Failed to save annotated PDF: ${error}`);
+    }
+}
+
 export async function getProjectList() {
     const response = await axios.get(SERVER_ENDPOINT+'api/get_project');
     return response.data;

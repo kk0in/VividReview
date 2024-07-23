@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # from model.test import run_inference
 
-from typing import Any
+from typing import Any, List, Dict
 from fastapi.responses import StreamingResponse
 
 import zipfile
@@ -16,10 +16,11 @@ import os
 import numpy as np 
 import csv
 import io
-
-
+import fitz
+import logging
 
 app = FastAPI()
+logging.basicConfig(filename='info.log', level=logging.DEBUG)
 
 executor = ThreadPoolExecutor(10)
 
@@ -36,14 +37,17 @@ app.add_middleware(
 )
 
 PDF = './pdfs'
+TEMP = './temp'
 RESULT = './results'
 META_DATA = './metadata'
-
+ANNOTATIONS = './annotations'
 
 
 os.makedirs(PDF, exist_ok=True)
+os.makedirs(TEMP, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
+os.makedirs(ANNOTATIONS, exist_ok=True)
 
 confidence_threshold = 0.5
 labels = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
@@ -117,6 +121,107 @@ def get_filename(id):
         return None
     
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
+# @app.post("/api/save_annotations/{project_id}")
+# async def save_annotations(project_id: int, annotations: List[Dict]):
+#     annotations_path = os.path.join(ANNOTATIONS, f"{project_id}.json")
+#     with open(annotations_path, 'w') as f:
+#         json.dump(annotations, f)
+#     return {"detail": "Annotations saved successfully"}
+
+# @app.get("/api/load_annotations/{project_id}")
+# async def load_annotations(project_id: int):
+#     annotations_path = os.path.join(ANNOTATIONS, f"{project_id}.json")
+#     if not os.path.exists(annotations_path):
+#         return []
+#     with open(annotations_path, 'r') as f:
+#         annotations = json.load(f)
+#     return annotations
+# @app.options("/api/update_pdf/{project_id}", status_code=200)
+# async def update_pdf(project_id: int, annotations: Any = Body(...)):
+#     """
+#     특정 프로젝트 ID의 PDF 파일을 업데이트하는 API 엔드포인트입니다.
+#     기존 PDF 파일을 열고 주어진 주석을 추가하여 덮어씁니다.
+
+#     :param project_id: 업데이트할 프로젝트의 ID입니다.
+#     :param annotations: 업데이트할 주석 데이터입니다.
+#     """
+#     pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
+
+#     if not pdf_file:
+#         raise HTTPException(status_code=404, detail="PDF file not found")
+    
+#     if len(pdf_file) > 1:
+#         raise HTTPException(status_code=500, detail="Multiple PDF files found")
+    
+#     pdf_path = os.path.join(PDF, pdf_file[0])
+
+#     try:
+#         # Load the annotations
+#         annotations = json.loads(annotations)
+
+#         # Open the existing PDF
+#         pdf_document = fitz.open(pdf_path)
+
+#         for annotation in annotations:
+#             page_number = annotation['pageNumber']
+#             x = annotation['x']
+#             y = annotation['y']
+#             text = annotation['text']
+            
+#             page = pdf_document.load_page(page_number - 1)
+#             page.insert_text((x, y), text, fontsize=12, color=(0, 0, 0))
+
+#         # Save the annotated PDF by overwriting the original PDF
+#         pdf_document.save(pdf_path)
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error during annotation: {e}")
+
+#     return {"id": project_id, "detail": "PDF updated successfully"}
+
+@app.post('/api/save_annotated_pdf/{project_id}', status_code=200)
+async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(...)):
+    pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
+
+    if not pdf_file:
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    
+    if len(pdf_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple PDF files found")
+
+    original_pdf_path = os.path.join(PDF, pdf_file[0])
+
+    # Save the uploaded annotated PDF temporarily
+    annotated_pdf_path = f"{TEMP}/{project_id}_annotated_temp.pdf"
+    with open(annotated_pdf_path, "wb") as buffer:
+        shutil.copyfileobj(annotated_pdf.file, buffer)
+
+    # Open the original PDF and the annotated PDF
+    original_pdf = fitz.open(original_pdf_path)
+    annotated_pdf = fitz.open(annotated_pdf_path)
+
+    logging.info(len(original_pdf))
+    logging.info(len(annotated_pdf))
+    
+    if len(original_pdf) != len(annotated_pdf):
+        raise HTTPException(status_code=400, detail="Page count mismatch")
+
+    # Add annotations from the annotated PDF to the original PDF
+    for page_num in range(len(original_pdf)):
+        original_page = original_pdf.load_page(page_num)
+        annotated_page = annotated_pdf.load_page(page_num)
+
+        # Insert the annotated page image into the original PDF
+        original_page.show_pdf_page(original_page.rect, annotated_pdf, page_num)
+
+    # Save the modified original PDF
+    original_pdf.saveIncr()
+
+    # Clean up the temporary annotated PDF file
+    os.remove(annotated_pdf_path)
+
+    return {"message": "Annotated PDF saved successfully"}
+
 @app.get('/api/get_project', status_code=200)
 async def get_project():
     """
@@ -222,8 +327,6 @@ async def delete_project(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error during deletion: {e}")
 
     return {"detail": "Project deleted successfully"}
-
-
 
 @app.options('/api/update_result/{project_id}', status_code=200)
 async def update_result(project_id: int, result: Any = Body(...)):

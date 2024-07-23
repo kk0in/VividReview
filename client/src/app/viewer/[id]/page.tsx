@@ -20,7 +20,7 @@ export default function Page({ params }: { params: { id: string } }) {
     getProject,
     {
       onSuccess: (data) => {
-        console.log("data:", data);
+        // console.log("data:", data);
       },
       onError: (error) => {
         console.log(error);
@@ -45,7 +45,7 @@ export default function Page({ params }: { params: { id: string } }) {
     {
       onSuccess: (data) => {
         const pdfUrl = URL.createObjectURL(data);
-        console.log("pdfUrl:", pdfUrl)
+        // console.log("pdfUrl:", pdfUrl)
         setPdfData(pdfUrl);
       },
       enabled: false,
@@ -98,7 +98,7 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
           {/* PDF Viewer 및 Toolbar */}
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer path={pdfData} scale={1.5} />
+            <PdfViewer path={pdfData} scale={1.5} projectId={params.id} />
           </div>
         </div>
       )}
