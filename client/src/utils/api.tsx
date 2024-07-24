@@ -1,4 +1,5 @@
 import axios from 'axios';
+import jsPDF from "jspdf";
 
 const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 
@@ -18,22 +19,33 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 // }
 
 
-export async function saveAnnotatedPdf(projectId: string, blob: Blob) {
-    const formData = new FormData();
-    formData.append('annotated_pdf', blob, 'annotated.pdf');
-    console.log("saveAnnotatedPdf", blob);
-
-    try {
-        const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        });
-        return response.data;
-    } catch (error) {
-        throw new Error(`Failed to save annotated PDF: ${error}`);
+export async function saveAnnotatedPdf(projectId: string, drawings: Record<number, string>, numPages: number) {
+    const pdfDoc = new jsPDF();
+  
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      if (pageNum > 1) {
+        pdfDoc.addPage();
+      }
+  
+      const imgData = drawings[pageNum];
+      if (imgData) {
+        pdfDoc.addImage(imgData, 'PNG', 0, 0, pdfDoc.internal.pageSize.getWidth(), pdfDoc.internal.pageSize.getHeight());
+      }
     }
-}
+  
+    const pdfBlob = pdfDoc.output('blob');
+  
+    const formData = new FormData();
+    formData.append('annotated_pdf', pdfBlob, 'annotated.pdf');
+  
+    const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  
+    return response.data;
+  }
 
 export async function getProjectList() {
     const response = await axios.get(SERVER_ENDPOINT+'api/get_project');

@@ -3,7 +3,6 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue } from "recoil";
 import { toolState } from "@/app/recoil/ToolState";
 import { saveAnnotatedPdf } from "@/utils/api";
-import jsPDF from "jspdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
@@ -148,39 +147,14 @@ const PdfViewer = ({ path, scale, projectId }: PDFViewerProps) => {
 
   const handleSave = async () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    try {
-      const doc = new jsPDF();
-
-      for (let i = 1; i <= numPages; i++) {
-        setPageNumber(i);
-        const dataUrl = drawings[i] || canvas.toDataURL();
-        const img = new Image();
-        img.src = dataUrl;
-
-        await new Promise<void>((resolve) => {
-          img.onload = () => {
-            const pageCanvas = document.createElement("canvas");
-            pageCanvas.width = canvas.width;
-            pageCanvas.height = canvas.height;
-            const pageContext = pageCanvas.getContext("2d");
-            if (pageContext) {
-              pageContext.drawImage(img, 0, 0);
-              const imgData = pageCanvas.toDataURL("image/png");
-              if (i > 1) doc.addPage();
-              doc.addImage(imgData, "PNG", 0, 0, 210, 297); // A4 size
-              resolve();
-            }
-          };
-        });
+    if (canvas) {
+      try {
+        console.log(projectId);
+        await saveAnnotatedPdf(projectId, drawings, numPages);
+        console.log("Annotated PDF saved successfully");
+      } catch (error) {
+        console.error("Failed to save annotated PDF:", error);
       }
-
-      const pdfBlob = doc.output("blob");
-      await saveAnnotatedPdf(projectId, pdfBlob);
-      console.log("Annotated PDF saved successfully");
-    } catch (error) {
-      console.error("Failed to save annotated PDF:", error);
     }
   };
 

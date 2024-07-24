@@ -6,6 +6,7 @@ server/keypoints
 server/results
 server/voting_table
 server/test_file
+server/info.log
 
 __pycache__/
 

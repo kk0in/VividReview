@@ -204,3 +204,74 @@ DEBUG:multipart.multipart:Calling on_part_end with no data
 DEBUG:multipart.multipart:Calling on_end with no data
 INFO:root:61
 INFO:root:61
+DEBUG:multipart.multipart:Calling on_part_begin with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[42:61]
+DEBUG:multipart.multipart:Calling on_header_value with data[63:120]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[122:134]
+DEBUG:multipart.multipart:Calling on_header_value with data[136:151]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_headers_finished with no data
+DEBUG:multipart.multipart:Calling on_part_data with data[155:65484]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:242627]
+DEBUG:multipart.multipart:Calling on_part_end with no data
+DEBUG:multipart.multipart:Calling on_end with no data
+INFO:root:61
+INFO:root:61
+DEBUG:multipart.multipart:Calling on_part_begin with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[42:61]
+DEBUG:multipart.multipart:Calling on_header_value with data[63:120]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[122:134]
+DEBUG:multipart.multipart:Calling on_header_value with data[136:151]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_headers_finished with no data
+DEBUG:multipart.multipart:Calling on_part_data with data[155:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:163536]
+DEBUG:multipart.multipart:Calling on_part_end with no data
+DEBUG:multipart.multipart:Calling on_end with no data
+INFO:root:61
+INFO:root:61
+DEBUG:multipart.multipart:Calling on_part_begin with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[42:61]
+DEBUG:multipart.multipart:Calling on_header_value with data[63:120]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[122:134]
+DEBUG:multipart.multipart:Calling on_header_value with data[136:151]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_headers_finished with no data
+DEBUG:multipart.multipart:Calling on_part_data with data[155:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:256000]
+DEBUG:multipart.multipart:Calling on_part_data with data[0:52111]
+DEBUG:multipart.multipart:Calling on_part_end with no data
+DEBUG:multipart.multipart:Calling on_end with no data
+INFO:root:61
+INFO:root:61
