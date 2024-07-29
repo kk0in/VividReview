@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from concurrent.futures import ThreadPoolExecutor
-
-# from model.test import run_inference
+from google.cloud import speech
 
 from typing import Any, List, Dict
 from fastapi.responses import StreamingResponse
@@ -18,6 +17,7 @@ import csv
 import io
 import fitz
 import logging
+from google.cloud import speech_v1p1beta1 as speech
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
@@ -41,16 +41,40 @@ TEMP = './temp'
 RESULT = './results'
 META_DATA = './metadata'
 ANNOTATIONS = './annotations'
-
+RECORDING = './recordings'
+SCRIPT = './scripts'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
 os.makedirs(ANNOTATIONS, exist_ok=True)
+os.makedirs(RECORDING, exist_ok=True)
+os.makedirs(SCRIPT, exist_ok=True)
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
 
 confidence_threshold = 0.5
-labels = ['M3', 'G1', 'M1', 'M2', 'P2', 'R2', 'A2', 'BG']
+
+
+def run_stt(audio_path, text_output_path):
+    client = speech.SpeechClient()
+    
+    with open(audio_path, "rb") as audio_file:
+        content = audio_file.read()
+
+    audio = speech.RecognitionAudio(content=content)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+        sample_rate_hertz=48000,
+        language_code="en-US",
+    )
+
+    response = client.recognize(config=config, audio=audio)    
+    
+    stt_result = " ".join([result.alternatives[0].transcript for result in response.results])
+    
+    with open(text_output_path, "w") as f:
+        f.write(stt_result)
 
 def process_video(metadata_file_path, video_file_path):
     """
@@ -61,7 +85,7 @@ def process_video(metadata_file_path, video_file_path):
     :param video_file_path: 처리할 비디오 파일의 경로입니다.
     """
 
-    run_inference(video_file_path)
+    # run_inference(video_file_path)
 
     with open(metadata_file_path, 'r') as f:
         data = json.load(f)
@@ -178,6 +202,22 @@ def get_filename(id):
 #         raise HTTPException(status_code=500, detail=f"Error during annotation: {e}")
 
 #     return {"id": project_id, "detail": "PDF updated successfully"}
+    
+@app.post('/api/save_recording/{project_id}', status_code=200)
+async def save_recording(project_id: int, recording: UploadFile = File(...)):
+    audio_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
+    text_output_path = os.path.join(SCRIPT, f"{project_id}_transcription.txt")
+    
+    with open(audio_path, "wb") as buffer:
+        shutil.copyfileobj(recording.file, buffer)
+    
+    # STT 모델 실행
+    try:
+        executor.submit(run_stt, audio_path, text_output_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
+    
+    return {"message": "Recording saved and STT processing started successfully"}
 
 @app.post('/api/save_annotated_pdf/{project_id}', status_code=200)
 async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(...)):
@@ -199,9 +239,6 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
     annotated_pdf = fitz.open(annotated_pdf_path)
-
-    logging.info(len(original_pdf))
-    logging.info(len(annotated_pdf))
     
     if len(original_pdf) != len(annotated_pdf):
         raise HTTPException(status_code=400, detail="Page count mismatch")
