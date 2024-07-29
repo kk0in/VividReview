@@ -1,33 +1,37 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Disclosure, Menu, Transition } from '@headlessui/react'
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline' // 여전히 Mobile 메뉴용으로 사용
-import { FaPencilAlt, FaEraser, FaThLarge, FaSpinner, FaHighlighter, FaUndo, FaRedo, FaSearch, FaMicrophone } from 'react-icons/fa'; // react-icons에서 FontAwesome 아이콘들을 가져옵니다.
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import React, { useState } from 'react';
 import { useRecoilState } from 'recoil';
-import { toolState } from '@/app/recoil/ToolState'; // ToolState를 import합니다.
+import { Disclosure, Menu, Transition } from '@headlessui/react';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { FaPencilAlt, FaEraser, FaThLarge, FaSpinner, FaHighlighter, FaUndo, FaRedo, FaSearch, FaMicrophone } from 'react-icons/fa';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { toolState, recordingState } from '@/app/recoil/ToolState';
+import { historyState, redoStackState } from '@/app/recoil/HistoryState';
 
 const navigation = [
   { name: 'Home', href: '/' },
   { name: 'Projects', href: '/projects' },
-]
+];
 
 function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export default function AppBar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
   const isViewerPage = pathname.startsWith('/viewer/');
   const [activeIcon, setActiveIcon] = useState<string | null>(null);
   const [temporaryActiveIcons, setTemporaryActiveIcons] = useState<Set<string>>(new Set());
-  const [microphoneActive, setMicrophoneActive] = useState<boolean>(false);
-  const [selectedTool, setSelectedTool] = useRecoilState(toolState); // Recoil 상태를 사용합니다.
+  const [selectedTool, setSelectedTool] = useRecoilState(toolState);
+  const [isRecording, setIsRecording] = useRecoilState(recordingState);
+  const [history, setHistory] = useRecoilState(historyState);
+  const [redoStack, setRedoStack] = useRecoilState(redoStackState);
 
   const handleIconClick = (iconName: string, tool: string) => {
     if (activeIcon === iconName) {
+      // console.log('selectedTool', selectedTool);
       setActiveIcon(null);
       setSelectedTool(null);
     } else {
@@ -36,23 +40,44 @@ export default function AppBar() {
     }
   };
 
-  const handleTemporaryActivation = (iconName: string) => {
+  const handleTemporaryActivation = (iconName: string, action?: () => void) => {
     setTemporaryActiveIcons(prevActiveIcons => {
       const newActiveIcons = new Set(prevActiveIcons);
       newActiveIcons.add(iconName);
       return newActiveIcons;
     });
+    if (action) action();
     setTimeout(() => {
       setTemporaryActiveIcons(prevActiveIcons => {
         const newActiveIcons = new Set(prevActiveIcons);
         newActiveIcons.delete(iconName);
         return newActiveIcons;
       });
-    }, 500); // 원하는 시간 (밀리초) 동안 아이콘이 활성화된 상태 유지
+    }, 500);
   };
 
-  const handleMicrophoneClick = () => {
-    setMicrophoneActive(!microphoneActive);
+  const handleMicToggle = () => {
+    // console.log('isRecording', isRecording);  
+    setIsRecording(!isRecording);
+  };
+
+  const handleUndo = () => {
+    console.log('history', history); 
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    setRedoStack((prev) => [...prev, previous]);
+    setHistory((prev) => prev.slice(0, -1));
+    const event = new CustomEvent('undoCanvas', { detail: previous });
+    window.dispatchEvent(event);
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setHistory((prev) => [...prev, next]);
+    setRedoStack((prev) => prev.slice(0, -1));
+    const event = new CustomEvent('redoCanvas', { detail: next });
+    window.dispatchEvent(event);
   };
 
   const icons = [
@@ -63,8 +88,8 @@ export default function AppBar() {
   ];
 
   const temporaryIcons = [
-    { name: 'undo', icon: FaUndo },
-    { name: 'redo', icon: FaRedo },
+    { name: 'undo', icon: FaUndo, action: handleUndo },
+    { name: 'redo', icon: FaRedo, action: handleRedo },
     { name: 'search', icon: FaSearch },
   ];
 
@@ -73,7 +98,6 @@ export default function AppBar() {
       <div className="mx-auto px-2 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
-            {/* Mobile menu button here */}
           </div>
           <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
             <div className="flex flex-shrink-0 items-center text-white font-bold">
@@ -109,27 +133,27 @@ export default function AppBar() {
                   onClick={() => handleIconClick(name, tool)}
                 />
               ))}
-              {temporaryIcons.map(({ name, icon: Icon }) => (
+              {temporaryIcons.map(({ name, icon: Icon, action }) => (
                 <Icon
                   key={name}
                   className={classNames(
                     'h-6 w-6 cursor-pointer transition-colors duration-300',
                     temporaryActiveIcons.has(name) ? 'text-yellow-500' : 'text-white'
                   )}
-                  onClick={() => handleTemporaryActivation(name)}
+                  onClick={() => handleTemporaryActivation(name, action)}
                 />
               ))}
               <FaMicrophone
                 className={classNames(
                   'h-6 w-6 cursor-pointer transition-colors duration-300',
-                  microphoneActive ? 'text-yellow-500' : 'text-white'
+                  isRecording ? 'text-yellow-500' : 'text-white'
                 )}
-                onClick={handleMicrophoneClick}
+                onClick={handleMicToggle}
               />
             </div>
           )}
         </div>
       </div>
     </nav>
-  )
+  );
 }

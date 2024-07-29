@@ -18,6 +18,14 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
+export async function saveRecording(projectId: string, formData: FormData) {
+    const response = await axios.post(SERVER_ENDPOINT + `api/save_recording/${projectId}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    return response.data;
+}
 
 export async function saveAnnotatedPdf(projectId: string, drawings: Record<number, string>, numPages: number) {
     const pdfDoc = new jsPDF();

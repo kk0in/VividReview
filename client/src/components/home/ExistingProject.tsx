@@ -237,7 +237,7 @@ const ExistingProject: React.FC = () => {
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
                                 {project.done ? (
                                   <Link
-                                    href={`/dashboard/${project.id}`}
+                                    href={`/viewer/${project.id}`}
                                     className="rounded-md items-center justify-center text-slate-500 gap-3 bg-white border border-slate-200 px-2 py-2 text-sm shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
                                     onClick={() => {
                                       setCSVData([]);

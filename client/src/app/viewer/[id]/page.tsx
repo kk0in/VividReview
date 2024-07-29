@@ -7,21 +7,20 @@ import { pdfDataState } from "@/app/recoil/DataState";
 import { getProject, getPdf } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { PencilIcon, EraserIcon, HighlightIcon, ScissorsIcon } from "@heroicons/react/24/outline";
+import AppBar from "@/components/AppBar";
 
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
   const [uploadStatus, setUploadStatus] = useState("");
+  // const [history, setHistory] = useState<string[]>([]);
+  // const [redoStack, setRedoStack] = useState<string[]>([]);
 
-  // GET Project List
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
     getProject,
     {
-      onSuccess: (data) => {
-        // console.log("data:", data);
-      },
+      onSuccess: (data) => {},
       onError: (error) => {
         console.log(error);
       },
@@ -45,7 +44,6 @@ export default function Page({ params }: { params: { id: string } }) {
     {
       onSuccess: (data) => {
         const pdfUrl = URL.createObjectURL(data);
-        // console.log("pdfUrl:", pdfUrl)
         setPdfData(pdfUrl);
       },
       enabled: false,
@@ -60,8 +58,25 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, [pdfData]);
 
+  // const handleUndo = () => {
+  //   if (history.length === 0) return;
+  //   const newHistory = [...history];
+  //   const lastDrawing = newHistory.pop();
+  //   setHistory(newHistory);
+  //   setRedoStack((prev) => [...prev, lastDrawing || '']);
+  // };
+
+  // const handleRedo = () => {
+  //   if (redoStack.length === 0) return;
+  //   const newRedoStack = [...redoStack];
+  //   const nextDrawing = newRedoStack.pop();
+  //   setRedoStack(newRedoStack);
+  //   setHistory((prev) => [...prev, nextDrawing || '']);
+  // };
+
   return (
     <div className="h-full flex flex-col">
+      {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
       {isError && (
         <div className="mx-auto my-auto">
           <div className="flex flex-col">
@@ -86,19 +101,16 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {isLoaded && (
         <div className="flex-grow flex flex-row">
-          {/* 목차 뷰 추가 */}
           <div className="flex-none w-1/5 bg-gray-200 p-4">
             <div className="mb-4 font-bold">Table</div>
             <ul>
               <li className="mb-2">1. Introduction</li>
               <li className="mb-2">2. Administrative Issues</li>
               <li className="mb-2">3. Summary</li>
-              {/* 추가 목차 항목 */}
             </ul>
           </div>
-          {/* PDF Viewer 및 Toolbar */}
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer path={pdfData} scale={1.5} projectId={params.id} />
+            <PdfViewer scale={1.5} projectId={params.id} />
           </div>
         </div>
       )}
