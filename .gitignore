@@ -2,6 +2,8 @@ model/preprocess/assets/*
 venv/
 server/metadata
 server/pdfs
+server/recordings
+server/scripts
 server/keypoints
 server/results
 server/voting_table
@@ -14,6 +16,8 @@ __pycache__/
 *.csv
 *.json
 *.pth
+*.webm
+*.txt
 !*config.json
 
 server/scalers/

@@ -46,7 +46,10 @@ export default function AppBar() {
       newActiveIcons.add(iconName);
       return newActiveIcons;
     });
-    if (action) action();
+    if (action) {
+      // console.log('action', action);
+      action();
+    }
     setTimeout(() => {
       setTemporaryActiveIcons(prevActiveIcons => {
         const newActiveIcons = new Set(prevActiveIcons);

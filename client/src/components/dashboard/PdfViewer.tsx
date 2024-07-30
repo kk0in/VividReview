@@ -4,6 +4,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
+import * as d3 from "d3";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
@@ -24,6 +25,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const selectedTool = useRecoilValue(toolState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [lassoPath, setLassoPath] = useState<{ x: number; y: number }[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<ImageData | null>(null);
+  const [initialPosition, setInitialPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
@@ -132,14 +139,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           context.strokeStyle = "black";
           context.lineWidth = 2;
         }
-      } else if (selectedTool === "spinner") {
-        startX = event.offsetX;
-        startY = event.offsetY;
-        drawing = true;
-        context.setLineDash([5, 15]);
-        context.beginPath();
-        context.moveTo(event.offsetX, event.offsetY);
-      }
+        context.setLineDash([]);
+      } 
     };
 
     const draw = (event: MouseEvent) => {
@@ -167,31 +168,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const handleMouseMove = (event: MouseEvent) => {
       if (selectedTool === "eraser") {
         erase(event);
-      } else if (selectedTool === "spinner") {
-        if (!drawing) return;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.setLineDash([5, 15]);
-        context.beginPath();
-        context.moveTo(startX, startY);
-        context.lineTo(event.offsetX, event.offsetY);
-        context.stroke();
       } else {
         draw(event);
-      }
-    };
-
-    const completeSpinner = (event: MouseEvent) => {
-      if (selectedTool === "spinner") {
-        drawing = false;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.setLineDash([]);
-        context.beginPath();
-        context.moveTo(startX, startY);
-        context.lineTo(event.offsetX, event.offsetY);
-        context.stroke();
-        const drawingData = canvas.toDataURL();
-        localStorage.setItem(`drawings_${projectId}_${pageNumber}`, drawingData);
-        setHistory((prev) => [...prev, [drawingData]]);
       }
     };
 
@@ -199,14 +177,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseout", stopDrawing);
-    canvas.addEventListener("mouseup", completeSpinner);
 
     return () => {
       canvas.removeEventListener("mousedown", startDrawing);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseup", stopDrawing);
       canvas.removeEventListener("mouseout", stopDrawing);
-      canvas.removeEventListener("mouseup", completeSpinner);
     };
   }, [selectedTool, pageNumber, projectId]);
 
@@ -343,6 +319,159 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       mediaRecorderRef.current.stop();
     }
   }, [isRecording]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+
+    if (selectedTool === "spinner" && canvas && context) {
+      let isLassoDrawing = false;
+      let lassoPath = [];
+      
+
+      const handleMouseDown = (event: MouseEvent) => {
+        if (isDragging) return;
+        isLassoDrawing = true;
+        lassoPath = [{ x: event.offsetX, y: event.offsetY }];
+        context.beginPath();
+        context.moveTo(event.offsetX, event.offsetY);
+        context.setLineDash([5, 5]);
+        context.strokeStyle = "black";
+        context.lineWidth = 1;
+      };
+
+      const handleMouseMove = (event: MouseEvent) => {
+        if (isDragging) {
+          handleLassoDragMove(event);
+          return;
+        }
+        if (!isLassoDrawing) return;
+        const newPoint = { x: event.offsetX, y: event.offsetY };
+        lassoPath.push(newPoint);
+        context.lineTo(newPoint.x, newPoint.y);
+        context.stroke();
+      };
+
+      const handleMouseUp = () => {
+        if (isDragging) {
+          setIsDragging(false);
+          return;
+        }
+        if (!isLassoDrawing) return;
+        isLassoDrawing = false;
+        context.closePath();
+
+        context.beginPath();
+        context.moveTo(lassoPath[lassoPath.length - 1].x, lassoPath[lassoPath.length - 1].y);
+        context.lineTo(lassoPath[0].x, lassoPath[0].y);
+        context.stroke();
+        context.closePath();
+
+        setLassoPath(lassoPath);
+
+        console.log("Lasso path:", lassoPath);
+
+        // Save the selected region
+        const lassoBoundingBox = getBoundingBox(lassoPath);
+        
+        console.log("Lasso bounding box:", lassoBoundingBox);
+
+        const selectedData = context.getImageData(
+          lassoBoundingBox.x,
+          lassoBoundingBox.y,
+          lassoBoundingBox.width,
+          lassoBoundingBox.height
+        );
+        console.log("Selected region:", selectedData);
+        setSelectedRegion(selectedData);
+        setInitialPosition({ x: lassoBoundingBox.x, y: lassoBoundingBox.y });
+
+        // 드래그 모드로 전환
+        setIsDragging(true);
+        setDragOffset({
+          x: event.offsetX - lassoBoundingBox.x,
+          y: event.offsetY - lassoBoundingBox.y,
+        });
+      };
+
+      const handleLassoDragStart = (event: MouseEvent) => {
+        if (selectedRegion && isPointInPath(lassoPath, event.offsetX, event.offsetY)) {
+          setDragOffset({
+            x: event.offsetX - (initialPosition?.x ?? 0),
+            y: event.offsetY - (initialPosition?.y ?? 0),
+          });
+        }
+      };
+
+      const handleLassoDragMove = (event: MouseEvent) => {
+        if (!dragOffset || !selectedRegion || !initialPosition) return;
+
+        const newX = event.offsetX - dragOffset.x;
+        const newY = event.offsetY - dragOffset.y;
+
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
+        if (savedDrawings) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            context.drawImage(img, 0, 0);
+            context.putImageData(selectedRegion, newX, newY);
+          };
+        } else {
+          context.putImageData(selectedRegion, newX, newY);
+        }
+
+        setInitialPosition({ x: newX, y: newY });
+      };
+
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseup", handleMouseUp);
+      canvas.addEventListener("mouseleave", handleMouseUp);
+      // canvas.addEventListener("mousedown", handleLassoDragStart);
+      // canvas.addEventListener("mousemove", handleLassoDragMove);
+      // canvas.addEventListener("mouseup", () => setDragOffset(null));
+
+      return () => {
+        canvas.removeEventListener("mousedown", handleMouseDown);
+        canvas.removeEventListener("mousemove", handleMouseMove);
+        canvas.removeEventListener("mouseup", handleMouseUp);
+        canvas.addEventListener("mouseleave", handleMouseUp);
+        // canvas.removeEventListener("mousedown", handleLassoDragStart);
+        // canvas.removeEventListener("mousemove", handleLassoDragMove);
+        // canvas.removeEventListener("mouseup", () => setDragOffset(null));
+      };
+    }
+  }, [selectedTool, lassoPath, selectedRegion, initialPosition, dragOffset, isDragging]);
+
+  const getBoundingBox = (path: { x: number; y: number }[]) => {
+    const xValues = path.map(point => point.x);
+    const yValues = path.map(point => point.y);
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    return {
+      x: xMin,
+      y: yMin,
+      width: xMax - xMin,
+      height: yMax - yMin,
+    };
+  };
+
+  const isPointInPath = (path: { x: number; y: number }[], x: number, y: number) => {
+    const context = canvasRef.current?.getContext("2d");
+    if (!context) return false;
+
+    context.beginPath();
+    context.moveTo(path[0].x, path[0].y);
+    for (const point of path) {
+      context.lineTo(point.x, point.y);
+    }
+    context.closePath();
+    return context.isPointInPath(x, y);
+  };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
