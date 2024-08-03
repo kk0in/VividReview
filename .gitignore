@@ -9,7 +9,8 @@ server/results
 server/voting_table
 server/test_file
 server/info.log
-
+server/images
+server/tocs
 __pycache__/
 
 *.pdf

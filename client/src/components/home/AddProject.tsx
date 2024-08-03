@@ -21,7 +21,6 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 const AddProject: React.FC = () => {
   const mutation = useMutation(postProject);
   const router = useRouter();
-
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
@@ -40,7 +39,6 @@ const AddProject: React.FC = () => {
     };
 
     if (pdfFile) {
-      try {
         const formData = new FormData();
         formData.append('userID', metadata.userID);
         formData.append('insertDate', metadata.insertDate);
@@ -48,23 +46,16 @@ const AddProject: React.FC = () => {
         formData.append('userName', metadata.userName);
         formData.append("file", pdfFile);
 
-        // 파일 업로드 API 호출
-        const response = await fetch(SERVER_ENDPOINT+'api/upload_project', {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
-        const fileId = data.id;
-
-        // 프로젝트 데이터와 파일 ID를 서버에 전송
-        await mutation.mutateAsync({ metadata, file: pdfFile });
-
-        // 파일 업로드와 프로젝트 생성이 완료되면 PDF 뷰어 페이지로 이동
-        router.push(`/viewer/${fileId}`);
-      } catch (error) {
-        console.error("프로젝트 생성 오류:", error);
-        setIsModalOpen(false);
-      }
+        mutation
+          .mutateAsync({ metadata, file: pdfFile })
+          .then((data) => {
+            const redirectUrl = data.redirect_url;
+            router.push(redirectUrl);
+          })
+          .catch((error) => {
+            console.error("프로젝트 생성 오류:", error);
+            setIsModalOpen(false);
+          });
     }
   }
 

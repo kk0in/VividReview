@@ -88,6 +88,7 @@ export default function AppBar() {
     { name: 'highlighter', icon: FaHighlighter, tool: 'highlighter' },
     { name: 'eraser', icon: FaEraser, tool: 'eraser' },
     { name: 'spinner', icon: FaSpinner, tool: 'spinner' },
+    { name: 'grid', icon: FaThLarge, tool: 'grid' },
   ];
 
   const temporaryIcons = [

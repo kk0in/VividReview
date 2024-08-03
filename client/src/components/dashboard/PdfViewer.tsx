@@ -31,6 +31,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [initialPosition, setInitialPosition] = useState<{ x: number; y: number } | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [lassoExists, setLassoExists] = useState<boolean>(false);
+
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
@@ -344,16 +346,39 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       let lassoPath = [];
       let dragOffset = null;
   
+      const clearLasso = () => {
+        setLassoExists(false);
+        setLassoPath([]);
+        setSelectedRegion(null);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
+        if (savedDrawings) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            context.drawImage(img, 0, 0);
+          };
+        }
+      };
+  
       const handleMouseDown = (event: MouseEvent) => {
+        // console.log('isDragging', isDragging);
+        if (isDragging) return;
+        
+        // console.log('lassoExists', lassoExists);  
+        if (lassoExists) {
+          clearLasso();
+        }
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (isDragging) return;
         isLassoDrawing = true;
         lassoPath = [{ x, y }];
+        console.log('lassoPath', lassoPath);
         context.beginPath();
         context.moveTo(x, y);
         context.setLineDash([5, 5]);
@@ -362,17 +387,18 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseMove = (event: MouseEvent) => {
+        if (isDragging) {
+          handleLassoDragMove(event);
+          return;
+        }
+        if (!isLassoDrawing) return;
+  
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (isDragging) {
-          handleLassoDragMove(event);
-          return;
-        }
-        if (!isLassoDrawing) return;
         const newPoint = { x, y };
         lassoPath.push(newPoint);
         context.lineTo(newPoint.x, newPoint.y);
@@ -380,17 +406,18 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseUp = (event: MouseEvent) => {
+        if (isDragging) {
+          setIsDragging(false);
+          return;
+        }
+        if (!isLassoDrawing) return;
+  
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (isDragging) {
-          setIsDragging(false);
-          return;
-        }
-        if (!isLassoDrawing) return;
         isLassoDrawing = false;
         context.closePath();
   
@@ -401,6 +428,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         context.closePath();
   
         setLassoPath(lassoPath);
+        setLassoExists(true);
   
         const lassoBoundingBox = getBoundingBox(lassoPath);
   
@@ -422,13 +450,17 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleLassoDragMove = (event: MouseEvent) => {
+        // console.log('dragOffset', dragOffset); 
+        // console.log('selectedRegion', selectedRegion);
+        // console.log('initialPosition', initialPosition);  
+
+        // if (!dragOffset || !selectedRegion || !initialPosition) return;
+  
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
-        if (!dragOffset || !selectedRegion || !initialPosition) return;
   
         const newX = x - dragOffset.x;
         const newY = y - dragOffset.y;
@@ -449,19 +481,34 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         setInitialPosition({ x: newX, y: newY });
       };
   
+      const handleCanvasClick = (event: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+  
+        if (lassoExists && !isPointInPath(lassoPath, x, y)) {
+          clearLasso();
+        }
+      };
+  
       canvas.addEventListener("mousedown", handleMouseDown);
       canvas.addEventListener("mousemove", handleMouseMove);
       canvas.addEventListener("mouseup", handleMouseUp);
       canvas.addEventListener("mouseleave", handleMouseUp);
+      // canvas.addEventListener("click", handleCanvasClick);
   
       return () => {
         canvas.removeEventListener("mousedown", handleMouseDown);
         canvas.removeEventListener("mousemove", handleMouseMove);
         canvas.removeEventListener("mouseup", handleMouseUp);
         canvas.removeEventListener("mouseleave", handleMouseUp);
+        // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, lassoPath, selectedRegion, initialPosition, dragOffset, isDragging]);
+  }, [selectedTool, lassoPath, selectedRegion, initialPosition, dragOffset, isDragging]);  
+  
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
     const xValues = path.map(point => point.x);

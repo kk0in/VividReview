@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, Form, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
@@ -18,11 +18,17 @@ import io
 import fitz
 import logging
 from google.cloud import speech_v1p1beta1 as speech
+import base64
+from pdf2image import convert_from_path
+import requests
+from openai import OpenAI
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
+api_key = "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"
 
 executor = ThreadPoolExecutor(10)
+client = OpenAI(api_key=api_key)
 
 origins = [
     "*"
@@ -43,6 +49,8 @@ META_DATA = './metadata'
 ANNOTATIONS = './annotations'
 RECORDING = './recordings'
 SCRIPT = './scripts'
+TOC = './tocs'
+IMAGE = './images'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -51,10 +59,18 @@ os.makedirs(RESULT, exist_ok=True)
 os.makedirs(ANNOTATIONS, exist_ok=True)
 os.makedirs(RECORDING, exist_ok=True)
 os.makedirs(SCRIPT, exist_ok=True)
+os.makedirs(TOC, exist_ok=True)
+os.makedirs(IMAGE, exist_ok=True)
+
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
 
 confidence_threshold = 0.5
 
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+# def run_gpt_toc(project_id, image_dir):
 
 def run_stt(audio_path, text_output_path):
     client = speech.SpeechClient()
@@ -315,7 +331,31 @@ async def get_pdf(project_id: int):
         raise HTTPException(status_code=500, detail="Multiple pdf files found")
     else:
         return FileResponse(os.path.join(PDF, pdf_file[0]), media_type='application/pdf')
+
+@app.get('/api/get_toc/{project_id}', status_code=200)
+async def get_toc(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 목차 데이터를 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 목차 파일을 찾아 해당 데이터를 반환합니다.
+
+    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
+    """
     
+    toc_file_path = os.path.join(TOC, f"{project_id}_toc.json")
+
+    if not os.path.exists(toc_file_path):
+        raise HTTPException(status_code=404, detail="TOC file not found")
+
+    try:
+        with open(toc_file_path, 'r') as f:
+            toc_data = json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading TOC file: {str(e)}")
+
+    return toc_data["table_of_contents"]
+
+
+
 @app.get('/api/get_result/{project_id}', status_code=200)
 async def get_result(project_id: int):
     """
@@ -403,7 +443,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
         'insertDate': insertDate,
         'updateDate': updateDate,
         'userName': userName,
-        'done': True
+        'done': False
     }
 
     pdf_filename = os.path.splitext(file.filename)[0]
@@ -416,10 +456,92 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
     with open(metadata_file_path, 'w') as f:
         json.dump(metadata, f)
 
+    image_dir = os.path.join(IMAGE, str(id))
+    os.makedirs(image_dir, exist_ok=True)
+    images = convert_from_path(pdf_file_path)
+
+    for i, image in enumerate(images):
+        image_path = os.path.join(IMAGE, str(id), f"page_{i + 1:04}.png")
+        image.save(image_path, "PNG")
+
+    # OpenAI GPT API를 호출하여 목차 생성
+    try:
+        toc_data = await create_toc_from_images(id, image_dir)
+    except Exception as e:
+        print(f"Error creating TOC: {e}")
+        toc_data = {"error": "Failed to retrieve TOC"}
+
+    # 생성된 목차를 JSON 파일로 저장
+    toc_json_path = os.path.join(TOC, f"{id}_toc.json")
+    with open(toc_json_path, 'w') as json_file:
+        json.dump(toc_data, json_file, indent=4)
+    
+    metadata['done'] = True
+    with open(metadata_file_path, 'w') as f:
+        json.dump(metadata, f)
+
     executor.submit(metadata_file_path, pdf_file_path)
 
-    return {"id": id}
+    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
 
+async def create_toc_from_images(project_id: int, image_dir: str):
+    # Encode images to base64
+    image_paths = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.lower().endswith('.png')])
+    encoded_images = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"}} for image in image_paths]
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    # Creating the content for the messages
+    content = [{"type": "text", "text": (
+                "Extract a detailed table of contents with page numbers from the following images. "
+                "Each section should have a unique title, and the subsections should be grouped under these main sections. "
+                "The page numbers should start from 1 and each page number should be in an array. "
+                "Ensure there are more than 4 main sections. "
+                "The output should be in JSON format with the structure: "
+                "{\"table_of_contents\": [{\"title\": \"string\", \"subsections\": [{\"title\": \"string\", \"page\": [\"number\"]}]}]} "
+                "and include all pages starting from 1."
+            )}] + encoded_images
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant designed to output JSON."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+    # Get the response
+    response_data = response.json()
+
+    # Check if 'choices' key exists in the response
+    if 'choices' in response_data and len(response_data['choices']) > 0:
+        # Parse the table of contents from the response
+        toc_text = response_data['choices'][0]['message']['content']
+        
+        # Convert the TOC text to JSON format
+        try:
+            toc_data = json.loads(toc_text)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            toc_data = {"error": "Failed to decode JSON"}
+    else:
+        print("Error: 'choices' key not found in the response")
+        toc_data = {"error": "Failed to retrieve TOC"}
+    
+    return toc_data
 
 ###### 아래는 테스트용 코드이니 무시하셔도 됩니다. ######
 @app.post('/test/upload_video/')
