@@ -4,13 +4,46 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { getProject, getPdf } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 
+type TableItemProps = {
+  title: string;
+  subsections: [];
+};
+
+function TableItem({ title, subsections }: TableItemProps) {
+  let subtitles;
+  const [clicked, setClicked] = useState(false);
+
+  const handleClick = () => {
+    setClicked(!clicked);
+  }
+
+  if (subsections) {
+    subtitles = (
+      <ul>
+        {subsections.map((subsection) => {
+          return (<li className="ml-2">{subsection.title}</li>);
+        })}
+      </ul>
+    );
+  }
+  return (
+    <>
+      <li className="mb-2" onClick={handleClick}>{title}</li>
+      {clicked && subsections && (
+        subtitles
+      )}
+    </>
+  );
+}
+
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [tableOfContents, setTableOfContents] = useState(false);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
@@ -49,6 +82,29 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
+  
+  const fetchTableOfContents = async () => {
+    try {
+      const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
+      setTableOfContents(tableOfContents);
+      console.log(tableOfContents);
+    } catch (error) {
+      console.error("Failed to fetch PDF:", error);
+    }
+  };
+  
+  useEffect(() => {
+    fetchTableOfContents();
+  }, []);
+
+  const buildTableOfContents = (tocData: any) => {
+    const toc = [];
+    for (let i = 0; i < tocData.length; i++) {
+      toc.push(<TableItem key={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
+    }
+    
+    return (<ul>{toc}</ul>);
+  }
 
   useEffect(() => {
     if (pdfData === "") {
@@ -99,14 +155,12 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {isLoaded && (
+      {tableOfContents && (
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-200 p-4">
             <div className="mb-4 font-bold">Table</div>
             <ul>
-              <li className="mb-2">1. Introduction</li>
-              <li className="mb-2">2. Administrative Issues</li>
-              <li className="mb-2">3. Summary</li>
+              {buildTableOfContents(tableOfContents)}
             </ul>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
