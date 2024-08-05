@@ -84,6 +84,12 @@ export async function getPdf({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getTableOfContents({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_toc/${project_id}`);
+    return response.data;
+}
+
 export async function getKeypoint({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_keypoint/${project_id}`);
