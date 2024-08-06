@@ -708,21 +708,42 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     return context.isPointInPath(x, y);
   };
 
+  let pageComponents = [];
+  if (selectedTool === "grid") {
+    for (let i = 0; i < numPages; i++) {
+      pageComponents.push(
+        <Page
+          className="m-2"
+          key={i}
+          pageNumber={pageNumber + i}
+          width={width / 2}
+          renderAnnotationLayer={false}
+          scale={scale}
+        />
+      );
+    }  
+  } else {
+    pageComponents.push(
+      <Page
+        pageNumber={pageNumber}
+        width={width}
+        renderAnnotationLayer={false}
+        scale={scale}
+      />
+    )
+  }
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
       <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
         <Document
+          className="flex flex-row flex-wrap"
           file={pdfUrl}
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentError}
           onPassword={onDocumentLocked}
         >
-          <Page
-            pageNumber={pageNumber}
-            width={width}
-            renderAnnotationLayer={false}
-            scale={scale}
-          />
+          {pageComponents}
         </Document>
         <canvas
           ref={canvasRef}
