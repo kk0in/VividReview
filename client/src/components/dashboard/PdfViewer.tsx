@@ -10,7 +10,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
-import { pdfPageState } from "@/app/recoil/ViewerState";
+import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
@@ -34,6 +34,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
+  const [toc, ] = useRecoilState(tocState);
+  const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
+
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingsRef = useRef<CanvasLayer[]>([]);
@@ -67,21 +70,42 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
   };
-
+  
   const onDocumentError = (error: Error) => {
     console.log("pdf viewer error", error);
   };
-
+  
   const onDocumentLocked = () => {
     console.log("pdf locked");
   };
 
+  const findToCIndex = (page: number) => {
+    for (let i = 0; i < toc.length; i++) {
+      const section = toc[i];
+      for (let j = 0; j < section.subsections.length; j++) {
+        const subsection = section.subsections[j];
+        if (subsection.page.includes(page)) {
+          return { section: i, subsection: j };
+        }
+      }
+    }
+    return null;
+  }
+
   const goToNextPage = useCallback(() => {
     setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
+    const tocIndex = findToCIndex(pageNumber);
+    if (tocIndex) {
+      setTocIndexState(tocIndex);
+    }
   }, [numPages]);
 
   const goToPreviousPage = () => {
     setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
+    const tocIndex = findToCIndex(pageNumber); 
+    if (tocIndex) {
+      setTocIndexState(tocIndex); 
+    }
   };
 
   const makeNewCanvas = useCallback(() => {

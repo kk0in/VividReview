@@ -1,4 +1,5 @@
 import { atom } from "recoil";
+
 export interface IToCSubsection {
   title: string;
   page: number[];
@@ -7,6 +8,11 @@ export interface IToCSubsection {
 export interface IToCSection {
   title: string;
   subsections: IToCSubsection[];
+}
+
+export interface IToCIndex {
+  section: number;
+  subsection: number;
 }
 
 export const pdfPageState = atom({
@@ -22,4 +28,9 @@ export const subsectionState = atom<IToCSubsection>({
 export const tocState = atom<IToCSection[]>({
   key: "tocState",
   default: [],
+});
+
+export const tocIndexState = atom<IToCIndex>({
+  key: "tocIndexState",
+  default: {section: 0, subsection: 0},
 });
