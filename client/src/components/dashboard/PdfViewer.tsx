@@ -25,14 +25,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const selectedTool = useRecoilValue(toolState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [isDrawing, setIsDrawing] = useState<boolean>(false);
-  const [lassoPath, setLassoPath] = useState<{ x: number; y: number }[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<ImageData | null>(null);
   const [initialPosition, setInitialPosition] = useState<{ x: number; y: number } | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [lassoExists, setLassoExists] = useState<boolean>(false);
-
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
@@ -340,15 +335,19 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
+
+    let lassoExists = false;
+    let lassoPath: { x: number; y: number }[] = [];
+    let isDragging = false;
   
     if (selectedTool === "spinner" && canvas && context) {
       let isLassoDrawing = false;
-      let lassoPath = [];
-      let dragOffset = null;
+      let lassoPath: {x: number, y: number}[] = [];
+      let dragOffset: {x: number, y: number} | null = null;
   
       const clearLasso = () => {
-        setLassoExists(false);
-        setLassoPath([]);
+        lassoExists = false;
+        lassoPath = [];
         setSelectedRegion(null);
         context.clearRect(0, 0, canvas.width, canvas.height);
         const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
@@ -362,19 +361,23 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseDown = (event: MouseEvent) => {
-        // console.log('isDragging', isDragging);
-        if (isDragging) return;
-        
-        // console.log('lassoExists', lassoExists);  
-        if (lassoExists) {
-          clearLasso();
-        }
-
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
+        
+        // console.log('isDragging', isDragging);
+        if (isDragging) return;
+        
+        // console.log('lassoExists', lassoExists);  
+        if (lassoExists && lassoPath.length > 2) {
+          if (!isPointInPath(lassoPath, x, y)) {
+            clearLasso();
+          } else {
+            isDragging = true;
+          }
+        }
   
         isLassoDrawing = true;
         lassoPath = [{ x, y }];
@@ -407,7 +410,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   
       const handleMouseUp = (event: MouseEvent) => {
         if (isDragging) {
-          setIsDragging(false);
+          isDragging = false;
           return;
         }
         if (!isLassoDrawing) return;
@@ -427,26 +430,30 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         context.stroke();
         context.closePath();
   
-        setLassoPath(lassoPath);
-        setLassoExists(true);
-  
         const lassoBoundingBox = getBoundingBox(lassoPath);
-  
-        const selectedData = context.getImageData(
-          lassoBoundingBox.x,
-          lassoBoundingBox.y,
-          lassoBoundingBox.width,
-          lassoBoundingBox.height
-        );
-        setSelectedRegion(selectedData);
-        setInitialPosition({ x: lassoBoundingBox.x, y: lassoBoundingBox.y });
-  
-        setIsDragging(true);
-        dragOffset = {
-          x: x - lassoBoundingBox.x,
-          y: y - lassoBoundingBox.y,
-        };
-        setDragOffset(dragOffset);
+
+        if(lassoBoundingBox.width === 0 || lassoBoundingBox.height === 0) {
+          lassoPath = [];
+          lassoExists = false;
+          return;
+        } else {
+          lassoExists = true;
+          const selectedData = context.getImageData(
+            lassoBoundingBox.x,
+            lassoBoundingBox.y,
+            lassoBoundingBox.width,
+            lassoBoundingBox.height
+          );
+          setSelectedRegion(selectedData);
+          setInitialPosition({ x: lassoBoundingBox.x, y: lassoBoundingBox.y });
+    
+          isDragging = true;
+          dragOffset = {
+            x: x - lassoBoundingBox.x,
+            y: y - lassoBoundingBox.y,
+          };
+          setDragOffset(dragOffset);
+        }
       };
   
       const handleLassoDragMove = (event: MouseEvent) => {
@@ -461,9 +468,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
-        const newX = x - dragOffset.x;
-        const newY = y - dragOffset.y;
+
+        const newX = x - (dragOffset?.x ?? 0);
+        const newY = y - (dragOffset?.y ?? 0);
   
         context.clearRect(0, 0, canvas.width, canvas.height);
         const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
@@ -507,7 +514,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, lassoPath, selectedRegion, initialPosition, dragOffset, isDragging]);  
+  }, [selectedTool, selectedRegion, initialPosition, dragOffset]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
