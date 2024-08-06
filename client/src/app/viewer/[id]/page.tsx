@@ -4,26 +4,18 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { pdfPageState } from '@/app/recoil/ViewerState';
+import { pdfPageState, subsectionState, tocState, IToCSection, IToCSubsection } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 
-interface ISubsection {
-  title: string;
-  page: number[];
-}
 
-type TableItemProps = {
-  title: string;
-  subsections: ISubsection[];
-};
-
-function TableItem({ title, subsections }: TableItemProps) {
+function TableItem({ title, subsections }: IToCSection) {
   let subtitles;
   const [clicked, setClicked] = useState(false);
-  const [_, setPdfPage] = useRecoilState(pdfPageState);
+  const [, setPdfPage] = useRecoilState(pdfPageState);
+  const [, setSectionState] = useRecoilState(subsectionState);
 
   const handleSectionClick = () => {
     setClicked(!clicked);
@@ -32,9 +24,10 @@ function TableItem({ title, subsections }: TableItemProps) {
   if (subsections) {
     subtitles = (
       <ul>
-        {subsections.map((subsection: ISubsection) => {
+        {subsections.map((subsection: IToCSubsection) => {
           return (<li className="ml-2 hover:font-bold" onClick={() => {
             setPdfPage(parseInt(subsection.page[0]));
+            setSectionState(subsection);
           }} >{`• ${subsection.title}`}</li>);
         })}
       </ul>
@@ -55,7 +48,7 @@ function TableItem({ title, subsections }: TableItemProps) {
 
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [tableOfContents, setTableOfContents] = useState(false);
+  const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
