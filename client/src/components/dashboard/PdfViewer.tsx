@@ -10,6 +10,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
+import { pdfPageState } from "@/app/recoil/ViewerState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
@@ -29,7 +30,7 @@ export type CanvasLayer = {
 
 const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageNumber, setPageNumber] = useRecoilState(pdfPageState);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);

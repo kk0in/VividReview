@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
+import { pdfPageState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -22,23 +23,26 @@ type TableItemProps = {
 function TableItem({ title, subsections }: TableItemProps) {
   let subtitles;
   const [clicked, setClicked] = useState(false);
+  const [_, setPdfPage] = useRecoilState(pdfPageState);
 
-  const handleClick = () => {
+  const handleSectionClick = () => {
     setClicked(!clicked);
   }
 
   if (subsections) {
     subtitles = (
       <ul>
-        {subsections.map((subsection) => {
-          return (<li className="ml-2 hover:font-bold">{`• ${subsection.title}`}</li>);
+        {subsections.map((subsection: ISubsection) => {
+          return (<li className="ml-2 hover:font-bold" onClick={() => {
+            setPdfPage(parseInt(subsection.page[0]));
+          }} >{`• ${subsection.title}`}</li>);
         })}
       </ul>
     );
   }
   return (
     <li className="bg-gray-200 pl-3 pr-3 pt-2 pb-2 mb-1 rounded-2xl">
-      <p className="text-center hover:font-bold" onClick={handleClick}>{title}</p>
+      <p className="text-center hover:font-bold" onClick={handleSectionClick}>{title}</p>
       {clicked && subsections && (
         <>
           <div className="mb-3" />
