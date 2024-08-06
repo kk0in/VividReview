@@ -9,9 +9,14 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 
+interface ISubsection {
+  title: string;
+  page: number[];
+}
+
 type TableItemProps = {
   title: string;
-  subsections: [];
+  subsections: ISubsection[];
 };
 
 function TableItem({ title, subsections }: TableItemProps) {
@@ -26,18 +31,21 @@ function TableItem({ title, subsections }: TableItemProps) {
     subtitles = (
       <ul>
         {subsections.map((subsection) => {
-          return (<li className="ml-2">{subsection.title}</li>);
+          return (<li className="ml-2 hover:font-bold">{`• ${subsection.title}`}</li>);
         })}
       </ul>
     );
   }
   return (
-    <>
-      <li className="mb-2" onClick={handleClick}>{title}</li>
+    <li className="bg-gray-200 pl-3 pr-3 pt-2 pb-2 mb-1 rounded-2xl">
+      <p className="text-center hover:font-bold" onClick={handleClick}>{title}</p>
       {clicked && subsections && (
-        subtitles
+        <>
+          <div className="mb-3" />
+          {subtitles}
+        </>
       )}
-    </>
+    </li>
   );
 }
 
@@ -100,7 +108,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const buildTableOfContents = (tocData: any) => {
     const toc = [];
     for (let i = 0; i < tocData.length; i++) {
-      toc.push(<TableItem key={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
+      toc.push(<TableItem key={i} title={`${i + 1}. ${tocData[i].title}`} subsections={tocData[i].subsections} />);
     }
     
     return (<ul>{toc}</ul>);
@@ -157,11 +165,11 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {tableOfContents && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-gray-200 p-4">
+          <div className="flex-none w-1/5 bg-gray-50 p-4">
             <div className="mb-4 font-bold">Table</div>
-            <ul>
+            <ol>
               {buildTableOfContents(tableOfContents)}
-            </ul>
+            </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
