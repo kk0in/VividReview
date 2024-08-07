@@ -139,7 +139,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     drawingsRef.current = [];
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
     for(let i = 1; i <= Number(numLayers); i++) {
-      console.log(i);
       const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
       if (savedDrawings) {
         const layerCanvas = document.createElement("canvas");
@@ -242,7 +241,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         drawing = false;
         topContext.closePath();
       }
-      drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
+      drawingsRef.current = drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
       drawingsRef.current.forEach((layer, idx) => {
         const drawingData = layer.canvas.toDataURL();
         localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
