@@ -135,13 +135,16 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     if (!context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
+    document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
     drawingsRef.current = [];
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
     for(let i = 1; i <= Number(numLayers); i++) {
+      console.log(i);
       const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
       if (savedDrawings) {
         const layerCanvas = document.createElement("canvas");
         layerCanvas.id = `canvas_${i}`;
+        layerCanvas.className = "multilayer-canvas";
         layerCanvas.width = width;
         layerCanvas.height = height;
         layerCanvas.style.position = "absolute";
@@ -178,6 +181,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
         const layerCanvas = document.createElement("canvas");
         layerCanvas.id = `canvas_${numLayers+1}`;
+        layerCanvas.className = "multilayer-canvas";
         layerCanvas.width = width;
         layerCanvas.height = height;
         layerCanvas.style.position = "absolute";
@@ -239,7 +243,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         topContext.closePath();
       }
       drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
-      drawingsRef.current.map((layer, idx) => {
+      drawingsRef.current.forEach((layer, idx) => {
         const drawingData = layer.canvas.toDataURL();
         localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
       })
@@ -248,7 +252,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     };
     
     const erase = (event: MouseEvent) => {
-      if (selectedTool !== "eraser") return;
+      if ((selectedTool !== "eraser") || !erasing) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -257,7 +261,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       for(const layer of drawingsRef.current) {
         const layerContext = layer.canvas.getContext("2d");
         if(layerContext){
-          layerContext.clearRect(x, y, 100, 100);
+          layerContext.clearRect(x-50, y-50, 100, 100);
         }
       }
     };
