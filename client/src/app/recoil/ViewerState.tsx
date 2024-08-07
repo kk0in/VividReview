@@ -20,11 +20,6 @@ export const pdfPageState = atom({
   default: 1,
 });
 
-export const subsectionState = atom<IToCSubsection>({
-  key: "subsectionState",
-  default: {title: "", page: []},
-});
-
 export const tocState = atom<IToCSection[]>({
   key: "tocState",
   default: [],
