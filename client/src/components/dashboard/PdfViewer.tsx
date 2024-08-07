@@ -8,7 +8,7 @@ declare global {
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
-import { toolState, recordingState } from "@/app/recoil/ToolState";
+import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
@@ -41,6 +41,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingsRef = useRef<CanvasLayer[]>([]);
   const selectedTool = useRecoilValue(toolState);
+  const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -95,32 +96,68 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   }
 
   const goToNextPage = () => {
-    if (selectedTool === 'grid') {
-      let newTocIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
-      setTocIndexState(newTocIndex);
-      setPageNumber(toc[newTocIndex.section].subsections[0].page[0]);
-    } else {
-      const newPageNumber = Math.min(pageNumber + 1, numPages);
-      const tocIndex = findToCIndex(newPageNumber);
-      if (tocIndex) {
-        setTocIndexState(tocIndex);
+    switch (gridMode) {
+      case 0: {
+        const newPageNumber = Math.min(pageNumber + 1, numPages);
+        const tocIndex = findToCIndex(newPageNumber);
+        if (tocIndex) {
+          setTocIndexState(tocIndex);
+        }
+        setPageNumber(newPageNumber);
+        break;
       }
-      setPageNumber(newPageNumber);
+
+      case 1: {
+        const newTocIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+        setTocIndexState(newTocIndex);
+        setPageNumber(toc[newTocIndex.section].subsections[0].page[0]); 
+        break;
+      }
+
+      case 2: {
+        let newToCIndex = null;
+        if (tocIndex.subsection === toc[tocIndex.section].subsections.length - 1) {
+          newToCIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+        } else {
+          newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection + 1 };
+        }
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        break;
+      }
     }
   };
 
   const goToPreviousPage = () => {
-    if (selectedTool === 'grid') {
-      let newTocIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
-      setTocIndexState(newTocIndex);
-      setPageNumber(toc[newTocIndex.section].subsections[0].page[0]);
-    } else {
-      const newPageNumber = Math.max(pageNumber - 1, 1);
-      const tocIndex = findToCIndex(newPageNumber); 
-      if (tocIndex) {
-        setTocIndexState(tocIndex); 
+    switch (gridMode) {
+      case 0: {
+        const newPageNumber = Math.max(pageNumber - 1, 1);
+        const tocIndex = findToCIndex(newPageNumber); 
+        if (tocIndex) {
+          setTocIndexState(tocIndex); 
+        }
+        setPageNumber(newPageNumber);
+        break;
       }
-      setPageNumber(newPageNumber);
+
+      case 1: {
+        const newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        break;
+      }
+
+      case 2: {
+        let newToCIndex = null;
+        if (tocIndex.subsection === 0) {
+          newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
+        } else {
+          newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection - 1 };
+        }
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        break;
+      }
     }
   };
 
@@ -721,9 +758,20 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   };
 
   let pageComponents = [];
-  if (selectedTool === "grid") {
-    const tocIndex = findToCIndex(pageNumber);
-    if (tocIndex) {
+  switch (gridMode) {
+    case 0: {
+      pageComponents.push(
+        <Page
+          pageNumber={pageNumber}
+          width={width}
+          renderAnnotationLayer={false}
+          scale={scale}
+        />
+      );
+      break;
+    }
+
+    case 1: {
       const section = toc[tocIndex.section];
       const startSubSection = section.subsections[0];
       const endSubSection = section.subsections[section.subsections.length - 1];
@@ -742,16 +790,26 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           />
         );
       }
+      break;
     }
-  } else {
-    pageComponents.push(
-      <Page
-        pageNumber={pageNumber}
-        width={width}
-        renderAnnotationLayer={false}
-        scale={scale}
-      />
-    )
+
+    case 2: {
+      const section = toc[tocIndex.section];
+      const subsection = section.subsections[tocIndex.subsection];
+      for (const page of subsection.page) {
+        pageComponents.push(
+          <Page
+            className="mr-4 mb-10"
+            key={page}
+            pageNumber={page}
+            width={width / 2}
+            renderAnnotationLayer={false}
+            scale={scale}
+          />
+        );
+      }
+      break;
+    }
   }
 
   return (
