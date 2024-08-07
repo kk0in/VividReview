@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { pdfPageState, subsectionState, tocState, IToCSubsection, tocIndexState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
