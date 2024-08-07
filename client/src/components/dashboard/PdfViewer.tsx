@@ -95,21 +95,33 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   }
 
   const goToNextPage = () => {
-    const newPageNumber = Math.min(pageNumber + 1, numPages);
-    const tocIndex = findToCIndex(newPageNumber);
-    if (tocIndex) {
-      setTocIndexState(tocIndex);
+    if (selectedTool === 'grid') {
+      let newTocIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+      setTocIndexState(newTocIndex);
+      setPageNumber(toc[newTocIndex.section].subsections[0].page[0]);
+    } else {
+      const newPageNumber = Math.min(pageNumber + 1, numPages);
+      const tocIndex = findToCIndex(newPageNumber);
+      if (tocIndex) {
+        setTocIndexState(tocIndex);
+      }
+      setPageNumber(newPageNumber);
     }
-    setPageNumber(newPageNumber);
   };
 
   const goToPreviousPage = () => {
-    const newPageNumber = Math.max(pageNumber - 1, 1);
-    const tocIndex = findToCIndex(newPageNumber); 
-    if (tocIndex) {
-      setTocIndexState(tocIndex); 
+    if (selectedTool === 'grid') {
+      let newTocIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
+      setTocIndexState(newTocIndex);
+      setPageNumber(toc[newTocIndex.section].subsections[0].page[0]);
+    } else {
+      const newPageNumber = Math.max(pageNumber - 1, 1);
+      const tocIndex = findToCIndex(newPageNumber); 
+      if (tocIndex) {
+        setTocIndexState(tocIndex); 
+      }
+      setPageNumber(newPageNumber);
     }
-    setPageNumber(newPageNumber);
   };
 
   const makeNewCanvas = useCallback(() => {
@@ -710,18 +722,27 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
   let pageComponents = [];
   if (selectedTool === "grid") {
-    for (let i = 0; i < numPages; i++) {
-      pageComponents.push(
-        <Page
-          className="m-2"
-          key={i}
-          pageNumber={pageNumber + i}
-          width={width / 2}
-          renderAnnotationLayer={false}
-          scale={scale}
-        />
-      );
-    }  
+    const tocIndex = findToCIndex(pageNumber);
+    if (tocIndex) {
+      const section = toc[tocIndex.section];
+      const startSubSection = section.subsections[0];
+      const endSubSection = section.subsections[section.subsections.length - 1];
+      const startIndex = startSubSection.page[0];
+      const endIndex = endSubSection.page[endSubSection.page.length - 1];
+      const length = endIndex - startIndex + 1
+      for (let i = 0; i < length; i++) {
+        pageComponents.push(
+          <Page
+            className="mr-4 mb-10"
+            key={i}
+            pageNumber={startIndex + i}
+            width={width / 2}
+            renderAnnotationLayer={false}
+            scale={scale}
+          />
+        );
+      }
+    }
   } else {
     pageComponents.push(
       <Page
@@ -737,7 +758,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
       <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
         <Document
-          className="flex flex-row flex-wrap"
+          className="grid grid-cols-2"
           file={pdfUrl}
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentError}
