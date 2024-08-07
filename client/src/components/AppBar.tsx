@@ -7,7 +7,7 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { FaPencilAlt, FaEraser, FaThLarge, FaSpinner, FaHighlighter, FaUndo, FaRedo, FaSearch, FaMicrophone } from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { toolState, recordingState } from '@/app/recoil/ToolState';
+import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
 
 const navigation = [
@@ -28,6 +28,25 @@ export default function AppBar() {
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
+  const [gridMode, setGridMode] = useRecoilState(gridModeState);
+
+  const handleGridIconClick = (tool: string) => {
+    switch (gridMode) {
+      case 0:
+        setActiveIcon('grid');
+        setSelectedTool(tool);
+        setGridMode(1);
+        break;
+      case 1:
+        setGridMode(2);
+        break;
+      case 2:
+        setSelectedTool(null);
+        setActiveIcon(null);
+        setGridMode(0);
+        break;
+    }
+  }
 
   const handleIconClick = (iconName: string, tool: string) => {
     if (activeIcon === iconName) {
@@ -37,6 +56,7 @@ export default function AppBar() {
     } else {
       setActiveIcon(iconName);
       setSelectedTool(tool);
+      setGridMode(0);
     }
   };
 
@@ -128,16 +148,31 @@ export default function AppBar() {
           </div>
           {isViewerPage && (
             <div className="flex space-x-4">
-              {icons.map(({ name, icon: Icon, tool }) => (
-                <Icon
-                  key={name}
-                  className={classNames(
-                    'h-6 w-6 cursor-pointer transition-colors duration-300',
-                    activeIcon === name ? 'text-yellow-500' : 'text-white'
-                  )}
-                  onClick={() => handleIconClick(name, tool)}
-                />
-              ))}
+              {icons.map(({ name, icon: Icon, tool }) => {
+                if (name === 'grid') {
+                  return (
+                    <Icon
+                      key={name}
+                      className={classNames(
+                        'h-6 w-6 cursor-pointer transition-colors duration-300',
+                        gridMode === 2 ? 'text-red-500' : gridMode === 1 ? 'text-yellow-500' : 'text-white'
+                      )}
+                      onClick={() => handleGridIconClick(tool)}
+                    /> 
+                  );
+                }
+
+                return (
+                  <Icon
+                    key={name}
+                    className={classNames(
+                      'h-6 w-6 cursor-pointer transition-colors duration-300',
+                      activeIcon === name ? 'text-yellow-500' : 'text-white'
+                    )}
+                    onClick={() => handleIconClick(name, tool)}
+                  /> 
+                );
+              })}
               {temporaryIcons.map(({ name, icon: Icon, action }) => (
                 <Icon
                   key={name}
