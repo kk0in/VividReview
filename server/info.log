@@ -7262,3 +7262,27 @@ DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): api.openai.com:4
 DEBUG:urllib3.connectionpool:https://api.openai.com:443 "POST /v1/chat/completions HTTP/11" 200 None
 DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
 DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:multipart.multipart:Calling on_part_begin with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[42:61]
+DEBUG:multipart.multipart:Calling on_header_value with data[63:117]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_header_field with data[119:131]
+DEBUG:multipart.multipart:Calling on_header_value with data[133:143]
+DEBUG:multipart.multipart:Calling on_header_end with no data
+DEBUG:multipart.multipart:Calling on_headers_finished with no data
+DEBUG:multipart.multipart:Calling on_part_data with data[147:11952]
+DEBUG:multipart.multipart:Calling on_part_end with no data
+DEBUG:multipart.multipart:Calling on_end with no data
+DEBUG:google.auth._default:Checking watchful-lotus-383310-7782daea2dc1.json for explicit credentials as part of auth process...
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'
+DEBUG:httpx:load_ssl_context verify=True cert=None trust_env=True http2=False
+DEBUG:httpx:load_verify_locations cafile='/Users/yikim/Desktop/git/VividReview/venv/lib/python3.9/site-packages/certifi/cacert.pem'

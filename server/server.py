@@ -70,8 +70,6 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-# def run_gpt_toc(project_id, image_dir):
-
 def run_stt(audio_path, text_output_path):
     client = speech.SpeechClient()
     
@@ -443,7 +441,8 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
         'insertDate': insertDate,
         'updateDate': updateDate,
         'userName': userName,
-        'done': False
+        'done': False,
+        'reviewMode': False
     }
 
     pdf_filename = os.path.splitext(file.filename)[0]

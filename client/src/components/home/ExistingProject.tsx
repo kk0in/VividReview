@@ -208,7 +208,10 @@ const ExistingProject: React.FC = () => {
                             Update Date
                           </th>
                           <th className="border-b dark:border-slate-600 font-medium p-4 pl-6 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
-                            Status
+                            Lecture Status
+                          </th>
+                          <th className="border-b dark:border-slate-600 font-medium p-4 pl-6 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
+                            Review Status
                           </th>
                           <th className="border-b dark:border-slate-600 font-medium p-4 pl-6 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left">
                             Delete
@@ -249,6 +252,30 @@ const ExistingProject: React.FC = () => {
                                   </Link>
                                 ) : (
                                   "NOT DONE"
+                                )}
+                              </td>
+                              <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
+                                {project.reviewMode ? (
+                                  <Link
+                                    href={`/viewer/${project.id}`}
+                                    className="rounded-md items-center justify-center text-slate-500 gap-3 bg-white border border-slate-200 px-2 py-2 text-sm shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
+                                    onClick={() => {
+                                      setCSVData([]);
+                                      setVideoData("");
+                                      setKeypointData(null);
+                                    }}
+                                  >
+                                    Go to Dashboard
+                                  </Link>
+                                ) : (
+                                  <button
+                                    className="rounded-md items-center justify-center text-white bg-blue-500 hover:bg-blue-600 px-2 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                    onClick={() => {
+                                      // 활성화 로직을 여기에 추가하세요.
+                                    }}
+                                  >
+                                    Activation
+                                  </button>
                                 )}
                               </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
