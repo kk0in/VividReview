@@ -42,6 +42,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const isDragging = useRef(false);
   const lassoPath = useRef<{x: number, y: number}[]>([]);
   const dragOffset = useRef<{x: number, y: number} | null>(null);
+  const capturedLayers = useRef<number[]>([]);
 
   const width = 700;
   const height = 600;
@@ -292,14 +293,36 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const context = canvas?.getContext("2d");
     if (!context || !canvas) return;
 
-    const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
-    if (savedDrawings) {
-      const img = new Image();
-      img.src = savedDrawings;
-      img.onload = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(img, 0, 0);
-      };
+    drawingsRef.current = [];
+    document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+    const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
+    for(let i = 1; i <= Number(numLayers); i++) {
+      const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+      if (savedDrawings) {
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.id = `canvas_${i}`;
+        layerCanvas.className = "multilayer-canvas";
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        layerCanvas.style.position = "absolute";
+        layerCanvas.style.top = "0";
+        layerCanvas.style.left = "0";
+        layerCanvas.style.width = "100%";
+        layerCanvas.style.height = "100%";
+        layerCanvas.style.zIndex = "2";
+        layerCanvas.style.pointerEvents = "none";
+        canvasRef.current?.parentElement?.appendChild(layerCanvas);
+        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+        const layerContext = layerCanvas.getContext("2d");
+        if (layerContext) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            layerContext.clearRect(0, 0, canvas.width, canvas.height);
+            layerContext.drawImage(img, 0, 0);
+          };
+        }
+      }
     }
   }, [pageNumber, projectId]);
 
@@ -339,7 +362,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     };
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = async () => { // toFix
     const canvas = canvasRef.current;
     if (canvas) {
       try {
@@ -430,17 +453,40 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         lassoExists.current = false;
         lassoPath.current = [];
         setSelectedRegion(null);
+        drawingsRef.current = [];
+        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
-        if (savedDrawings) {
-          const img = new Image();
-          img.src = savedDrawings;
-          img.onload = () => {
-            context.drawImage(img, 0, 0);
-          };
+        const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
+        for(let i = 1; i <= Number(numLayers); i++) {
+          const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+          if (savedDrawings) {
+            const layerCanvas = document.createElement("canvas");
+            layerCanvas.id = `canvas_${i}`;
+            layerCanvas.className = "multilayer-canvas";
+            layerCanvas.width = width;
+            layerCanvas.height = height;
+            layerCanvas.style.position = "absolute";
+            layerCanvas.style.top = "0";
+            layerCanvas.style.left = "0";
+            layerCanvas.style.width = "100%";
+            layerCanvas.style.height = "100%";
+            layerCanvas.style.zIndex = "2";
+            layerCanvas.style.pointerEvents = "none";
+            canvasRef.current?.parentElement?.appendChild(layerCanvas);
+            drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+            const layerContext = layerCanvas.getContext("2d");
+            if (layerContext) {
+              const img = new Image();
+              img.src = savedDrawings;
+              img.onload = () => {
+                layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                layerContext.drawImage(img, 0, 0);
+              };
+            }
+          }
         }
-      };
-  
+      }
+
       const handleMouseDown = (event: MouseEvent) => {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -466,6 +512,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               x: x,
               y: y,
             };
+            capturedLayers.current = [];
+            for(const layer of drawingsRef.current) {
+              if(!isCanvasBlank(layer.canvas, selectedRegion)){
+                capturedLayers.current.push(layer.id);
+              }
+            }           
+            console.log(capturedLayers.current);
             isDragging.current = true;
           }
         } else if (!lassoExists.current) {
@@ -500,6 +553,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   
       const handleMouseUp = (event: MouseEvent) => {
         if (isDragging.current) {
+          const capturedList = capturedLayers.current;
+
           const rect = canvas.getBoundingClientRect();
           const scaleX = canvas.width / rect.width;
           const scaleY = canvas.height / rect.height;
@@ -509,14 +564,59 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const newX = x - (dragOffset.current?.x ?? 0);
           const newY = y - (dragOffset.current?.y ?? 0);
 
-          const lassoBoundingBox = getBoundingBox(lassoPath.current);
+          // setHistory((prev) => [...prev, [drawingsRef.current]]); // recoil?
+
           isDragging.current = false;
+          dragOffset.current = null;
           lassoPath.current = lassoPath.current.map((point) => {
             return {
               x: point.x + newX,
               y: point.y + newY,
             };
-          });  
+          });
+          
+          
+          document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
+
+          for(let i = 1; i <= numLayers; i++) {
+            const savedLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+            if(savedLayer){
+              const layerCanvas = document.createElement("canvas");
+              layerCanvas.id = `canvas_${i}`;
+              layerCanvas.className = "multilayer-canvas";
+              layerCanvas.width = width;
+              layerCanvas.height = height;
+              layerCanvas.style.position = "absolute";
+              layerCanvas.style.top = "0";
+              layerCanvas.style.left = "0";
+              layerCanvas.style.width = "100%";
+              layerCanvas.style.height = "100%";
+              layerCanvas.style.zIndex = "2";
+              layerCanvas.style.pointerEvents = "none";
+
+              canvas.parentElement?.appendChild(layerCanvas);
+              const layerContext = layerCanvas.getContext("2d");
+              if (layerContext) {
+                const img = new Image();
+                img.src = savedLayer;
+                img.onload = () => {
+                  if(capturedList.find((layerId) => layerId === i)){
+                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                    layerContext.drawImage(img, newX, newY);
+                    console.log(`${i}: ${newX}, ${newY}`);
+                  } else{
+                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                    layerContext.drawImage(img, 0, 0);
+                    console.log(`${i}: 0, 0`);
+                  }
+                  localStorage.setItem(`drawings_${projectId}_${pageNumber}_${i}`, layerCanvas.toDataURL());
+                };
+              }
+            }
+          }
+          capturedLayers.current = [];
+
           return;
         }
         if (!isLassoDrawing.current) return;
@@ -566,7 +666,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           img.src = savedDrawings;
           img.onload = () => {
             context.drawImage(img, newX, newY);
-            console.log('drawImage');
           };
         }
         document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
@@ -593,12 +692,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               const img = new Image();
               img.src = savedLayer;
               img.onload = () => {
-                if(isCanvasBlank(layerCanvas, selectedRegion)){
-                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                  layerContext.drawImage(img, 0, 0);
-                } else{
+                if(capturedLayers.current.find((layerId) => layerId === i)){
                   layerContext.clearRect(0, 0, canvas.width, canvas.height);
                   layerContext.drawImage(img, newX, newY);
+                } else{
+                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                  layerContext.drawImage(img, 0, 0);
                 }
               };
             }
