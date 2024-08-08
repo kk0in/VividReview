@@ -36,7 +36,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
-  const [initialPosition, setInitialPosition] = useState<{ x: number; y: number } | null>(null);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -443,29 +442,30 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseDown = (event: MouseEvent) => {
-        console.log('handleMouseDown');
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
         
-        console.log('isDragging', isDragging.current);
         if (isDragging.current) return;
         
-        console.log('lassoExists', lassoExists.current);  
         if (lassoExists.current && lassoPath.current.length > 2) {
           if (!isPointInPath(lassoPath.current, x, y)) {
             clearLasso();
             isLassoDrawing.current = true;
             lassoPath.current = [{ x, y }];
-            console.log('lassoPath', lassoPath);
             context.beginPath();
             context.moveTo(x, y);
             context.setLineDash([5, 5]);
             context.strokeStyle = "black";
             context.lineWidth = 1;
           } else {
+            localStorage.setItem(`drawings_${projectId}_${pageNumber}_0`, canvas.toDataURL());
+            dragOffset.current = {
+              x: x,
+              y: y,
+            };
             isDragging.current = true;
           }
         } else if (!lassoExists.current) {
@@ -480,10 +480,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseMove = (event: MouseEvent) => {
-        console.log('handleMouseMove');
-        console.log('lassoExists', lassoExists.current);
-        console.log('isDragging', isDragging.current);
-        console.log('isLassoDrawing', isLassoDrawing.current);
         if (isDragging.current) {
           handleLassoDragMove(event);
           return;
@@ -503,11 +499,24 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleMouseUp = (event: MouseEvent) => {
-        console.log('handleMouseUp');
-        console.log('isDragging', isDragging.current);
-        console.log('isLassoDrawing', isLassoDrawing.current);
         if (isDragging.current) {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          const x = (event.clientX - rect.left) * scaleX;
+          const y = (event.clientY - rect.top) * scaleY;
+
+          const newX = x - (dragOffset.current?.x ?? 0);
+          const newY = y - (dragOffset.current?.y ?? 0);
+
+          const lassoBoundingBox = getBoundingBox(lassoPath.current);
           isDragging.current = false;
+          lassoPath.current = lassoPath.current.map((point) => {
+            return {
+              x: point.x + newX,
+              y: point.y + newY,
+            };
+          });  
           return;
         }
         if (!isLassoDrawing.current) return;
@@ -535,21 +544,11 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         } else {
           lassoExists.current = true;
           setSelectedRegion(lassoBoundingBox);
-          setInitialPosition({ x: lassoBoundingBox.x, y: lassoBoundingBox.y });
-          dragOffset.current = {
-            x: x - lassoBoundingBox.x,
-            y: y - lassoBoundingBox.y,
-          };
         }
-        console.log('lassoExists', lassoExists.current);
       };
   
       const handleLassoDragMove = (event: MouseEvent) => {
-        // console.log('dragOffset', dragOffset); 
-        // console.log('selectedRegion', selectedRegion);
-        // console.log('initialPosition', initialPosition);  
-
-        // if (!dragOffset || !selectedRegion || !initialPosition) return;
+        if (!dragOffset.current || !selectedRegion ) return;
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -557,10 +556,19 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
 
-        const newX = x - (dragOffset.current?.x ?? 0);
-        const newY = y - (dragOffset.current?.y ?? 0);
-  
+        const newX = x - dragOffset.current.x;
+        const newY = y - dragOffset.current.y;
+
         context.clearRect(0, 0, canvas.width, canvas.height);
+        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_0`);
+        if (savedDrawings) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            context.drawImage(img, newX, newY);
+            console.log('drawImage');
+          };
+        }
         document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
         const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
         for(let i = 1; i <= numLayers; i++) {
@@ -596,7 +604,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             }
           }
         }
-        setInitialPosition({ x: newX, y: newY });
       };
   
       const handleCanvasClick = (event: MouseEvent) => {
@@ -625,7 +632,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, selectedRegion, initialPosition]);  
+  }, [selectedTool, selectedRegion, projectId, pageNumber]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
