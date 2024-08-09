@@ -1,3 +1,10 @@
+declare global {
+  interface WindowEventMap {
+    undoCanvas: CustomEvent<CanvasLayer[]>;
+    redoCanvas: CustomEvent<CanvasLayer[]>;
+  }
+}
+
 import React, { useRef, useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
@@ -14,7 +21,7 @@ type PDFViewerProps = {
   projectId: string;
 };
 
-type CanvasLayer = {
+export type CanvasLayer = {
   canvas: HTMLCanvasElement;
   id: number;
   projectId: string;
@@ -25,7 +32,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string>('');
-  const [drawings, setDrawings] = useState<Record<number, string>>({});
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -249,7 +255,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
       })
       localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
-      setHistory((prev) => [...prev, [drawingsRef.current]]); // recoil?
+      setHistory((prev) => [...prev, drawingsRef.current]); // recoil?
     };
     
     const erase = (event: MouseEvent) => {
@@ -327,30 +333,38 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   }, [pageNumber, projectId]);
 
   useEffect(() => {
-    const handleUndoCanvas = (event) => {
+    const handleUndoCanvas = (event: {detail: CanvasLayer[]}) => {
+      console.log("handleUndoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
       if (!context || !canvas) return;
 
-      const img = new Image();
-      img.src = event.detail;
-      img.onload = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(img, 0, 0);
-      };
+      const canvasLayers = event.detail;
+      drawingsRef.current = canvasLayers;
+      document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const numLayers = drawingsRef.current.length;
+      localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(numLayers));
+      for(let i = 1; i <= numLayers; i++) {
+        canvasRef.current?.parentElement?.appendChild(drawingsRef.current[i-1].canvas);
+      }
     };
 
-    const handleRedoCanvas = (event) => {
+    const handleRedoCanvas = (event: CustomEvent<CanvasLayer[]>) => {
+      console.log("handleRedoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
       if (!context || !canvas) return;
 
-      const img = new Image();
-      img.src = event.detail;
-      img.onload = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(img, 0, 0);
-      };
+      const canvasLayers = event.detail;
+      drawingsRef.current = canvasLayers;
+      document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const numLayers = drawingsRef.current.length;
+      localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(numLayers));
+      for(let i = 1; i <= numLayers; i++) {
+        canvasRef.current?.parentElement?.appendChild(drawingsRef.current[i-1].canvas);
+      }
     };
 
     window.addEventListener('undoCanvas', handleUndoCanvas);
@@ -387,10 +401,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     setRedoStack((prev) => [...prev, previous]);
     setHistory((prev) => prev.slice(0, -1));
     const lastDrawing = history.length > 1 ? history[history.length - 2] : [];
-    setDrawings((prev) => ({
-      ...prev,
-      [pageNumber]: lastDrawing.length ? lastDrawing[0] : '',
-    }));
   };
 
   const handleRedo = () => {
@@ -398,10 +408,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const next = redoStack[redoStack.length - 1];
     setHistory((prev) => [...prev, next]);
     setRedoStack((prev) => prev.slice(0, -1));
-    setDrawings((prev) => ({
-      ...prev,
-      [pageNumber]: next.length ? next[0] : '',
-    }));
   };
 
   const handleMic = async () => {
