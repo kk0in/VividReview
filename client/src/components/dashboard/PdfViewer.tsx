@@ -5,6 +5,7 @@ import { toolState, recordingState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 import * as d3 from "d3";
+import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
@@ -12,6 +13,13 @@ type PDFViewerProps = {
   scale: number;
   projectId: string;
 };
+
+type CanvasLayer = {
+  canvas: HTMLCanvasElement;
+  id: number;
+  projectId: string;
+  pageNumber: number;
+}
 
 const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
@@ -22,17 +30,33 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingsRef = useRef<CanvasLayer[]>([]);
   const selectedTool = useRecoilValue(toolState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
-  const [lassoPath, setLassoPath] = useState<{ x: number; y: number }[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<ImageData | null>(null);
-  const [initialPosition, setInitialPosition] = useState<{ x: number; y: number } | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [lassoExists, setLassoExists] = useState<boolean>(false);
+  const [selectedRegion, setSelectedRegion] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
+  
+  const lassoExists = useRef(false);
+  const isLassoDrawing = useRef(false);
+  const isDragging = useRef(false);
+  const lassoPath = useRef<{x: number, y: number}[]>([]);
+  const dragOffset = useRef<{x: number, y: number} | null>(null);
+  const capturedLayers = useRef<number[]>([]);
 
+  const width = 700;
+  const height = 600;
+
+  const isCanvasBlank = (canvas: HTMLCanvasElement, range?: {x: number, y: number, width: number, height: number} | null) => {
+    const context = canvas.getContext('2d');
+    if(!context) return true;
+  
+    const pixelBuffer = new Uint32Array(
+      context.getImageData(range?.x ?? 0, range?.y ?? 0, range?.width ?? canvas.width, range?.height ?? canvas.height).data.buffer
+    );
+  
+    return !pixelBuffer.some(color => color !== 0);
+  }
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
@@ -112,74 +136,135 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
-    if (savedDrawings) {
-      const img = new Image();
-      img.src = savedDrawings;
-      img.onload = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(img, 0, 0);
-      };
-    } else {
-      context.clearRect(0, 0, canvas.width, canvas.height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+    drawingsRef.current = [];
+    const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
+    for(let i = 1; i <= Number(numLayers); i++) {
+      const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+      if (savedDrawings) {
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.id = `canvas_${i}`;
+        layerCanvas.className = "multilayer-canvas";
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        layerCanvas.style.position = "absolute";
+        layerCanvas.style.top = "0";
+        layerCanvas.style.left = "0";
+        layerCanvas.style.width = "100%";
+        layerCanvas.style.height = "100%";
+        layerCanvas.style.zIndex = "2";
+        layerCanvas.style.pointerEvents = "none";
+        canvasRef.current?.parentElement?.appendChild(layerCanvas);
+        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+        const layerContext = layerCanvas.getContext("2d");
+        if (layerContext) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            layerContext.clearRect(0, 0, canvas.width, canvas.height);
+            layerContext.drawImage(img, 0, 0);
+          };
+        }
+      }
     }
 
+    let topLayer = 0;
+
     let drawing = false;
+    let erasing = false;
     let startX = 0;
     let startY = 0;
     // let highlightColor = "rgba(255, 255, 0, 0.1)";
 
     const startDrawing = (event: MouseEvent) => {
       if (selectedTool === "pencil" || selectedTool === "highlighter") {
-        drawing = true;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = (event.clientX - rect.left) * scaleX;
-        const y = (event.clientY - rect.top) * scaleY;
-        context.beginPath();
-        context.moveTo(x, y);
-        if (selectedTool === "highlighter") {
-          context.strokeStyle = "rgba(255, 255, 0, 0.02)";
-          context.lineWidth = 30;
-        } else {
-          context.strokeStyle = "black";
-          context.lineWidth = 2;
-        }
-        context.setLineDash([]);
+        const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.id = `canvas_${numLayers+1}`;
+        layerCanvas.className = "multilayer-canvas";
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        layerCanvas.style.position = "absolute";
+        layerCanvas.style.top = "0";
+        layerCanvas.style.left = "0";
+        layerCanvas.style.width = "100%";
+        layerCanvas.style.height = "100%";
+        layerCanvas.style.zIndex = "2";
+        layerCanvas.style.pointerEvents = "none";
+        canvasRef.current?.parentElement?.appendChild(layerCanvas);
+        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:numLayers+1, projectId:projectId, pageNumber:pageNumber}]
+        localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(numLayers+1));
+        const layerContext = layerCanvas.getContext("2d");
+        if (layerContext) {
+          drawing = true;
+          const rect = layerCanvas.getBoundingClientRect();
+          const scaleX = layerCanvas.width / rect.width;
+          const scaleY = layerCanvas.height / rect.height;
+          const x = (event.clientX - rect.left) * scaleX;
+          const y = (event.clientY - rect.top) * scaleY;
+          layerContext.beginPath();
+          layerContext.moveTo(x, y);
+          if (selectedTool === "highlighter") {
+            layerContext.strokeStyle = "rgba(255, 255, 0, 0.02)";
+            layerContext.lineWidth = 30;
+          } else {
+            layerContext.strokeStyle = "black";
+            layerContext.lineWidth = 2;
+          }
+          layerContext.setLineDash([]);
+          topLayer = numLayers+1;
+        }  
+      } else if (selectedTool === "eraser") {
+        erasing = true;
       }
     };
     
     const draw = (event: MouseEvent) => {
-      if (!drawing) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = (event.clientX - rect.left) * scaleX;
-        const y = (event.clientY - rect.top) * scaleY;
-      context.lineTo(x, y);
-      context.stroke();
+      const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas;
+      const topContext = topCanvas?.getContext("2d");
+      if (!topCanvas || !topContext || !drawing) return;
+      const rect = topCanvas.getBoundingClientRect();
+      const scaleX = topCanvas.width / rect.width;
+      const scaleY = topCanvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+      topContext.lineTo(x, y);
+      topContext.stroke();
     };
     
     const stopDrawing = () => {
-      if (!drawing) return;
-      drawing = false;
-      context.closePath();
-      const drawingData = canvas.toDataURL();
-      localStorage.setItem(`drawings_${projectId}_${pageNumber}`, drawingData);
-      setHistory((prev) => [...prev, [drawingData]]);
+      if(erasing){
+        erasing = false;
+      } else {
+        const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas; 
+        const topContext = topCanvas?.getContext("2d");
+        if (!topCanvas || !topContext || !drawing) return;
+        drawing = false;
+        topContext.closePath();
+      }
+      drawingsRef.current = drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
+      drawingsRef.current.forEach((layer, idx) => {
+        const drawingData = layer.canvas.toDataURL();
+        localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
+      })
+      localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
+      setHistory((prev) => [...prev, [drawingsRef.current]]); // recoil?
     };
     
     const erase = (event: MouseEvent) => {
-      if (selectedTool !== "eraser") return;
+      if ((selectedTool !== "eraser") || !erasing) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       const x = (event.clientX - rect.left) * scaleX;
       const y = (event.clientY - rect.top) * scaleY;
-      context.clearRect(x, y, 100, 100);
-      const drawingData = canvas.toDataURL();
-      localStorage.setItem(`drawings_${projectId}_${pageNumber}`, drawingData);
+      for(const layer of drawingsRef.current) {
+        const layerContext = layer.canvas.getContext("2d");
+        if(layerContext){
+          layerContext.clearRect(x-50, y-50, 100, 100);
+        }
+      }
     };
     
     const handleMouseMove = (event: MouseEvent) => {
@@ -208,14 +293,36 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const context = canvas?.getContext("2d");
     if (!context || !canvas) return;
 
-    const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
-    if (savedDrawings) {
-      const img = new Image();
-      img.src = savedDrawings;
-      img.onload = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(img, 0, 0);
-      };
+    drawingsRef.current = [];
+    document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+    const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
+    for(let i = 1; i <= Number(numLayers); i++) {
+      const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+      if (savedDrawings) {
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.id = `canvas_${i}`;
+        layerCanvas.className = "multilayer-canvas";
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        layerCanvas.style.position = "absolute";
+        layerCanvas.style.top = "0";
+        layerCanvas.style.left = "0";
+        layerCanvas.style.width = "100%";
+        layerCanvas.style.height = "100%";
+        layerCanvas.style.zIndex = "2";
+        layerCanvas.style.pointerEvents = "none";
+        canvasRef.current?.parentElement?.appendChild(layerCanvas);
+        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+        const layerContext = layerCanvas.getContext("2d");
+        if (layerContext) {
+          const img = new Image();
+          img.src = savedDrawings;
+          img.onload = () => {
+            layerContext.clearRect(0, 0, canvas.width, canvas.height);
+            layerContext.drawImage(img, 0, 0);
+          };
+        }
+      }
     }
   }, [pageNumber, projectId]);
 
@@ -255,7 +362,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     };
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = async () => { // toFix
     const canvas = canvasRef.current;
     if (canvas) {
       try {
@@ -337,61 +444,100 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     }
   }, [isRecording]);
 
-  useEffect(() => {
+  useEffect(() => { // lasso
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
   
     if (selectedTool === "spinner" && canvas && context) {
-      let isLassoDrawing = false;
-      let lassoPath = [];
-      let dragOffset = null;
-  
       const clearLasso = () => {
-        setLassoExists(false);
-        setLassoPath([]);
+        lassoExists.current = false;
+        lassoPath.current = [];
         setSelectedRegion(null);
+        drawingsRef.current = [];
+        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
-        if (savedDrawings) {
-          const img = new Image();
-          img.src = savedDrawings;
-          img.onload = () => {
-            context.drawImage(img, 0, 0);
-          };
+        const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
+        for(let i = 1; i <= Number(numLayers); i++) {
+          const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+          if (savedDrawings) {
+            const layerCanvas = document.createElement("canvas");
+            layerCanvas.id = `canvas_${i}`;
+            layerCanvas.className = "multilayer-canvas";
+            layerCanvas.width = width;
+            layerCanvas.height = height;
+            layerCanvas.style.position = "absolute";
+            layerCanvas.style.top = "0";
+            layerCanvas.style.left = "0";
+            layerCanvas.style.width = "100%";
+            layerCanvas.style.height = "100%";
+            layerCanvas.style.zIndex = "2";
+            layerCanvas.style.pointerEvents = "none";
+            canvasRef.current?.parentElement?.appendChild(layerCanvas);
+            drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+            const layerContext = layerCanvas.getContext("2d");
+            if (layerContext) {
+              const img = new Image();
+              img.src = savedDrawings;
+              img.onload = () => {
+                layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                layerContext.drawImage(img, 0, 0);
+              };
+            }
+          }
         }
-      };
-  
-      const handleMouseDown = (event: MouseEvent) => {
-        // console.log('isDragging', isDragging);
-        if (isDragging) return;
-        
-        // console.log('lassoExists', lassoExists);  
-        if (lassoExists) {
-          clearLasso();
-        }
+      }
 
+      const handleMouseDown = (event: MouseEvent) => {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
-        isLassoDrawing = true;
-        lassoPath = [{ x, y }];
-        console.log('lassoPath', lassoPath);
-        context.beginPath();
-        context.moveTo(x, y);
-        context.setLineDash([5, 5]);
-        context.strokeStyle = "black";
-        context.lineWidth = 1;
+        
+        if (isDragging.current) return;
+        
+        if (lassoExists.current && lassoPath.current.length > 2) {
+          if (!isPointInPath(lassoPath.current, x, y)) {
+            clearLasso();
+            isLassoDrawing.current = true;
+            lassoPath.current = [{ x, y }];
+            context.beginPath();
+            context.moveTo(x, y);
+            context.setLineDash([5, 5]);
+            context.strokeStyle = "black";
+            context.lineWidth = 1;
+          } else {
+            localStorage.setItem(`drawings_${projectId}_${pageNumber}_0`, canvas.toDataURL());
+            dragOffset.current = {
+              x: x,
+              y: y,
+            };
+            capturedLayers.current = [];
+            for(const layer of drawingsRef.current) {
+              if(!isCanvasBlank(layer.canvas, selectedRegion)){
+                capturedLayers.current.push(layer.id);
+              }
+            }           
+            console.log(capturedLayers.current);
+            isDragging.current = true;
+          }
+        } else if (!lassoExists.current) {
+          isLassoDrawing.current = true;
+          lassoPath.current = [{ x, y }];
+          context.beginPath();
+          context.moveTo(x, y);
+          context.setLineDash([5, 5]);
+          context.strokeStyle = "black";
+          context.lineWidth = 1;
+        }
       };
   
       const handleMouseMove = (event: MouseEvent) => {
-        if (isDragging) {
+        if (isDragging.current) {
           handleLassoDragMove(event);
           return;
         }
-        if (!isLassoDrawing) return;
+        if (!isLassoDrawing.current) return;
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -400,17 +546,80 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const y = (event.clientY - rect.top) * scaleY;
   
         const newPoint = { x, y };
-        lassoPath.push(newPoint);
+        lassoPath.current.push(newPoint);
         context.lineTo(newPoint.x, newPoint.y);
         context.stroke();
       };
   
       const handleMouseUp = (event: MouseEvent) => {
-        if (isDragging) {
-          setIsDragging(false);
+        if (isDragging.current) {
+          const capturedList = capturedLayers.current;
+
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          const x = (event.clientX - rect.left) * scaleX;
+          const y = (event.clientY - rect.top) * scaleY;
+
+          const newX = x - (dragOffset.current?.x ?? 0);
+          const newY = y - (dragOffset.current?.y ?? 0);
+
+          // setHistory((prev) => [...prev, [drawingsRef.current]]); // recoil?
+
+          isDragging.current = false;
+          dragOffset.current = null;
+          lassoPath.current = lassoPath.current.map((point) => {
+            return {
+              x: point.x + newX,
+              y: point.y + newY,
+            };
+          });
+          
+          
+          document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
+
+          for(let i = 1; i <= numLayers; i++) {
+            const savedLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+            if(savedLayer){
+              const layerCanvas = document.createElement("canvas");
+              layerCanvas.id = `canvas_${i}`;
+              layerCanvas.className = "multilayer-canvas";
+              layerCanvas.width = width;
+              layerCanvas.height = height;
+              layerCanvas.style.position = "absolute";
+              layerCanvas.style.top = "0";
+              layerCanvas.style.left = "0";
+              layerCanvas.style.width = "100%";
+              layerCanvas.style.height = "100%";
+              layerCanvas.style.zIndex = "2";
+              layerCanvas.style.pointerEvents = "none";
+
+              canvas.parentElement?.appendChild(layerCanvas);
+              const layerContext = layerCanvas.getContext("2d");
+              if (layerContext) {
+                const img = new Image();
+                img.src = savedLayer;
+                img.onload = () => {
+                  if(capturedList.find((layerId) => layerId === i)){
+                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                    layerContext.drawImage(img, newX, newY);
+                    console.log(`${i}: ${newX}, ${newY}`);
+                  } else{
+                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                    layerContext.drawImage(img, 0, 0);
+                    console.log(`${i}: 0, 0`);
+                  }
+                  localStorage.setItem(`drawings_${projectId}_${pageNumber}_${i}`, layerCanvas.toDataURL());
+                };
+              }
+            }
+          }
+          capturedLayers.current = [];
+
           return;
         }
-        if (!isLassoDrawing) return;
+        if (!isLassoDrawing.current) return;
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -418,67 +627,82 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        isLassoDrawing = false;
+        isLassoDrawing.current = false;
         context.closePath();
   
         context.beginPath();
-        context.moveTo(lassoPath[lassoPath.length - 1].x, lassoPath[lassoPath.length - 1].y);
-        context.lineTo(lassoPath[0].x, lassoPath[0].y);
+        context.moveTo(lassoPath.current[lassoPath.current.length - 1].x, lassoPath.current[lassoPath.current.length - 1].y);
+        context.lineTo(lassoPath.current[0].x, lassoPath.current[0].y);
         context.stroke();
         context.closePath();
   
-        setLassoPath(lassoPath);
-        setLassoExists(true);
-  
-        const lassoBoundingBox = getBoundingBox(lassoPath);
-  
-        const selectedData = context.getImageData(
-          lassoBoundingBox.x,
-          lassoBoundingBox.y,
-          lassoBoundingBox.width,
-          lassoBoundingBox.height
-        );
-        setSelectedRegion(selectedData);
-        setInitialPosition({ x: lassoBoundingBox.x, y: lassoBoundingBox.y });
-  
-        setIsDragging(true);
-        dragOffset = {
-          x: x - lassoBoundingBox.x,
-          y: y - lassoBoundingBox.y,
-        };
-        setDragOffset(dragOffset);
+        const lassoBoundingBox = getBoundingBox(lassoPath.current);
+
+        if(lassoBoundingBox.width === 0 || lassoBoundingBox.height === 0) {
+          lassoPath.current = [];
+          lassoExists.current = false;
+        } else {
+          lassoExists.current = true;
+          setSelectedRegion(lassoBoundingBox);
+        }
       };
   
       const handleLassoDragMove = (event: MouseEvent) => {
-        // console.log('dragOffset', dragOffset); 
-        // console.log('selectedRegion', selectedRegion);
-        // console.log('initialPosition', initialPosition);  
-
-        // if (!dragOffset || !selectedRegion || !initialPosition) return;
+        if (!dragOffset.current || !selectedRegion ) return;
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
-        const newX = x - dragOffset.x;
-        const newY = y - dragOffset.y;
-  
+
+        const newX = x - dragOffset.current.x;
+        const newY = y - dragOffset.current.y;
+
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}`);
+        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_0`);
         if (savedDrawings) {
           const img = new Image();
           img.src = savedDrawings;
           img.onload = () => {
-            context.drawImage(img, 0, 0);
-            context.putImageData(selectedRegion, newX, newY);
+            context.drawImage(img, newX, newY);
           };
-        } else {
-          context.putImageData(selectedRegion, newX, newY);
         }
-  
-        setInitialPosition({ x: newX, y: newY });
+        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+        const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
+        for(let i = 1; i <= numLayers; i++) {
+          const savedLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
+          if(savedLayer){
+            const layerCanvas = document.createElement("canvas");
+            layerCanvas.id = `canvas_${i}`;
+            layerCanvas.className = "multilayer-canvas";
+            layerCanvas.width = width;
+            layerCanvas.height = height;
+            layerCanvas.style.position = "absolute";
+            layerCanvas.style.top = "0";
+            layerCanvas.style.left = "0";
+            layerCanvas.style.width = "100%";
+            layerCanvas.style.height = "100%";
+            layerCanvas.style.zIndex = "2";
+            layerCanvas.style.pointerEvents = "none";
+
+            canvas.parentElement?.appendChild(layerCanvas);
+            const layerContext = layerCanvas.getContext("2d");
+            if (layerContext) {
+              const img = new Image();
+              img.src = savedLayer;
+              img.onload = () => {
+                if(capturedLayers.current.find((layerId) => layerId === i)){
+                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                  layerContext.drawImage(img, newX, newY);
+                } else{
+                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                  layerContext.drawImage(img, 0, 0);
+                }
+              };
+            }
+          }
+        }
       };
   
       const handleCanvasClick = (event: MouseEvent) => {
@@ -488,7 +712,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (lassoExists && !isPointInPath(lassoPath, x, y)) {
+        if (lassoExists.current && !isPointInPath(lassoPath.current, x, y)) {
           clearLasso();
         }
       };
@@ -507,7 +731,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, lassoPath, selectedRegion, initialPosition, dragOffset, isDragging]);  
+  }, [selectedTool, selectedRegion, projectId, pageNumber]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
@@ -549,15 +773,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         >
           <Page
             pageNumber={pageNumber}
-            width={700}
+            width={width}
             renderAnnotationLayer={false}
             scale={scale}
           />
         </Document>
         <canvas
           ref={canvasRef}
-          width={700}
-          height={600}
+          width={width}
+          height={height}
           style={{
             position: 'absolute',
             top: 0,
