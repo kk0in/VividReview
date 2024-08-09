@@ -86,7 +86,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
-    const newId = drawingsRef.current[-1].id + 1;
+    console.log(drawingsRef.current);
+    const newId = (drawingsRef.current.at(-1)?.id ?? 0)+ 1;
     newCanvas.id = `canvas_${newId}`;
     newCanvas.className = "multilayer-canvas";
     newCanvas.width = width;
@@ -156,43 +157,10 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
-    drawingsRef.current = [];
-    const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
-    for(let i = 1; i <= Number(numLayers); i++) {
-      const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
-      if (savedDrawings) {
-        const layerCanvas = document.createElement("canvas");
-        layerCanvas.id = `canvas_${i}`;
-        layerCanvas.className = "multilayer-canvas";
-        layerCanvas.width = width;
-        layerCanvas.height = height;
-        layerCanvas.style.position = "absolute";
-        layerCanvas.style.top = "0";
-        layerCanvas.style.left = "0";
-        layerCanvas.style.width = "100%";
-        layerCanvas.style.height = "100%";
-        layerCanvas.style.zIndex = "2";
-        layerCanvas.style.pointerEvents = "none";
-        canvasRef.current?.parentElement?.appendChild(layerCanvas);
-        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
-        const layerContext = layerCanvas.getContext("2d");
-        if (layerContext) {
-          const img = new Image();
-          img.src = savedDrawings;
-          img.onload = () => {
-            layerContext.clearRect(0, 0, canvas.width, canvas.height);
-            layerContext.drawImage(img, 0, 0);
-          };
-        }
-      }
-    }
 
     let topLayer = 0;
 
@@ -254,7 +222,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         topContext.closePath();
       }
       const filteredRefs = drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
-      drawingsRef.current = []
+      drawingsRef.current.filter((layer) => isCanvasBlank(layer.canvas)).forEach((layer) => layer.canvas.remove());
+      drawingsRef.current = [];
       filteredRefs.forEach((layer, idx) => {
         const drawingData = layer.canvas.toDataURL();
         localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
@@ -305,6 +274,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const context = canvas?.getContext("2d");
     if (!context || !canvas) return;
 
+    context.clearRect(0, 0, canvas.width, canvas.height);
     drawingsRef.current = [];
     document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
@@ -453,38 +423,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         lassoExists.current = false;
         lassoPath.current = [];
         setSelectedRegion(null);
-        drawingsRef.current = [];
         document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
-        for(let i = 1; i <= Number(numLayers); i++) {
-          const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
-          if (savedDrawings) {
-            const layerCanvas = document.createElement("canvas");
-            layerCanvas.id = `canvas_${i}`;
-            layerCanvas.className = "multilayer-canvas";
-            layerCanvas.width = width;
-            layerCanvas.height = height;
-            layerCanvas.style.position = "absolute";
-            layerCanvas.style.top = "0";
-            layerCanvas.style.left = "0";
-            layerCanvas.style.width = "100%";
-            layerCanvas.style.height = "100%";
-            layerCanvas.style.zIndex = "2";
-            layerCanvas.style.pointerEvents = "none";
-            canvasRef.current?.parentElement?.appendChild(layerCanvas);
-            drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
-            const layerContext = layerCanvas.getContext("2d");
-            if (layerContext) {
-              const img = new Image();
-              img.src = savedDrawings;
-              img.onload = () => {
-                layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                layerContext.drawImage(img, 0, 0);
-              };
-            }
-          }
-        }
       }
 
       const handleMouseDown = (event: MouseEvent) => {
@@ -564,8 +504,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const newX = x - (dragOffset.current?.x ?? 0);
           const newY = y - (dragOffset.current?.y ?? 0);
 
-          // setHistory((prev) => [...prev, [drawingsRef.current]]); // recoil?
-
           isDragging.current = false;
           dragOffset.current = null;
           lassoPath.current = lassoPath.current.map((point) => {
@@ -575,44 +513,19 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             };
           });
           
-          
-          document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
-          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
-
-          for(let i = 1; i <= numLayers; i++) {
-            const savedLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
-            if(savedLayer){
-              const layerCanvas = document.createElement("canvas");
-              layerCanvas.id = `canvas_${i}`;
-              layerCanvas.className = "multilayer-canvas";
-              layerCanvas.width = width;
-              layerCanvas.height = height;
-              layerCanvas.style.position = "absolute";
-              layerCanvas.style.top = "0";
-              layerCanvas.style.left = "0";
-              layerCanvas.style.width = "100%";
-              layerCanvas.style.height = "100%";
-              layerCanvas.style.zIndex = "2";
-              layerCanvas.style.pointerEvents = "none";
-
-              canvas.parentElement?.appendChild(layerCanvas);
-              const layerContext = layerCanvas.getContext("2d");
-              if (layerContext) {
-                const img = new Image();
-                img.src = savedLayer;
-                img.onload = () => {
-                  if(capturedList.find((layerId) => layerId === i)){
-                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                    layerContext.drawImage(img, newX, newY);
-                    console.log(`${i}: ${newX}, ${newY}`);
-                  } else{
-                    layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                    layerContext.drawImage(img, 0, 0);
-                    console.log(`${i}: 0, 0`);
-                  }
-                  localStorage.setItem(`drawings_${projectId}_${pageNumber}_${i}`, layerCanvas.toDataURL());
-                };
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          const tmpRefs = drawingsRef.current;
+          drawingsRef.current = [];
+          for (const layer of tmpRefs) {
+            const tmpCanvasLayer = layer;
+            const layerContext = tmpCanvasLayer.canvas.getContext("2d");
+            if (layerContext) {
+              if(capturedList.find((layerId) => layerId === tmpCanvasLayer.id)){
+                layerContext.clearRect(0, 0, canvas.width, canvas.height);
+                layerContext.drawImage(tmpCanvasLayer.canvas, newX, newY);
               }
+              localStorage.setItem(`drawings_${projectId}_${pageNumber}_${tmpCanvasLayer.id}`, tmpCanvasLayer.canvas.toDataURL());
+              drawingsRef.current = [...drawingsRef.current, {canvas:tmpCanvasLayer.canvas, id:tmpCanvasLayer.id, projectId:projectId, pageNumber:pageNumber}];
             }
           }
           capturedLayers.current = [];
@@ -650,6 +563,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   
       const handleLassoDragMove = (event: MouseEvent) => {
         if (!dragOffset.current || !selectedRegion ) return;
+
+        const capturedList = capturedLayers.current;
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -661,49 +576,23 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const newY = y - dragOffset.current.y;
 
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_0`);
-        if (savedDrawings) {
-          const img = new Image();
-          img.src = savedDrawings;
-          img.onload = () => {
-            context.drawImage(img, newX, newY);
-          };
-        }
-        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
-        const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
-        for(let i = 1; i <= numLayers; i++) {
-          const savedLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
-          if(savedLayer){
-            const layerCanvas = document.createElement("canvas");
-            layerCanvas.id = `canvas_${i}`;
-            layerCanvas.className = "multilayer-canvas";
-            layerCanvas.width = width;
-            layerCanvas.height = height;
-            layerCanvas.style.position = "absolute";
-            layerCanvas.style.top = "0";
-            layerCanvas.style.left = "0";
-            layerCanvas.style.width = "100%";
-            layerCanvas.style.height = "100%";
-            layerCanvas.style.zIndex = "2";
-            layerCanvas.style.pointerEvents = "none";
-
-            canvas.parentElement?.appendChild(layerCanvas);
-            const layerContext = layerCanvas.getContext("2d");
-            if (layerContext) {
-              const img = new Image();
-              img.src = savedLayer;
-              img.onload = () => {
-                if(capturedLayers.current.find((layerId) => layerId === i)){
-                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                  layerContext.drawImage(img, newX, newY);
-                } else{
-                  layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                  layerContext.drawImage(img, 0, 0);
-                }
-              };
+        const tmpRefs = drawingsRef.current;
+        drawingsRef.current = [];
+        for (const layer of tmpRefs) {
+          const tmpCanvasLayer = layer;
+          const layerContext = tmpCanvasLayer.canvas.getContext("2d");
+          if (layerContext) {
+            if(capturedList.find((layerId) => layerId === tmpCanvasLayer.id)){
+              layerContext.clearRect(0, 0, canvas.width, canvas.height);
+              layerContext.drawImage(tmpCanvasLayer.canvas, newX, newY);
             }
+            drawingsRef.current = [...drawingsRef.current, {canvas:tmpCanvasLayer.canvas, id:tmpCanvasLayer.id, projectId:projectId, pageNumber:pageNumber}];
           }
         }
+        capturedLayers.current = [];
+        setHistory((prev) => [...prev, drawingsRef.current]);
+
+        return;
       };
   
       const handleCanvasClick = (event: MouseEvent) => {
@@ -732,7 +621,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, selectedRegion, projectId, pageNumber]);  
+  }, [selectedTool, selectedRegion, projectId, pageNumber, setHistory]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
