@@ -16,6 +16,7 @@ import numpy as np
 import csv
 import io
 import fitz
+import ffmpeg
 import logging
 from google.cloud import speech_v1p1beta1 as speech
 import base64
@@ -66,29 +67,38 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2d
 
 confidence_threshold = 0.5
 
+def convert_webm_to_mp3(webm_path, mp3_path):
+    try:
+        ffmpeg.input(webm_path).output(mp3_path).run()
+    except ffmpeg.Error as e:
+        print(f"ffmpeg error: {e.stderr}")
+        raise Exception(f"Error message: {e}")
+
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-def run_stt(audio_path, text_output_path):
-    client = speech.SpeechClient()
+def run_stt(mp3_path, transcription_path, timestamp_path):
+    audio_file = open(mp3_path, "rb")
     
-    with open(audio_path, "rb") as audio_file:
-        content = audio_file.read()
-
-    audio = speech.RecognitionAudio(content=content)
-    config = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-        sample_rate_hertz=48000,
-        language_code="en-US",
+    transcript1 = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file,
     )
 
-    response = client.recognize(config=config, audio=audio)    
+    transcript2 = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file,
+        response_format="verbose_json",
+        timestamp_granularities=["word"]
+    )
+
+    with open(transcription_path, "w") as output_file:
+        json.dump(transcript1.text, output_file, indent=4)
     
-    stt_result = " ".join([result.alternatives[0].transcript for result in response.results])
+    with open(timestamp_path, "w") as output_file:
+        json.dump(transcript2.words, output_file, indent=4)
     
-    with open(text_output_path, "w") as f:
-        f.write(stt_result)
 
 def process_video(metadata_file_path, video_file_path):
     """
@@ -219,15 +229,23 @@ def get_filename(id):
     
 @app.post('/api/save_recording/{project_id}', status_code=200)
 async def save_recording(project_id: int, recording: UploadFile = File(...)):
-    audio_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
-    text_output_path = os.path.join(SCRIPT, f"{project_id}_transcription.txt")
+    webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
+    mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
+    transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+    timestamp_path = os.path.join(SCRIPT, f"{project_id}_timestamp.json")
     
-    with open(audio_path, "wb") as buffer:
+    with open(webm_path, "wb") as buffer:
         shutil.copyfileobj(recording.file, buffer)
+
+    # webm 파일을 mp3로 변환
+    try:
+        convert_webm_to_mp3(webm_path, mp3_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro during converting webm to mp3: {e}")
     
     # STT 모델 실행
     try:
-        executor.submit(run_stt, audio_path, text_output_path)
+        executor.submit(run_stt, mp3_path, transcription_path, timestamp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
     
