@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState } from "@/app/recoil/ToolState";
@@ -76,13 +76,32 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     console.log("pdf locked");
   };
 
-  const goToNextPage = () => {
+  const goToNextPage = useCallback(() => {
     setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
-  };
+  }, [numPages]);
 
   const goToPreviousPage = () => {
     setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
   };
+
+  const makeNewCanvas = useCallback(() => {
+    const newCanvas = document.createElement("canvas");
+    const newId = drawingsRef.current[-1].id + 1;
+    newCanvas.id = `canvas_${newId}`;
+    newCanvas.className = "multilayer-canvas";
+    newCanvas.width = width;
+    newCanvas.height = height;
+    newCanvas.style.position = "absolute";
+    newCanvas.style.top = "0";
+    newCanvas.style.left = "0";
+    newCanvas.style.width = "100%";
+    newCanvas.style.height = "100%";
+    newCanvas.style.zIndex = "2";
+    newCanvas.style.pointerEvents = "none";
+    canvasRef.current?.parentElement?.appendChild(newCanvas);
+    drawingsRef.current = [...drawingsRef.current, {canvas:newCanvas, id:newId, projectId:projectId, pageNumber:pageNumber}];
+    return {newCanvas, newId};
+  }, [pageNumber, projectId]);
 
   useEffect(() => {
     const fetchPdf = async () => {
@@ -133,7 +152,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         viewer.removeEventListener("touchmove", handleTouchMove);
       }
     };
-  }, [numPages]);
+  }, [goToNextPage, numPages]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -185,22 +204,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     const startDrawing = (event: MouseEvent) => {
       if (selectedTool === "pencil" || selectedTool === "highlighter") {
-        const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
-        const layerCanvas = document.createElement("canvas");
-        layerCanvas.id = `canvas_${numLayers+1}`;
-        layerCanvas.className = "multilayer-canvas";
-        layerCanvas.width = width;
-        layerCanvas.height = height;
-        layerCanvas.style.position = "absolute";
-        layerCanvas.style.top = "0";
-        layerCanvas.style.left = "0";
-        layerCanvas.style.width = "100%";
-        layerCanvas.style.height = "100%";
-        layerCanvas.style.zIndex = "2";
-        layerCanvas.style.pointerEvents = "none";
-        canvasRef.current?.parentElement?.appendChild(layerCanvas);
-        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:numLayers+1, projectId:projectId, pageNumber:pageNumber}]
-        localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(numLayers+1));
+        const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
         const layerContext = layerCanvas.getContext("2d");
         if (layerContext) {
           drawing = true;
@@ -219,7 +223,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             layerContext.lineWidth = 2;
           }
           layerContext.setLineDash([]);
-          topLayer = numLayers+1;
+          topLayer = layerId;
         }  
       } else if (selectedTool === "eraser") {
         erasing = true;
@@ -249,13 +253,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         drawing = false;
         topContext.closePath();
       }
-      drawingsRef.current = drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
-      drawingsRef.current.forEach((layer, idx) => {
+      const filteredRefs = drawingsRef.current.filter((layer) => !isCanvasBlank(layer.canvas))
+      drawingsRef.current = []
+      filteredRefs.forEach((layer, idx) => {
         const drawingData = layer.canvas.toDataURL();
         localStorage.setItem(`drawings_${projectId}_${pageNumber}_${idx+1}`, drawingData);
+        drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:idx+1, projectId:projectId, pageNumber:pageNumber}];
       })
       localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
-      setHistory((prev) => [...prev, drawingsRef.current]); // recoil?
+      setHistory((prev) => [...prev, drawingsRef.current]);
     };
     
     const erase = (event: MouseEvent) => {
@@ -292,7 +298,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       canvas.removeEventListener("mouseup", stopDrawing);
       canvas.removeEventListener("mouseout", stopDrawing);
     };
-  }, [selectedTool, pageNumber, projectId]);
+  }, [selectedTool, pageNumber, projectId, makeNewCanvas, setHistory]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -305,20 +311,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     for(let i = 1; i <= Number(numLayers); i++) {
       const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
       if (savedDrawings) {
-        const layerCanvas = document.createElement("canvas");
-        layerCanvas.id = `canvas_${i}`;
-        layerCanvas.className = "multilayer-canvas";
-        layerCanvas.width = width;
-        layerCanvas.height = height;
-        layerCanvas.style.position = "absolute";
-        layerCanvas.style.top = "0";
-        layerCanvas.style.left = "0";
-        layerCanvas.style.width = "100%";
-        layerCanvas.style.height = "100%";
-        layerCanvas.style.zIndex = "2";
-        layerCanvas.style.pointerEvents = "none";
-        canvasRef.current?.parentElement?.appendChild(layerCanvas);
-        drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:i, projectId:projectId, pageNumber:pageNumber}];
+        const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
         const layerContext = layerCanvas.getContext("2d");
         if (layerContext) {
           const img = new Image();
@@ -327,10 +320,11 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             layerContext.clearRect(0, 0, canvas.width, canvas.height);
             layerContext.drawImage(img, 0, 0);
           };
+          drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:layerId, projectId:projectId, pageNumber:pageNumber}];
         }
       }
     }
-  }, [pageNumber, projectId]);
+  }, [makeNewCanvas, pageNumber, projectId]);
 
   useEffect(() => {
     const handleUndoCanvas = (event: {detail: CanvasLayer[]}) => {
@@ -374,7 +368,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       window.removeEventListener('undoCanvas', handleUndoCanvas);
       window.removeEventListener('redoCanvas', handleRedoCanvas);
     };
-  }, []);
+  }, [pageNumber, projectId]);
 
   const handleSave = async () => { // toFix
     const canvas = canvasRef.current;
@@ -410,45 +404,45 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     setRedoStack((prev) => prev.slice(0, -1));
   };
 
-  const handleMic = async () => {
-    if (!isRecording) {
-      mediaRecorderRef.current?.stop();
-      // setIsRecording(!isRecording);
-    } 
-    else {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      // setIsRecording(!isRecording);
-
-      const audioChunks: Blob[] = [];
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-        const formData = new FormData();
-        formData.append('recording', audioBlob, 'recording.webm');
-        try {
-          await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
-          console.log("Recording saved successfully");
-        } catch (error) {
-          console.error("Failed to save recording:", error);
-        }
-      };
-    }
-  };
-
   useEffect(() => {
+    const handleMic = async () => {
+      if (!isRecording) {
+        mediaRecorderRef.current?.stop();
+        // setIsRecording(!isRecording);
+      } 
+      else {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        mediaRecorder.start();
+        // setIsRecording(!isRecording);
+  
+        const audioChunks: Blob[] = [];
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+  
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+          const formData = new FormData();
+          formData.append('recording', audioBlob, 'recording.webm');
+          try {
+            await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
+            console.log("Recording saved successfully");
+          } catch (error) {
+            console.error("Failed to save recording:", error);
+          }
+        };
+      }
+    };
+
     if (isRecording) {
       console.log("Recording started");
       handleMic();
     } else if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
     }
-  }, [isRecording]);
+  }, [isRecording, projectId]);
 
   useEffect(() => { // lasso
     const canvas = canvasRef.current;
@@ -622,6 +616,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             }
           }
           capturedLayers.current = [];
+          setHistory((prev) => [...prev, drawingsRef.current]);
 
           return;
         }
