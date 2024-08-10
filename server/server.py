@@ -22,6 +22,7 @@ from google.cloud import speech_v1p1beta1 as speech
 import base64
 from pdf2image import convert_from_path
 import requests
+import re
 from openai import OpenAI
 
 app = FastAPI()
@@ -52,6 +53,8 @@ RECORDING = './recordings'
 SCRIPT = './scripts'
 TOC = './tocs'
 IMAGE = './images'
+SPM = './spms'  
+BBOX = './bboxs'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -62,10 +65,18 @@ os.makedirs(RECORDING, exist_ok=True)
 os.makedirs(SCRIPT, exist_ok=True)
 os.makedirs(TOC, exist_ok=True)
 os.makedirs(IMAGE, exist_ok=True)
+os.makedirs(SPM, exist_ok=True)
+os.makedirs(BBOX, exist_ok=True)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
 
 confidence_threshold = 0.5
+
+def read_script(script_path):
+    with open(script_path, "r") as script_file:
+        # return script_file.read()
+        script_content = script_file.read()
+        return json.loads(script_content)
 
 def convert_webm_to_mp3(webm_path, mp3_path):
     try:
@@ -98,28 +109,6 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
     
     with open(timestamp_path, "w") as output_file:
         json.dump(transcript2.words, output_file, indent=4)
-    
-
-def process_video(metadata_file_path, video_file_path):
-    """
-    주어진 비디오 파일을 처리하는 함수입니다.
-    비디오 파일에 대한 inference를 수행하고, metadata 파일을 업데이트하여 처리 완료를 표시합니다.
-    
-    :param metadata_file_path: metadata 파일의 경로입니다.
-    :param video_file_path: 처리할 비디오 파일의 경로입니다.
-    """
-
-    # run_inference(video_file_path)
-
-    with open(metadata_file_path, 'r') as f:
-        data = json.load(f)
-
-    data['done'] = True
-
-    with open(metadata_file_path, 'w') as file:
-        json.dump(data, file)
-
-    print("done")
 
 def issue_id():
     """
@@ -167,65 +156,351 @@ def get_filename(id):
                 return fn
     else:
         return None
+
+def bbox_api_request(script_segment, encoded_image):    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    content = [
+        {
+            "type": "text",
+            "text": (
+                # "Given the following lecture notes image and the corresponding lecture script, "
+                # "please provide bounding box information for each relevant script sentence. "
+                "Tell me specifically where each sentence in the script describes in the image. "
+                "If there is a corresponding part on the image, please tell me the bounding box information of that area. "
+                "The output should be in JSON format with the structure: "
+                "{\"bboxes\": [{\"script\": \"string\", \"bbox\": [x, y, w, h]}]} "
+                "Ensure that the value for script in the JSON response should be a sentence from the provided script, and the value must never be text extracted from the image. "
+                f"script: {script_segment} "
+                # "The bounding box is given in the form [x,y,w,h]. x and y represent the center position of the bounding box, "
+                # "while w and h represent the width and height of the bounding box, respectively. "
+                # "The coordinates are based on the top-left corner of the image being (0,0), with the x direction being vertical and the y direction being horizontal. "
+                # "If a sentence in the script is highly relevant to a specific part of the image, "
+                # "use the sentence as the key and provide the bounding box information of the specific part of the image as the value. "
+                # "Only find bounding boxes for the sentences that are highly relevant to specific parts of the image. "
+                # "The original format of the script, including uppercase and lowercase letters, punctuation marks such as periods and commas, must be preserved without any alterations."
+            )
+        },
+        # {"type": "text", "text": script_segment},
+        {"type": "image_url", "image_url": {"url": encoded_image}}
+    ]
+
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant designed to output JSON."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    return response.json()
+
+
+async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
+    for i, encoded_image in enumerate(encoded_images):
+        page_number = str(i + 1)
+        script_segment = matched_paragraphs[page_number]
+        response_data = bbox_api_request(page_number, script_segment, encoded_image)
+        
+        # Process the response data
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            script_text = response_data['choices'][0]['message']['content']
+            # Convert the script text to JSON format
+            try:
+                script_data = json.loads(script_text)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON for page {page_number}: {e}")
+                script_data = {"error": "Failed to decode JSON"}
+        else:
+            print(f"Error: 'choices' key not found in the response for page {page_number}")
+            script_data = {"error": "Failed to retrieve scripts"}
+
+        # Save the script data as a JSON file
+        bbox_path = os.path.join(bbox_dir, f"{page_number}_spm.json")
+        with open(bbox_path, "w") as json_file:
+            json.dump(script_data, json_file, indent=4)
+
+
+async def create_spm(script_content, encoded_images):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    content = [
+        {
+            "type": "text",
+            "text": (
+                "Given the following lecture notes images and the corresponding lecture script, "
+                "please distribute the script content accurately to each page of the lecture notes. "
+                "The output should be in the format: {\"1\": \"script\", \"2\": \"script\", ...}. "
+                "Each key should correspond to the page number in the lecture notes where the script content appears, "
+                "and the value should be the first sentence of the script content for that page. "
+                "The value corresponding to a larger key must be a sentence that appears later in the script. "
+                f"The number of dictionary keys must be equal to {len(encoded_images)}. "
+                "The original format of the script, including uppercase and lowercase letters, punctuation marks such as periods and commas, must be preserved without any alterations."
+            )
+        },
+        {"type": "text", "text": script_content}
+    ] + encoded_images
+
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant designed to output JSON."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    response_data = response.json()
+
+    if 'choices' in response_data and len(response_data['choices']) > 0:
+        script_text = response_data['choices'][0]['message']['content']
+        try:
+            script_data = json.loads(script_text)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            script_data = {"error": "Failed to decode JSON"}
+    else:
+        print("Error: 'choices' key not found in the response")
+        print(response_data)
+        script_data = {"error": "Failed to retrieve scripts"}
+
+    return script_data
+
+def match_paragraphs_1(script_content, first_sentences):
+    matched_paragraphs = {}
+    page_numbers = sorted(first_sentences.keys(), key=int)
+    script_content_lower = script_content.lower()
+
+    for i, page in enumerate(page_numbers):
+        current_sentence = first_sentences[page].lower()
+        next_sentence = first_sentences[str(int(page) + 1)].lower() if i < len(page_numbers) - 1 else None
+
+        try:
+            start_index = script_content_lower.find(current_sentence)
+            if i == len(page_numbers) - 1:  # Last page
+                matched_paragraphs[page] = script_content[start_index:].strip()
+            else:
+                end_index = script_content_lower.find(next_sentence)
+                matched_paragraphs[page] = script_content[start_index:end_index].strip()
+        except Exception as e:
+            print(f"Error occurred at page {page}: {str(e)}")
+
+    return matched_paragraphs
+
+def match_paragraphs_2(script_content, first_sentences):
+    matched_paragraphs = {}
+    page_numbers = sorted(first_sentences.keys(), key=int)
+
+    for i, page in enumerate(page_numbers):
+        current_sentence = first_sentences[page]
+        next_page_number = str(int(page) + 1)
+        
+        if i == 0:
+            try:
+                matched_paragraphs[page] = script_content.split(first_sentences[next_page_number].lower())[0].strip()
+            except:
+                print(f"Error occurred at page {page}")
+        elif i == len(page_numbers) - 1:
+            try:
+                matched_paragraphs[page] = first_sentences[page].lower() + ' ' + script_content.split(first_sentences[page].lower())[1].strip()
+            except:
+                print(f"Error occurred at page {page}")
+        else:
+            try:
+                matched_paragraphs[page] = first_sentences[page].lower() + ' ' + script_content.split(first_sentences[page].lower())[1].split(first_sentences[next_page_number].lower())[0].strip()
+            except:
+                print(f"Error occurred at page {page}")
+    return matched_paragraphs
+
+def timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp):
+    output = {}
+    offset = 0
+    for para_id, paragraph_text in matched_paragraphs.items():
+        words = paragraph_text.split()
+        start_time = word_timestamp[offset]["start"]
+        end_time = word_timestamp[offset + len(words) - 1]["end"]
+        
+        output[para_id] = {
+            "start": start_time,
+            "end": end_time,
+            "text": paragraph_text
+        }
+        offset += len(words) 
+
+    return output
+
+def timestamp_for_bbox(project_id, word_timestamp):
+    for page_num in range(1, len(os.listdir(os.path.join(BBOX, str(project_id))))+1):
+        bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
+
+        # Load the bbox data for the current page
+        with open(bbox_path, 'r') as file:
+            bboxes = json.load(file)
+
+        updated_bboxes = []
+        for item in bboxes["bboxes"]:
+            bbox = item["bbox"]
+            if not bbox or bbox[2]==0 or bbox[3]==0:
+                continue
+        
+            start_time, end_time = get_script_times(item["script"], word_timestamp)
+            if start_time is not None:
+                item["start"] = start_time
+                item["end"] = end_time
+                updated_bboxes.append(item)
+
+        # Save the updated data back to the JSON file
+        bboxes["bboxes"] = updated_bboxes
+        with open(bbox_path, 'w') as file:
+            json.dump(bboxes, file, indent=4)
+
+def get_script_times(script_text, word_timestamp):
+    # Remove punctuation from the script_text and split into words
+    words = re.findall(r'\b[\w\']+\b', script_text.lower())
     
+    start_time = None
+    end_time = None
+
+    if len(words) >= 3:
+        for i in range(len(word_timestamp) - 2):
+            if (word_timestamp[i]['word'].lower() == words[0] and word_timestamp[i + 1]['word'].lower() == words[1] and word_timestamp[i + 2]['word'].lower() == words[2]):
+                
+                # Set start time from the first word
+                start_time = word_timestamp[i]['start']
+                
+                # Find end time from the last word in words
+                for j in range(i + 2, len(word_timestamp)):
+                    if word_timestamp[j]['word'].lower() == words[-1]:
+                        end_time = word_timestamp[j]['end']
+                        break
+                break
+
+    return start_time, end_time
+
+
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
-# @app.post("/api/save_annotations/{project_id}")
-# async def save_annotations(project_id: int, annotations: List[Dict]):
-#     annotations_path = os.path.join(ANNOTATIONS, f"{project_id}.json")
-#     with open(annotations_path, 'w') as f:
-#         json.dump(annotations, f)
-#     return {"detail": "Annotations saved successfully"}
+@app.post('/api/activate_review/{project_id}', status_code=201)
+async def activate_review(project_id: int):
+    """
+    GPT API를 이용하여 JSON 파일을 생성하고, 이를 후처리하여 최종 JSON 파일을 생성하는 API 엔드포인트입니다.
 
-# @app.get("/api/load_annotations/{project_id}")
-# async def load_annotations(project_id: int):
-#     annotations_path = os.path.join(ANNOTATIONS, f"{project_id}.json")
-#     if not os.path.exists(annotations_path):
-#         return []
-#     with open(annotations_path, 'r') as f:
-#         annotations = json.load(f)
-#     return annotations
-# @app.options("/api/update_pdf/{project_id}", status_code=200)
-# async def update_pdf(project_id: int, annotations: Any = Body(...)):
-#     """
-#     특정 프로젝트 ID의 PDF 파일을 업데이트하는 API 엔드포인트입니다.
-#     기존 PDF 파일을 열고 주어진 주석을 추가하여 덮어씁니다.
-
-#     :param project_id: 업데이트할 프로젝트의 ID입니다.
-#     :param annotations: 업데이트할 주석 데이터입니다.
-#     """
-#     pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
-
-#     if not pdf_file:
-#         raise HTTPException(status_code=404, detail="PDF file not found")
+    :param project_id: 프로젝트 ID
+    """
     
-#     if len(pdf_file) > 1:
-#         raise HTTPException(status_code=500, detail="Multiple PDF files found")
+    metadata_file_path = os.path.join(META_DATA, f"{project_id}_metadata.json")
+    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
+    script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+    matched_paragraphs_json_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
+    bbox_dir = os.path.join(BBOX, str(project_id))
+    os.makedirs(bbox_dir, exist_ok=True)
+
+    with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), 'r') as file:
+        word_timestamp = json.load(file)
     
-#     pdf_path = os.path.join(PDF, pdf_file[0])
+    image_paths = sorted([os.path.join(image_directory, f) for f in os.listdir(image_directory) if f.lower().endswith('.png')])
+    encoded_images = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"}} for image in image_paths]
 
-#     try:
-#         # Load the annotations
-#         annotations = json.loads(annotations)
+    script_content = read_script(script_path)
 
-#         # Open the existing PDF
-#         pdf_document = fitz.open(pdf_path)
+    # Phase 1: temporally match the script content to the images
+    try:
+        first_sentences = await create_spm(script_content, encoded_images)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
 
-#         for annotation in annotations:
-#             page_number = annotation['pageNumber']
-#             x = annotation['x']
-#             y = annotation['y']
-#             text = annotation['text']
-            
-#             page = pdf_document.load_page(page_number - 1)
-#             page.insert_text((x, y), text, fontsize=12, color=(0, 0, 0))
+    # 결과 저장
+    first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
+    with open(first_sentences_path, "w") as json_file:
+        json.dump(first_sentences, json_file, indent=4)
 
-#         # Save the annotated PDF by overwriting the original PDF
-#         pdf_document.save(pdf_path)
+    # 단락 매칭
+    matched_paragraphs = match_paragraphs_2(script_content, first_sentences)
 
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error during annotation: {e}")
+    # Phase 2: spatially match the script content to the images
+    try:
+        await create_bbox(bbox_dir, matched_paragraphs, encoded_images)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
-#     return {"id": project_id, "detail": "PDF updated successfully"}
+    # Time Stamping for matched paragraphs (temporal)
+    output = timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp)
+    with open(matched_paragraphs_json_path, "w") as json_file:
+        json.dump(output, json_file, indent=4)
+
+    # Time Stamping for bbox (spatial)
+    timestamp_for_bbox(project_id, word_timestamp)
+
+    # Update metadata file to enable review mode
+    with open(metadata_file_path, 'r') as f:
+        data = json.load(f)
+    data['reviewMode'] = True
+    with open(metadata_file_path, 'w') as file:
+        json.dump(data, file)
+
+    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
+
+@app.get('/api/get_matched_paragraphs/{project_id}', status_code=200)
+async def get_matched_paragraphs(project_id: int):
+    """
+    생성된 matched paragraphs 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    matched_file_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
+
+    if not os.path.exists(matched_file_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(matched_file_path, "r") as matched_file:
+            matched_data = json.load(matched_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading matched paragraphs file: {e}")
+
+    return matched_data
+
+@app.get('/api/get_bbox/{project_id}', status_code=200)
+async def get_bbox(project_id: int, page_num: int):
+    """
+    생성된 bbox 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_matched_paragraphs.json")
+
+    if not os.path.exists(bbox_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(bbox_path, "r") as bbox_file:
+            bbox_data = json.load(bbox_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading bbox file: {e}")
+
+    return bbox_data
     
 @app.post('/api/save_recording/{project_id}', status_code=200)
 async def save_recording(project_id: int, recording: UploadFile = File(...)):
@@ -370,8 +645,6 @@ async def get_toc(project_id: int):
 
     return toc_data["table_of_contents"]
 
-
-
 @app.get('/api/get_result/{project_id}', status_code=200)
 async def get_result(project_id: int):
     """
@@ -469,7 +742,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
     with open(pdf_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    metadata_file_path = f"{META_DATA}/{id}_{pdf_filename}.json"
+    metadata_file_path = f"{META_DATA}/{id}_metadata.json"
     with open(metadata_file_path, 'w') as f:
         json.dump(metadata, f)
 
@@ -483,7 +756,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
 
     # OpenAI GPT API를 호출하여 목차 생성
     try:
-        toc_data = await create_toc_from_images(id, image_dir)
+        toc_data = await create_toc(id, image_dir)
     except Exception as e:
         print(f"Error creating TOC: {e}")
         toc_data = {"error": "Failed to retrieve TOC"}
@@ -501,7 +774,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
 
     return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
 
-async def create_toc_from_images(project_id: int, image_dir: str):
+async def create_toc(project_id: int, image_dir: str):
     # Encode images to base64
     image_paths = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.lower().endswith('.png')])
     encoded_images = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"}} for image in image_paths]
@@ -523,7 +796,7 @@ async def create_toc_from_images(project_id: int, image_dir: str):
             )}] + encoded_images
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4o",
         "response_format": {"type": "json_object"},
         "messages": [
             {

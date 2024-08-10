@@ -18,6 +18,12 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
+export async function activateReview(projectId: string) { 
+    const response = await axios.post(`${SERVER_ENDPOINT}/api/activate_review/${projectId}`);
+    
+    return response.data;
+}
+
 export async function saveRecording(projectId: string, formData: FormData) {
     const response = await axios.post(SERVER_ENDPOINT + `api/save_recording/${projectId}`, formData, {
         headers: {
@@ -81,6 +87,28 @@ export async function getProject({queryKey}: {queryKey: string[]}) {
 export async function getPdf({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_pdf/${project_id}`, { responseType: 'blob' });
+    return response.data;
+}
+
+export async function getTableOfContents({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_toc/${project_id}`);
+    return response.data;
+}
+
+export async function getMatchParagraphs({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_matched_paragraphs/${project_id}`);
+    return response.data;
+}
+
+export async function getBbox({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id, page_num] = queryKey;
+    const response = await axios.get(`${SERVER_ENDPOINT}/api/get_bbox/${project_id}`, {
+        params: {
+            page_num: page_num
+        }
+    });
     return response.data;
 }
 
