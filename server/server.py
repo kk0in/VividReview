@@ -375,7 +375,68 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
 
     return result_data
 
+async def transform_lasso_answer(lasso_answer, transform_type):
+    """
+    lasso_answer를 주어진 transform_type에 따라 변환하는 함수.
     
+    :param lasso_answer: 원본 lasso_answer
+    :param transform_type: 변환 타입 ('regenerate', 'shorten', 'bullet_point' 등)
+    :return: 변환된 lasso_answer
+    """
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    # 변환 타입에 따른 프롬프트 생성
+    if transform_type == "regenerate":
+        prompt = (
+            "Please regenerate the following answer in a different way while keeping the meaning the same. "
+            f"Answer: {lasso_answer['result']}"
+        )
+    elif transform_type == "shorten":
+        prompt = (
+            "Please shorten the following answer while retaining the key points. "
+            f"Answer: {lasso_answer['result']}"
+        )
+    elif transform_type == "bullet_point":
+        prompt = (
+            "Please convert the following answer into a list of bullet points. "
+            f"Answer: {lasso_answer['result']}"
+        )
+    else:
+        raise ValueError(f"Unknown transform_type: {transform_type}")
+
+    # OpenAI GPT-4 API 요청 준비
+    payload = {
+        "model": "gpt-4o",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    # GPT-4 API 호출
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    response_data = response.json()
+
+    # 응답에서 변환된 결과 추출
+    if 'choices' in response_data and len(response_data['choices']) > 0:
+        transformed_result = response_data['choices'][0]['message']['content']
+        return {
+            "caption": lasso_answer.get("caption", "untitled"),
+            "result": transformed_result
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Error processing transform with GPT-4")
 
 
 def match_paragraphs_1(script_content, first_sentences):
@@ -491,6 +552,43 @@ def get_script_times(script_text, word_timestamp):
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
+@app.post("/api/lasso_transform/")
+async def lasso_transform(project_id: int, page_num: int, lasso_id: int, version: int, prompt_text: str, transform_type: str):
+    """
+    lasso_answer에 대해 다양한 버전을 생성하는 API.
+    
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    :param prompt_text: 원본 프롬프트 텍스트
+    :param transform_type: 적용할 변환 타입 ('regenerate', 'shorten', 'bullet_point' 등)
+    """
+    
+    # Lasso answer가 저장된 경로 설정
+    result_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id), sanitize_filename(prompt_text))
+    result_json_path = os.path.join(result_path, f"{version}.json")
+    
+    if not os.path.exists(result_json_path):
+        raise HTTPException(status_code=404, detail="Original lasso answer not found")
+    
+    with open(result_json_path, "r") as json_file:
+        lasso_answer = json.load(json_file)
+    
+    # 변환된 버전을 생성
+    try:
+        transformed_answer = await transform_lasso_answer(lasso_answer, transform_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during transforming lasso answer: {e}")
+    
+    # 변환된 내용 JSON 파일로 저장
+    version_count = len([f for f in os.listdir(result_path) if f.endswith('.json')]) + 1
+    transform_json_path = os.path.join(result_path, f"{version_count}.json")
+    with open(transform_json_path, "w") as json_file:
+        json.dump(transformed_answer, json_file, indent=4)
+
+    return {"message": f"Lasso answer transformed successfully. Version: {version_count}"}
+
+
 @app.post("/api/lasso_query/")
 async def lasso_query(project_id: int, page_num: int, prompt_text: str, image: UploadFile = File(...)):
     # 이미지 저장 경로 설정
