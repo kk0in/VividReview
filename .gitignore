@@ -11,6 +11,9 @@ server/test_file
 server/info.log
 server/images
 server/tocs
+server/bboxs
+server/lasso
+server/spms
 __pycache__/
 
 *.pdf
@@ -20,6 +23,9 @@ __pycache__/
 *.webm
 *.mp3
 *.txt
+*.png
+*.log
+*.jpg
 !*config.json
 
 server/scalers/

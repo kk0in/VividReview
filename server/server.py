@@ -55,6 +55,7 @@ TOC = './tocs'
 IMAGE = './images'
 SPM = './spms'  
 BBOX = './bboxs'
+LASSO = './lasso'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -71,6 +72,9 @@ os.makedirs(BBOX, exist_ok=True)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
 
 confidence_threshold = 0.5
+
+def sanitize_filename(input_string):
+    return re.sub(r'[\\/*?:"<>|]', "", input_string).strip().replace(" ", "_")
 
 def read_script(script_path):
     with open(script_path, "r") as script_file:
@@ -122,7 +126,31 @@ def issue_id():
         return max(ids) + 1
     else:
         return 1
+
+def issue_lasso_id(project_id, page_num):
+    """
+    지정된 프로젝트와 페이지에 대해 새로운 lasso_id를 발급하는 함수.
     
+    :param project_id: 프로젝트의 ID
+    :param page_num: 페이지 번호
+    :return: 새로운 lasso_id
+    """
+    lasso_path = os.path.join('./temp', str(project_id), str(page_num))
+    if not os.path.exists(lasso_path):
+        os.makedirs(lasso_path, exist_ok=True)
+        return 1
+    
+    existing_lasso_ids = [
+        int(f.split('.')[0]) for f in os.listdir(lasso_path)
+        if f.split('.')[0].isdigit()
+    ]
+    
+    if existing_lasso_ids:
+        return max(existing_lasso_ids) + 1
+    else:
+        return 1
+
+
 def issue_version(project_id):
     """
     특정 프로젝트 ID에 대한 버전을 발급하는 함수입니다.
@@ -289,6 +317,67 @@ async def create_spm(script_content, encoded_images):
 
     return script_data
 
+
+async def create_lasso_answer(prompt_text, script_content, encoded_image):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    # Creating the content for the messages
+    content = [
+        {
+            "type": "text",
+            "text": (
+                "Given the following image, which is a captured portion of a lecture notes page, and the lecture script, "
+                f"please {prompt_text} in context based on the script, "
+                "and please caption the image with a description that is no longer than three words. "
+                "The output should be in the format: {\"caption\": \"string\", \"result\": \"string\"}. "
+                f"Lecture script: {script_content} "
+            )
+        },
+    ] + encoded_image
+
+
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant designed to output JSON."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+    # Get the response
+    response_data = response.json()
+
+    if 'choices' in response_data and len(response_data['choices']) > 0:
+        # 요약된 스크립트 내용 파싱
+        result_text = response_data['choices'][0]['message']['content']
+        
+        try:
+            result_data = json.loads(result_text)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            result_data = {"error": "Failed to decode JSON"}
+    else:
+        print("Error: 'choices' key not found in the response")
+        result_data = {"error": "Failed to retrieve summary"}
+
+    return result_data
+
+    
+
+
 def match_paragraphs_1(script_content, first_sentences):
     matched_paragraphs = {}
     page_numbers = sorted(first_sentences.keys(), key=int)
@@ -402,6 +491,48 @@ def get_script_times(script_text, word_timestamp):
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
+@app.post("/api/lasso_query/")
+async def lasso_query(project_id: int, page_num: int, prompt_text: str, image: UploadFile = File(...)):
+    # 이미지 저장 경로 설정
+    script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+    lasso_id = issue_lasso_id(project_id, page_num)
+    lasso_path = os.path.join(LASSO, f"{project_id}", f"{page_num}", f"{lasso_id}")
+    os.makedirs(lasso_path, exist_ok=True)
+    image_list = [file for file in os.listdir(lasso_path) if file.endswith('.png')]
+    lasso_image = os.path.join(lasso_path, image_list[0])
+
+    # 이미지 파일 저장
+    with open(lasso_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
+
+    # 이미지 인코딩
+    encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(lasso_image)}"}}]
+    script_content = read_script(script_path)
+
+    try:
+        lasso_answer = await create_lasso_answer(prompt_text, script_content, encoded_image)  
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during creating lasso answer: {e}")
+    
+    # 이미지 파일 이름 변경
+    if os.path.basename(lasso_image).startswith("temp"):    
+        caption = lasso_answer.get('caption', 'untitled')
+        sanitized_caption = sanitize_filename(caption)
+        new_image_name = f"{sanitized_caption}.png"
+        new_image_path = os.path.join(lasso_path, new_image_name)        
+        os.rename(lasso_image, new_image_path)
+
+    # 요약된 내용 JSON 파일로 저장
+    result_path = os.path.join(lasso_path, sanitize_filename(prompt_text))
+    os.makedirs(result_path, exist_ok=True)
+
+    result_json_path = os.path.join(result_path, f"1.json")
+    with open(result_json_path, "w") as json_file:
+        json.dump(lasso_answer, json_file, indent=4)
+
+    return {"message": "Lasso Answer is created successfully"}
+
+
 @app.post('/api/activate_review/{project_id}', status_code=201)
 async def activate_review(project_id: int):
     """
@@ -462,6 +593,33 @@ async def activate_review(project_id: int):
 
     return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
 
+@app.get('/api/get_lasso_answer/{project_id}/{page_num}/{lasso_id}', status_code=200)
+async def get_lasso_answer(project_id: int, page_num: int, lasso_id: int, prompt_text: str, version: int):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 답변을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 prompt_text에 해당하는 JSON 파일을 찾아 반환합니다.
+    
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    :param prompt_text: prompt_text
+    :param version: 버전
+    """
+
+    lasso_answer_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id), sanitize_filename(prompt_text), f"{version}.json")
+
+    if not os.path.exists(lasso_answer_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(lasso_answer_path, "r") as matched_file:
+            lasso_answer_data = json.load(matched_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading lasso answer file: {e}")
+
+    return lasso_answer_data
+
+    
 @app.get('/api/get_matched_paragraphs/{project_id}', status_code=200)
 async def get_matched_paragraphs(project_id: int):
     """
