@@ -357,10 +357,27 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       try {
         const drawings: Record<number, string> = {};
         for (let i = 1; i <= numPages; i++) {
-          const drawingData = localStorage.getItem(`drawings_${projectId}_${i}`);
-          if (drawingData) {
-            drawings[i] = drawingData;
+          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
+          console.log('numLayers', numLayers);
+          const tmpCanvas = document.createElement("canvas");
+          tmpCanvas.width = canvas.width;
+          tmpCanvas.height = canvas.height;
+          const context = tmpCanvas.getContext("2d");
+          if (context) {
+            context.imageSmoothingEnabled = false;
+            for (let l = 1; l <= numLayers; l++) {
+              const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
+              if (drawingLayer) {
+                const img = new Image();
+                img.src = drawingLayer;
+                img.onload = () => {
+                  context.drawImage(img, 0, 0);
+                };
+              }
+            }
           }
+          drawings[i] = tmpCanvas.toDataURL();
+          console.log(drawings[i]);
         }
         await saveAnnotatedPdf(projectId, drawings, numPages);
         console.log("Annotated PDF saved successfully");
@@ -472,7 +489,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             context.strokeStyle = "black";
             context.lineWidth = 1;
           } else {
-            localStorage.setItem(`drawings_${projectId}_${pageNumber}_0`, canvas.toDataURL());
             dragOffset.current = {
               x: x,
               y: y,
@@ -584,7 +600,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
+        
+        lassoBox.current = {x1: lassoBox.current.x1, y1: lassoBox.current.y1, x2: x, y2: y};
         context.clearRect(0, 0, canvas.width, canvas.height);
         nullfreeStrokerect(context, lassoBox.current);
   
