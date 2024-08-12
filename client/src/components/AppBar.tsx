@@ -67,8 +67,9 @@ export default function AppBar() {
   const handleUndo = () => {
     console.log('history', history); 
     if (history.length === 0) return;
-    const previous = history[history.length - 1];
-    setRedoStack((prev) => [...prev, previous]);
+    const previous = history[history.length - 2];
+    console.log(previous);
+    setRedoStack((prev) => [...prev, history[history.length-1]]);
     setHistory((prev) => prev.slice(0, -1));
     const event = new CustomEvent('undoCanvas', { detail: previous });
     window.dispatchEvent(event);
