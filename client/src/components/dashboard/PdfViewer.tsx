@@ -11,8 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
-import * as d3 from "d3";
-import { layer } from "@fortawesome/fontawesome-svg-core";
+// import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
@@ -194,6 +193,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           topLayer = layerId;
         }  
       } else if (selectedTool === "eraser") {
+        const currentRefs = drawingsRef.current;
+        drawingsRef.current = [];
+        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+        currentRefs.forEach((layer) => {
+          const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
+          const layerContext = layerCanvas.getContext("2d");
+          if (layerContext) {
+            layerContext.drawImage(layer.canvas, 0, 0);          }
+        })
         erasing = true;
       }
     };
@@ -305,6 +313,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
       const canvasLayers = event.detail;
       drawingsRef.current = canvasLayers;
+      if (drawingsRef.current === null) drawingsRef.current = [];
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
       context.clearRect(0, 0, canvas.width, canvas.height);
       const numLayers = drawingsRef.current.length;
