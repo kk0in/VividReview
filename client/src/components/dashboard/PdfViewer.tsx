@@ -200,7 +200,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
           const layerContext = layerCanvas.getContext("2d");
           if (layerContext) {
-            layerContext.drawImage(layer.canvas, 0, 0);          }
+            layerContext.imageSmoothingEnabled = false;
+            layerContext.drawImage(layer.canvas, 0, 0);
+          }
         })
         erasing = true;
       }
@@ -295,10 +297,10 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const img = new Image();
           img.src = savedDrawings;
           img.onload = () => {
+            layerContext.imageSmoothingEnabled = false;
             layerContext.clearRect(0, 0, canvas.width, canvas.height);
             layerContext.drawImage(img, 0, 0);
           };
-          drawingsRef.current = [...drawingsRef.current, {canvas:layerCanvas, id:layerId, projectId:projectId, pageNumber:pageNumber}];
         }
       }
     }
@@ -426,13 +428,28 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   useEffect(() => { // lasso
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
+
+    const slideCanvas = (target: HTMLCanvasElement, x: number, y: number) => {
+      const tmpCanvas = document.createElement("canvas");
+      tmpCanvas.width = target.width;
+      tmpCanvas.height = target.height;
+      const targetCtx = target.getContext("2d");
+      const tmpCtx = tmpCanvas.getContext("2d");
+      if (targetCtx && tmpCtx) {
+        tmpCtx.imageSmoothingEnabled = false;
+        targetCtx.imageSmoothingEnabled = false;
+        tmpCtx.clearRect(0, 0, target.width, target.height);
+        tmpCtx.drawImage(target, 0, 0);
+        targetCtx.clearRect(0, 0, target.width, target.height);
+        targetCtx.drawImage(tmpCanvas, x, y);
+      }
+    }
   
     if (selectedTool === "spinner" && canvas && context) {
       const clearLasso = () => {
         lassoExists.current = false;
         lassoPath.current = [];
         setSelectedRegion(null);
-        document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
         context.clearRect(0, 0, canvas.width, canvas.height);
       }
 
@@ -461,13 +478,17 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               x: x,
               y: y,
             };
-            capturedLayers.current = [];
-            for(const layer of drawingsRef.current) {
-              if(!isCanvasBlank(layer.canvas, selectedRegion)){
-                capturedLayers.current.push(layer.id);
+            const currentRefs = drawingsRef.current;
+            drawingsRef.current = [];
+            document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+            currentRefs.forEach((layer) => {
+              const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
+              const layerContext = layerCanvas.getContext("2d");
+              if (layerContext) {
+                layerContext.imageSmoothingEnabled = false;
+                layerContext.drawImage(layer.canvas, 0, 0);
               }
-            }           
-            console.log(capturedLayers.current);
+            })
             isDragging.current = true;
           }
         } else if (!lassoExists.current) {
@@ -515,29 +536,21 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
           isDragging.current = false;
           dragOffset.current = null;
-          lassoPath.current = lassoPath.current.map((point) => {
-            return {
-              x: point.x + newX,
-              y: point.y + newY,
-            };
-          });
-          
-          context.clearRect(0, 0, canvas.width, canvas.height);
+          lassoPath.current = lassoPath.current.map((point) => ({ x: point.x + newX, y: point.y + newY }));
+          slideCanvas(canvas, newX, newY);
+
           const tmpRefs = drawingsRef.current;
           drawingsRef.current = [];
           for (const layer of tmpRefs) {
-            const tmpCanvasLayer = layer;
-            const layerContext = tmpCanvasLayer.canvas.getContext("2d");
+            const layerContext = layer.canvas.getContext("2d");
             if (layerContext) {
-              if(capturedList.find((layerId) => layerId === tmpCanvasLayer.id)){
-                layerContext.clearRect(0, 0, canvas.width, canvas.height);
-                layerContext.drawImage(tmpCanvasLayer.canvas, newX, newY);
+              if(capturedList.find((layerId) => layerId === layer.id)){
+                slideCanvas(layer.canvas, newX, newY);
               }
-              localStorage.setItem(`drawings_${projectId}_${pageNumber}_${tmpCanvasLayer.id}`, tmpCanvasLayer.canvas.toDataURL());
-              drawingsRef.current = [...drawingsRef.current, {canvas:tmpCanvasLayer.canvas, id:tmpCanvasLayer.id, projectId:projectId, pageNumber:pageNumber}];
+              localStorage.setItem(`drawings_${projectId}_${pageNumber}_${layer.id}`, layer.canvas.toDataURL());
+              drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:layer.id, projectId:projectId, pageNumber:pageNumber}];
             }
           }
-          capturedLayers.current = [];
           setHistory((prev) => [...prev, drawingsRef.current]);
 
           return;
@@ -567,6 +580,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         } else {
           lassoExists.current = true;
           setSelectedRegion(lassoBoundingBox);
+          capturedLayers.current = [];
+          for(const layer of drawingsRef.current) {
+            if(!isCanvasBlank(layer.canvas, lassoBoundingBox)){
+              capturedLayers.current.push(layer.id);
+            }
+          }           
+          console.log('capturedLayers.current', capturedLayers.current);
         }
       };
   
@@ -574,6 +594,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         if (!dragOffset.current || !selectedRegion ) return;
 
         const capturedList = capturedLayers.current;
+        console.log('capturedList', capturedList);
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -583,25 +604,22 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
         const newX = x - dragOffset.current.x;
         const newY = y - dragOffset.current.y;
+        lassoPath.current = lassoPath.current.map((point) => ({ x: point.x + newX, y: point.y + newY }));
 
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        dragOffset.current = {x, y};
+
+        slideCanvas(canvas, newX, newY);
         const tmpRefs = drawingsRef.current;
         drawingsRef.current = [];
         for (const layer of tmpRefs) {
-          const tmpCanvasLayer = layer;
-          const layerContext = tmpCanvasLayer.canvas.getContext("2d");
+          const layerContext = layer.canvas.getContext("2d");
           if (layerContext) {
-            if(capturedList.find((layerId) => layerId === tmpCanvasLayer.id)){
-              layerContext.clearRect(0, 0, canvas.width, canvas.height);
-              layerContext.drawImage(tmpCanvasLayer.canvas, newX, newY);
+            if(capturedList.find((layerId) => layerId === layer.id)){
+              slideCanvas(layer.canvas, newX, newY);
             }
-            drawingsRef.current = [...drawingsRef.current, {canvas:tmpCanvasLayer.canvas, id:tmpCanvasLayer.id, projectId:projectId, pageNumber:pageNumber}];
+            drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:layer.id, projectId:projectId, pageNumber:pageNumber}];
           }
         }
-        capturedLayers.current = [];
-        setHistory((prev) => [...prev, drawingsRef.current]);
-
-        return;
       };
   
       const handleCanvasClick = (event: MouseEvent) => {
