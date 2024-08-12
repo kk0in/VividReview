@@ -362,22 +362,26 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const tmpCanvas = document.createElement("canvas");
           tmpCanvas.width = canvas.width;
           tmpCanvas.height = canvas.height;
-          const context = tmpCanvas.getContext("2d");
-          if (context) {
-            context.imageSmoothingEnabled = false;
+          const tmpContext = tmpCanvas.getContext("2d");
+          if (tmpContext) {
+            tmpContext.imageSmoothingEnabled = false;
+            tmpContext.clearRect(0, 0, canvas.width, canvas.height);
             for (let l = 1; l <= numLayers; l++) {
               const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
               if (drawingLayer) {
                 const img = new Image();
                 img.src = drawingLayer;
                 img.onload = () => {
-                  context.drawImage(img, 0, 0);
-                };
+                  tmpContext.drawImage(img, 0, 0);
+                  if (l === numLayers){
+                    console.log("hello!");
+                    drawings[i] = tmpCanvas.toDataURL();
+                    console.log(drawings[i]);
+                  }
+                }; 
               }
             }
           }
-          drawings[i] = tmpCanvas.toDataURL();
-          console.log(drawings[i]);
         }
         await saveAnnotatedPdf(projectId, drawings, numPages);
         console.log("Annotated PDF saved successfully");
