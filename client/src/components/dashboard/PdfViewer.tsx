@@ -89,23 +89,27 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         }
       }
     }
+
+    console.log("No ToC index found for page: ", page);
     return null;
   }
 
-  const goToNextPage = useCallback(() => {
-    setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
-    const tocIndex = findToCIndex(pageNumber);
+  const goToNextPage = () => {
+    const newPageNumber = Math.min(pageNumber + 1, numPages);
+    const tocIndex = findToCIndex(newPageNumber);
     if (tocIndex) {
       setTocIndexState(tocIndex);
     }
-  }, [numPages]);
+    setPageNumber(newPageNumber);
+  };
 
   const goToPreviousPage = () => {
-    setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
-    const tocIndex = findToCIndex(pageNumber); 
+    const newPageNumber = Math.max(pageNumber - 1, 1);
+    const tocIndex = findToCIndex(newPageNumber); 
     if (tocIndex) {
       setTocIndexState(tocIndex); 
     }
+    setPageNumber(newPageNumber);
   };
 
   const makeNewCanvas = useCallback(() => {
