@@ -15,6 +15,8 @@ import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
 
+type NumberOrNull = number | null;
+
 type PDFViewerProps = {
   scale: number;
   projectId: string;
@@ -39,13 +41,11 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const selectedTool = useRecoilValue(toolState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [isDrawing, setIsDrawing] = useState<boolean>(false);
-  const [selectedRegion, setSelectedRegion] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
   const isDragging = useRef(false);
-  const lassoPath = useRef<{x: number, y: number}[]>([]);
+  const lassoBox = useRef<{x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}>({x1: null, y1: null, x2: null, y2: null});
   const dragOffset = useRef<{x: number, y: number} | null>(null);
   const capturedLayers = useRef<number[]>([]);
 
@@ -448,8 +448,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     if (selectedTool === "spinner" && canvas && context) {
       const clearLasso = () => {
         lassoExists.current = false;
-        lassoPath.current = [];
-        setSelectedRegion(null);
+        lassoBox.current = {x1: null, y1: null, x2: null, y2: null};
         context.clearRect(0, 0, canvas.width, canvas.height);
       }
 
@@ -462,11 +461,11 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         
         if (isDragging.current) return;
         
-        if (lassoExists.current && lassoPath.current.length > 2) {
-          if (!isPointInPath(lassoPath.current, x, y)) {
+        if (lassoExists.current) {
+          if (!isPointInPath(lassoBox.current, x, y)) {
             clearLasso();
             isLassoDrawing.current = true;
-            lassoPath.current = [{ x, y }];
+            lassoBox.current = { x1: x, y1: y, x2: null, y2: null };
             context.beginPath();
             context.moveTo(x, y);
             context.setLineDash([5, 5]);
@@ -493,7 +492,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           }
         } else if (!lassoExists.current) {
           isLassoDrawing.current = true;
-          lassoPath.current = [{ x, y }];
+          lassoBox.current = { x1: x, y1: y, x2: null, y2: null };
           context.beginPath();
           context.moveTo(x, y);
           context.setLineDash([5, 5]);
@@ -501,6 +500,30 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           context.lineWidth = 1;
         }
       };
+
+      const nullfreeStrokerect = (context: CanvasRenderingContext2D, box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}) => {
+        if (box.x1 && box.y1 && box.x2 && box.y2) {
+          context.strokeRect(Math.min(box.x1, box.x2), Math.min(box.y1, box.y2), Math.abs(box.x2 - box.x1), Math.abs(box.y2 - box.y1));
+        }
+      }
+
+      const slideBox = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}, x: number, y: number) => {
+        return {
+          x1: box.x1 ? box.x1 + x : null,
+          y1: box.y1 ? box.y1 + y : null,
+          x2: box.x2 ? box.x2 + x : null,
+          y2: box.y2 ? box.y2 + y : null,
+        };
+      }
+
+      const boxBounds = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}) => {
+        return {
+          x: (box.x1 && box.x2) ? Math.min(box.x1, box.x2) : 0,
+          y: (box.y1 && box.y2) ? Math.min(box.y1, box.y2) : 0,
+          width: (box.x1 && box.x2) ? Math.abs(box.x2 - box.x1) : 0,
+          height: (box.y1 && box.y2) ? Math.abs(box.y2 - box.y1) : 0,
+        };
+      }
   
       const handleMouseMove = (event: MouseEvent) => {
         if (isDragging.current) {
@@ -515,10 +538,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        const newPoint = { x, y };
-        lassoPath.current.push(newPoint);
-        context.lineTo(newPoint.x, newPoint.y);
-        context.stroke();
+        lassoBox.current = {x1: lassoBox.current.x1, y1: lassoBox.current.y1, x2: x, y2: y};
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        nullfreeStrokerect(context, lassoBox.current);
       };
   
       const handleMouseUp = (event: MouseEvent) => {
@@ -536,7 +558,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
           isDragging.current = false;
           dragOffset.current = null;
-          lassoPath.current = lassoPath.current.map((point) => ({ x: point.x + newX, y: point.y + newY }));
+          lassoBox.current = slideBox(lassoBox.current, newX, newY);
           slideCanvas(canvas, newX, newY);
 
           const tmpRefs = drawingsRef.current;
@@ -563,35 +585,28 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        isLassoDrawing.current = false;
-        context.closePath();
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        nullfreeStrokerect(context, lassoBox.current);
   
-        context.beginPath();
-        context.moveTo(lassoPath.current[lassoPath.current.length - 1].x, lassoPath.current[lassoPath.current.length - 1].y);
-        context.lineTo(lassoPath.current[0].x, lassoPath.current[0].y);
-        context.stroke();
-        context.closePath();
-  
-        const lassoBoundingBox = getBoundingBox(lassoPath.current);
-
-        if(lassoBoundingBox.width === 0 || lassoBoundingBox.height === 0) {
-          lassoPath.current = [];
+        if(lassoBox.current.x1 === lassoBox.current.x2 || lassoBox.current.y1 === lassoBox.current.y2) {
+          lassoBox.current = {x1: null, y1: null, x2: null, y2: null};
           lassoExists.current = false;
         } else {
           lassoExists.current = true;
-          setSelectedRegion(lassoBoundingBox);
           capturedLayers.current = [];
           for(const layer of drawingsRef.current) {
-            if(!isCanvasBlank(layer.canvas, lassoBoundingBox)){
+            if(!isCanvasBlank(layer.canvas, boxBounds(lassoBox.current))){
               capturedLayers.current.push(layer.id);
             }
           }           
           console.log('capturedLayers.current', capturedLayers.current);
         }
+
+        isLassoDrawing.current = false;
       };
   
       const handleLassoDragMove = (event: MouseEvent) => {
-        if (!dragOffset.current || !selectedRegion ) return;
+        if (!dragOffset.current || !lassoBox.current.x2 ) return;
 
         const capturedList = capturedLayers.current;
         console.log('capturedList', capturedList);
@@ -604,8 +619,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
         const newX = x - dragOffset.current.x;
         const newY = y - dragOffset.current.y;
-        lassoPath.current = lassoPath.current.map((point) => ({ x: point.x + newX, y: point.y + newY }));
-
+        lassoBox.current = slideBox(lassoBox.current, newX, newY);
+        
         dragOffset.current = {x, y};
 
         slideCanvas(canvas, newX, newY);
@@ -629,7 +644,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (lassoExists.current && !isPointInPath(lassoPath.current, x, y)) {
+        if (lassoExists.current && !isPointInPath(lassoBox.current, x, y)) {
           clearLasso();
         }
       };
@@ -648,7 +663,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, selectedRegion, projectId, pageNumber, setHistory]);  
+  }, [selectedTool, projectId, pageNumber, setHistory]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {
@@ -666,17 +681,21 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     };
   };
 
-  const isPointInPath = (path: { x: number; y: number }[], x: number, y: number) => {
-    const context = canvasRef.current?.getContext("2d");
-    if (!context) return false;
-
-    context.beginPath();
-    context.moveTo(path[0].x, path[0].y);
-    for (const point of path) {
-      context.lineTo(point.x, point.y);
+  const isPointInPath = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}, x: number, y: number) => {
+    if (!box.x1 || !box.y1 || !box.x2 || !box.y2) return false;
+    if (box.x1 > box.x2) {
+      if (box.y1 > box.y2) {
+        return (x >= box.x2 && x <= box.x1 && y >= box.y2 && y <= box.y1);
+      } else {
+        return (x >= box.x2 && x <= box.x1 && y >= box.y1 && y <= box.y2);
+      }
+    } else {
+      if (box.y1 > box.y2) {
+        return (x >= box.x1 && x <= box.x2 && y >= box.y2 && y <= box.y1);
+      } else {
+        return (x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2);
+      }
     }
-    context.closePath();
-    return context.isPointInPath(x, y);
   };
 
   return (
