@@ -108,9 +108,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       }
 
       case 1: {
-        const newTocIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
-        setTocIndexState(newTocIndex);
-        setPageNumber(toc[newTocIndex.section].subsections[0].page[0]); 
+        const newToCIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
         break;
       }
 
@@ -122,7 +122,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection + 1 };
         }
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
         break;
       }
     }
@@ -143,19 +143,20 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       case 1: {
         const newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
         break;
       }
 
       case 2: {
         let newToCIndex = null;
         if (tocIndex.subsection === 0) {
-          newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
+          const newSectionIndex = Math.max(tocIndex.section - 1, 0);
+          newToCIndex = { section: newSectionIndex, subsection: toc[newSectionIndex].subsections.length - 1 };
         } else {
           newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection - 1 };
         }
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[0].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
         break;
       }
     }
@@ -842,7 +843,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '10px' }}>
             Previous
           </button>
-          <button onClick={goToNextPage} disabled={pageNumber >= numPages}>
+          <button
+            onClick={goToNextPage}
+            disabled={
+              gridMode === 0 ? pageNumber >= numPages :
+              gridMode === 1 ? tocIndex.section >= toc.length - 1 :
+              tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
+            }>
             Next
           </button>
         </div>
