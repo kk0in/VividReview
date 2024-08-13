@@ -135,7 +135,7 @@ def issue_lasso_id(project_id, page_num):
     :param page_num: 페이지 번호
     :return: 새로운 lasso_id
     """
-    lasso_path = os.path.join('./temp', str(project_id), str(page_num))
+    lasso_path = os.path.join(LASSO, str(project_id), str(page_num))
     if not os.path.exists(lasso_path):
         os.makedirs(lasso_path, exist_ok=True)
         return 1
@@ -590,21 +590,17 @@ async def lasso_transform(project_id: int, page_num: int, lasso_id: int, version
 
 
 @app.post("/api/lasso_query/")
-async def lasso_query(project_id: int, page_num: int, prompt_text: str, image: UploadFile = File(...)):
+async def lasso_query(project_id: int, page_num: int, prompt_text: str, image_url: str, bbox: list, cur_lasso_id: int):
     # 이미지 저장 경로 설정
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
-    lasso_id = issue_lasso_id(project_id, page_num)
+    lasso_id = cur_lasso_id if cur_lasso_id else issue_lasso_id(project_id, page_num)
     lasso_path = os.path.join(LASSO, f"{project_id}", f"{page_num}", f"{lasso_id}")
     os.makedirs(lasso_path, exist_ok=True)
-    image_list = [file for file in os.listdir(lasso_path) if file.endswith('.png')]
-    lasso_image = os.path.join(lasso_path, image_list[0])
 
-    # 이미지 파일 저장
-    with open(lasso_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
+
 
     # 이미지 인코딩
-    encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(lasso_image)}"}}]
+    encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_url}"}}]
     script_content = read_script(script_path)
 
     try:
@@ -612,13 +608,18 @@ async def lasso_query(project_id: int, page_num: int, prompt_text: str, image: U
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating lasso answer: {e}")
     
-    # 이미지 파일 이름 변경
-    if os.path.basename(lasso_image).startswith("temp"):    
+    if cur_lasso_id is None:
         caption = lasso_answer.get('caption', 'untitled')
-        sanitized_caption = sanitize_filename(caption)
-        new_image_name = f"{sanitized_caption}.png"
-        new_image_path = os.path.join(lasso_path, new_image_name)        
-        os.rename(lasso_image, new_image_path)
+        lasso_info = {
+            "name" : caption,
+            "bbox" : bbox,
+            "image_url" : image_url
+        } 
+        # lasso_path 경로에 info.json 파일로 저장
+        info_json_path = os.path.join(lasso_path, "info.json")
+        with open(info_json_path, "w") as json_file:
+            json.dump(lasso_info, json_file, indent=4)
+
 
     # 요약된 내용 JSON 파일로 저장
     result_path = os.path.join(lasso_path, sanitize_filename(prompt_text))
@@ -710,8 +711,8 @@ async def get_lasso_answer(project_id: int, page_num: int, lasso_id: int, prompt
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
 
     try:
-        with open(lasso_answer_path, "r") as matched_file:
-            lasso_answer_data = json.load(matched_file)
+        with open(lasso_answer_path, "r") as lasso_answer_file:
+            lasso_answer_data = json.load(lasso_answer_file)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading lasso answer file: {e}")
 
@@ -937,14 +938,25 @@ async def delete_project(project_id: int):
     def delete_project_files(directory):
         if not os.path.exists(directory):
             return
+        # 프로젝트 ID가 폴더명인 경우 해당 폴더 삭제
+        project_dir = os.path.join(directory, str(project_id))
+        if os.path.isdir(project_dir):
+            shutil.rmtree(project_dir)
+            return
+        
         for file in os.listdir(directory):
             if file.startswith(f'{project_id}_'):
                 os.remove(os.path.join(directory, file))
     try:
         delete_project_files(PDF)
         delete_project_files(META_DATA)
-        delete_project_files(RESULT)
-
+        delete_project_files(IMAGE)
+        delete_project_files(SCRIPT)
+        delete_project_files(SPM)
+        delete_project_files(BBOX)
+        delete_project_files(RECORDING)
+        delete_project_files(TOC)
+        delete_project_files(LASSO)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during deletion: {e}")
 
