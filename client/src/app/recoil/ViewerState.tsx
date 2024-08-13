@@ -39,3 +39,8 @@ export const modeState = atom<ViewerMode>({
   key: "modeState",
   default: ViewerMode.REVIEW,
 });
+
+export const matchedParagraphsState = atom<Object | null>({
+  key: "matchedParagraphsState",
+  default: null,
+});

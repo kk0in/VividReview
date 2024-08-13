@@ -4,8 +4,8 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents } from "@/utils/api";
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode, matchedParagraphsState } from '@/app/recoil/ViewerState';
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -82,9 +82,41 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage() {
+function ReviewPage({ projectId }: { projectId: string }) {
+  const [page, ] = useRecoilState(pdfPageState);
+  const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+
+  const fetchMatchedParagraphs = async () => {
+    try {
+      const paragraphs = await getMatchParagraphs({ queryKey: ["matchParagraphs", projectId] });
+      setParagraphs(paragraphs);
+      console.log(paragraphs);
+    } catch (error) {
+      console.error("Failed to fetch paragraphs:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMatchedParagraphs();
+  }, []);
+
+  let paragraph = "";
+  if (paragraphs) {
+    for (const [key, value] of Object.entries(paragraphs)) {
+      if (key === page.toString()) {
+        paragraph = value;
+      }
+    }
+  }
+
   return (
     <div className="flex-none w-1/5 bg-gray-50">
+      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-3 font-bold">
+        Script
+      </div>
+      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+        {paragraph}
+      </div>
     </div>
   );
 }
@@ -215,7 +247,7 @@ export default function Page({ params }: { params: { id: string } }) {
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
           </div>
-          {(viewerMode === ViewerMode.REVIEW) && <ReviewPage />}
+          {(viewerMode === ViewerMode.REVIEW) && <ReviewPage projectId={params.id} />}
         </div>
       )}
     </div>
