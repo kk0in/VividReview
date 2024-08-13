@@ -22,7 +22,7 @@ export type LassoList = {
   lassoList: Lasso[];
 }
 
-export const lassoState = atom<Record<string, LassoList[]>>({
+export const lassoState = atom<Record<string, Record<number, LassoList>>>({
   key: 'lassoState',
   default: {},
 });

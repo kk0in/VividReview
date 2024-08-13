@@ -11,6 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
+import { lassoState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
@@ -38,6 +39,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [toc, ] = useRecoilState(tocState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
+  const [lassoRec, setLassoRec] = useRecoilState(lassoState);
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,7 +82,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     console.log("pdf locked");
   };
 
-  const findToCIndex = (page: number) => {
+  const findToCIndex = useCallback((page: number) => {
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
@@ -93,9 +95,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     console.log("No ToC index found for page: ", page);
     return null;
-  }
+  }, [toc])
 
-  const goToNextPage = () => {
+  const goToNextPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.min(pageNumber + 1, numPages);
@@ -126,9 +128,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         break;
       }
     }
-  };
+  }, [findToCIndex, gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
-  const goToPreviousPage = () => {
+  const goToPreviousPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.max(pageNumber - 1, 1);
@@ -160,7 +162,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         break;
       }
     }
-  };
+  }, [findToCIndex, gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
@@ -231,7 +233,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         viewer.removeEventListener("touchmove", handleTouchMove);
       }
     };
-  }, [goToNextPage, numPages]);
+  }, [goToNextPage, goToPreviousPage, numPages]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -702,6 +704,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           console.log('capturedLayers.current', capturedLayers.current);
         }
 
+        lassoRec[projectId]
+
         isLassoDrawing.current = false;
       };
   
@@ -738,15 +742,22 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       };
   
       const handleCanvasClick = (event: MouseEvent) => {
+        if (!lassoExists.current) return;
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
   
-        if (lassoExists.current && !isPointInPath(lassoBox.current, x, y)) {
+        if (!isPointInPath(lassoBox.current, x, y)) {
           clearLasso();
+          return;
         }
+
+        // lasso exists and clicked inside lasso
+
+        
       };
   
       canvas.addEventListener("mousedown", handleMouseDown);
@@ -763,7 +774,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, projectId, pageNumber, setHistory]);  
+  }, [selectedTool, projectId, pageNumber, setHistory, makeNewCanvas, lassoRec]);  
   
   
   const getBoundingBox = (path: { x: number; y: number }[]) => {

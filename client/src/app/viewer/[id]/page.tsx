@@ -102,16 +102,6 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   );
 
-  useEffect(() => {
-    refetch();
-  }, []);
-
-  useEffect(() => {
-    if (data?.project?.done) {
-      refetchPdf();
-    }
-  }, [data]);
-
   const { refetch: refetchPdf, isLoading: loadingPdf } = useQuery(
     ["pdfData", params.id],
     getPdf,
@@ -123,20 +113,30 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
-  
-  const fetchTableOfContents = async () => {
-    try {
-      const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
-      setTableOfContents(tableOfContents);
-      console.log(tableOfContents);
-    } catch (error) {
-      console.error("Failed to fetch PDF:", error);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  useEffect(() => {
+    if (data?.project?.done) {
+      refetchPdf();
     }
-  };
+  }, [data, refetchPdf]);
   
   useEffect(() => {
+    const fetchTableOfContents = async () => {
+      try {
+        const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
+        setTableOfContents(tableOfContents);
+        console.log(tableOfContents);
+      } catch (error) {
+        console.error("Failed to fetch PDF:", error);
+      }
+    };
+
     fetchTableOfContents();
-  }, []);
+  }, [params.id, setTableOfContents]);
 
   const buildTableOfContents = (tocData: any) => {
     const toc = [];
