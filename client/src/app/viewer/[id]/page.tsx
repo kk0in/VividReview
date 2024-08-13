@@ -4,13 +4,87 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { getProject, getPdf } from "@/utils/api";
+import { pdfPageState, tocState, IToCSubsection, tocIndexState } from '@/app/recoil/ViewerState';
+import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 
+interface SubSectionTitleProps {
+  sectionIndex: number;
+  index: number;
+  title: string;
+  page: number[];
+}
+
+interface SectionTitleProps {
+  index: number;
+  title: string;
+  subsections: IToCSubsection[];
+}
+
+function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
+  const [, setPdfPage] = useRecoilState(pdfPageState);
+  const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
+
+  const handleClick = () => {
+    setPdfPage(page[0]);
+    setTocIndexState({section: sectionIndex, subsection: index});
+  }
+
+  let className = "ml-2 hover:font-bold";
+  if (sectionIndex === tocIndex.section && index === tocIndex.subsection) {
+    className += " font-bold";
+  }
+
+  return (<li className={className} onClick={handleClick} >{`• ${title}`}</li>);
+}
+
+function SectionTitle({ index, title, subsections }: SectionTitleProps) {
+  let subtitles;
+  const [clicked, setClicked] = useState(false);
+  const [tocIndex, ] = useRecoilState(tocIndexState);
+
+  const handleSectionClick = () => {
+    setClicked(!clicked);
+  }
+
+  if (subsections) {
+    let subsectionIndex = 0;
+    subtitles = (
+      <ul>
+        {subsections.map((subsection: IToCSubsection) => {
+          const element = (<SubSectionTitle sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
+          subsectionIndex++;
+          return element;
+        })}
+      </ul>
+    );
+  }
+
+  let className = "text-center hover:font-bold";
+  if (index === tocIndex.section) {
+    className += " font-bold";
+  }
+
+  return (
+    <li className="bg-gray-200 pl-3 pr-3 pt-2 pb-2 mb-1 rounded-2xl">
+      <p className={className} onClick={handleSectionClick}>
+        {`${index + 1}. ${title}`}
+      </p>
+      {clicked && subsections && (
+        <>
+          <div className="mb-3" />
+          {subtitles}
+        </>
+      )}
+    </li>
+  );
+}
+
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
@@ -49,6 +123,29 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
+  
+  const fetchTableOfContents = async () => {
+    try {
+      const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
+      setTableOfContents(tableOfContents);
+      console.log(tableOfContents);
+    } catch (error) {
+      console.error("Failed to fetch PDF:", error);
+    }
+  };
+  
+  useEffect(() => {
+    fetchTableOfContents();
+  }, []);
+
+  const buildTableOfContents = (tocData: any) => {
+    const toc = [];
+    for (let i = 0; i < tocData.length; i++) {
+      toc.push(<SectionTitle key={i} index={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
+    }
+    
+    return (<ul>{toc}</ul>);
+  }
 
   useEffect(() => {
     if (pdfData === "") {
@@ -99,15 +196,13 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {isLoaded && (
+      {tableOfContents && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-gray-200 p-4">
+          <div className="flex-none w-1/5 bg-gray-50 p-4">
             <div className="mb-4 font-bold">Table</div>
-            <ul>
-              <li className="mb-2">1. Introduction</li>
-              <li className="mb-2">2. Administrative Issues</li>
-              <li className="mb-2">3. Summary</li>
-            </ul>
+            <ol>
+              {buildTableOfContents(tableOfContents)}
+            </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />

@@ -8,8 +8,9 @@ declare global {
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
-import { toolState, recordingState } from "@/app/recoil/ToolState";
+import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
+import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
@@ -29,14 +30,18 @@ export type CanvasLayer = {
 
 const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageNumber, setPageNumber] = useRecoilState(pdfPageState);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
+  const [toc, ] = useRecoilState(tocState);
+  const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
+
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingsRef = useRef<CanvasLayer[]>([]);
   const selectedTool = useRecoilValue(toolState);
+  const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -66,21 +71,95 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
   };
-
+  
   const onDocumentError = (error: Error) => {
     console.log("pdf viewer error", error);
   };
-
+  
   const onDocumentLocked = () => {
     console.log("pdf locked");
   };
 
-  const goToNextPage = useCallback(() => {
-    setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
-  }, [numPages]);
+  const findToCIndex = (page: number) => {
+    for (let i = 0; i < toc.length; i++) {
+      const section = toc[i];
+      for (let j = 0; j < section.subsections.length; j++) {
+        const subsection = section.subsections[j];
+        if (subsection.page.includes(page)) {
+          return { section: i, subsection: j };
+        }
+      }
+    }
+
+    console.log("No ToC index found for page: ", page);
+    return null;
+  }
+
+  const goToNextPage = () => {
+    switch (gridMode) {
+      case 0: {
+        const newPageNumber = Math.min(pageNumber + 1, numPages);
+        const tocIndex = findToCIndex(newPageNumber);
+        if (tocIndex) {
+          setTocIndexState(tocIndex);
+        }
+        setPageNumber(newPageNumber);
+        break;
+      }
+
+      case 1: {
+        const newToCIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        break;
+      }
+
+      case 2: {
+        let newToCIndex = null;
+        if (tocIndex.subsection === toc[tocIndex.section].subsections.length - 1) {
+          newToCIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
+        } else {
+          newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection + 1 };
+        }
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        break;
+      }
+    }
+  };
 
   const goToPreviousPage = () => {
-    setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
+    switch (gridMode) {
+      case 0: {
+        const newPageNumber = Math.max(pageNumber - 1, 1);
+        const tocIndex = findToCIndex(newPageNumber); 
+        if (tocIndex) {
+          setTocIndexState(tocIndex); 
+        }
+        setPageNumber(newPageNumber);
+        break;
+      }
+
+      case 1: {
+        const newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        break;
+      }
+
+      case 2: {
+        let newToCIndex = null;
+        if (tocIndex.subsection === 0) {
+          const newSectionIndex = Math.max(tocIndex.section - 1, 0);
+          newToCIndex = { section: newSectionIndex, subsection: toc[newSectionIndex].subsections.length - 1 };
+        } else {
+          newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection - 1 };
+        }
+        setTocIndexState(newToCIndex);
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        break;
+      }
+    }
   };
 
   const makeNewCanvas = useCallback(() => {
@@ -679,21 +758,72 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     return context.isPointInPath(x, y);
   };
 
+  let pageComponents = [];
+  switch (gridMode) {
+    case 0: {
+      pageComponents.push(
+        <Page
+          pageNumber={pageNumber}
+          width={width}
+          renderAnnotationLayer={false}
+          scale={scale}
+        />
+      );
+      break;
+    }
+
+    case 1: {
+      const section = toc[tocIndex.section];
+      const startSubSection = section.subsections[0];
+      const endSubSection = section.subsections[section.subsections.length - 1];
+      const startIndex = startSubSection.page[0];
+      const endIndex = endSubSection.page[endSubSection.page.length - 1];
+      const length = endIndex - startIndex + 1
+      for (let i = 0; i < length; i++) {
+        pageComponents.push(
+          <Page
+            className="mr-4 mb-10"
+            key={i}
+            pageNumber={startIndex + i}
+            width={width / 2}
+            renderAnnotationLayer={false}
+            scale={scale}
+          />
+        );
+      }
+      break;
+    }
+
+    case 2: {
+      const section = toc[tocIndex.section];
+      const subsection = section.subsections[tocIndex.subsection];
+      for (const page of subsection.page) {
+        pageComponents.push(
+          <Page
+            className="mr-4 mb-10"
+            key={page}
+            pageNumber={page}
+            width={width / 2}
+            renderAnnotationLayer={false}
+            scale={scale}
+          />
+        );
+      }
+      break;
+    }
+  }
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
       <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
         <Document
+          className="grid grid-cols-2"
           file={pdfUrl}
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentError}
           onPassword={onDocumentLocked}
         >
-          <Page
-            pageNumber={pageNumber}
-            width={width}
-            renderAnnotationLayer={false}
-            scale={scale}
-          />
+          {pageComponents}
         </Document>
         <canvas
           ref={canvasRef}
@@ -713,7 +843,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '10px' }}>
             Previous
           </button>
-          <button onClick={goToNextPage} disabled={pageNumber >= numPages}>
+          <button
+            onClick={goToNextPage}
+            disabled={
+              gridMode === 0 ? pageNumber >= numPages :
+              gridMode === 1 ? tocIndex.section >= toc.length - 1 :
+              tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
+            }>
             Next
           </button>
         </div>
