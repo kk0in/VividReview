@@ -16,6 +16,9 @@ server/lasso
 server/spms
 __pycache__/
 
+.DS_Store
+server/.DS_Store
+
 *.pdf
 *.csv
 *.json
