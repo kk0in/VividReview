@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -82,10 +82,18 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
+function ReviewPage() {
+  return (
+    <div className="flex-none w-1/5 bg-gray-50">
+    </div>
+  );
+}
+
 export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
+  const [viewerMode, ] = useRecoilState(modeState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -123,7 +131,7 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
-  
+
   const fetchTableOfContents = async () => {
     try {
       const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
@@ -133,7 +141,7 @@ export default function Page({ params }: { params: { id: string } }) {
       console.error("Failed to fetch PDF:", error);
     }
   };
-  
+
   useEffect(() => {
     fetchTableOfContents();
   }, []);
@@ -143,7 +151,7 @@ export default function Page({ params }: { params: { id: string } }) {
     for (let i = 0; i < tocData.length; i++) {
       toc.push(<SectionTitle key={i} index={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
     }
-    
+
     return (<ul>{toc}</ul>);
   }
 
@@ -207,6 +215,7 @@ export default function Page({ params }: { params: { id: string } }) {
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
           </div>
+          {(viewerMode === ViewerMode.REVIEW) && <ReviewPage />}
         </div>
       )}
     </div>
