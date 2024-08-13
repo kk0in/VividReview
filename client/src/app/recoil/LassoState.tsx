@@ -16,13 +16,7 @@ type Lasso = {
   prompts: Prompt[];
 }
 
-export type LassoList = {
-  projectId: string;
-  pageNumber: number;
-  lassoList: Lasso[];
-}
-
-export const lassoState = atom<Record<string, Record<number, LassoList>>>({
+export const lassoState = atom<Record<string, Record<number, Lasso[]>>>({
   key: 'lassoState',
   default: {},
 });

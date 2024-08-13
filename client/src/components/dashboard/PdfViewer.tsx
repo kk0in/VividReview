@@ -704,7 +704,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           console.log('capturedLayers.current', capturedLayers.current);
         }
 
-        lassoRec[projectId]
+        if (!lassoRec[projectId]) lassoRec[projectId] = {};
+        if (!lassoRec[projectId][pageNumber]) lassoRec[projectId][pageNumber] = [];
+        lassoRec[projectId][pageNumber].push({boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: []});
 
         isLassoDrawing.current = false;
       };
@@ -756,6 +758,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         }
 
         // lasso exists and clicked inside lasso
+
 
         
       };
