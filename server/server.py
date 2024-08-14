@@ -823,6 +823,26 @@ async def get_recording(project_id: int):
         return FileResponse(os.path.join(RECORDING, recording_file[0]))
 
 
+@app.get('/api/get_prosody/{project_id}', status_code=200)
+async def get_prosody(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 prosody 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 prosody 파일을 찾아 JSON 파일로 반환합니다.
+    
+    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
+    """
+    
+    prosody_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.json')]
+
+    if not prosody_file:
+        raise HTTPException(status_code=404, detail="Prosody file not found")
+    
+    if len(prosody_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple prosody files found")
+    else:
+        with open(os.path.join(RECORDING, prosody_file[0]), 'r') as f:
+            return json.load(f)
+
 @app.post('/api/save_recording/{project_id}', status_code=200)
 async def save_recording(project_id: int, recording: UploadFile = File(...)):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
