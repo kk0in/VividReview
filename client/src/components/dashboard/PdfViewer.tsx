@@ -10,7 +10,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
-import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
+import { pdfPageState, tocState, tocIndexState, modeState, ViewerMode } from "@/app/recoil/ViewerState";
 import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
@@ -46,36 +46,45 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
+
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
   const isDragging = useRef(false);
   const lassoBox = useRef<{x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}>({x1: null, y1: null, x2: null, y2: null});
   const dragOffset = useRef<{x: number, y: number} | null>(null);
   const capturedLayers = useRef<number[]>([]);
+  const [width, setWidth] = useState(window.innerWidth);
+  const [height, setHeight] = useState(window.innerHeight);
 
-  const width = 700;
-  const height = 600;
+  const updateWidthAndHeight = () => {
+    setWidth(window.innerWidth);
+    setHeight(window.innerHeight);
+  };
+
+  useEffect(() => {
+    window.addEventListener("resize", updateWidthAndHeight);
+    return () => window.removeEventListener("resize", updateWidthAndHeight);
+  });
 
   const isCanvasBlank = (canvas: HTMLCanvasElement, range?: {x: number, y: number, width: number, height: number} | null) => {
     const context = canvas.getContext('2d');
     if(!context) return true;
-  
+
     const pixelBuffer = new Uint32Array(
       context.getImageData(range?.x ?? 0, range?.y ?? 0, range?.width ?? canvas.width, range?.height ?? canvas.height).data.buffer
     );
-  
+
     return !pixelBuffer.some(color => color !== 0);
   }
 
   const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
     setNumPages(numPages);
   };
-  
+
   const onDocumentError = (error: Error) => {
     console.log("pdf viewer error", error);
   };
-  
+
   const onDocumentLocked = () => {
     console.log("pdf locked");
   };
@@ -110,7 +119,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       case 1: {
         const newToCIndex = { section: Math.min(tocIndex.section + 1, toc.length - 1), subsection: 0 };
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]);
         break;
       }
 
@@ -122,7 +131,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection + 1 };
         }
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]);
         break;
       }
     }
@@ -132,9 +141,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.max(pageNumber - 1, 1);
-        const tocIndex = findToCIndex(newPageNumber); 
+        const tocIndex = findToCIndex(newPageNumber);
         if (tocIndex) {
-          setTocIndexState(tocIndex); 
+          setTocIndexState(tocIndex);
         }
         setPageNumber(newPageNumber);
         break;
@@ -143,7 +152,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       case 1: {
         const newToCIndex = { section: Math.max(tocIndex.section - 1, 0), subsection: 0 };
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]);
         break;
       }
 
@@ -156,7 +165,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           newToCIndex = { section: tocIndex.section, subsection: tocIndex.subsection - 1 };
         }
         setTocIndexState(newToCIndex);
-        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]); 
+        setPageNumber(toc[newToCIndex.section].subsections[newToCIndex.subsection].page[0]);
         break;
       }
     }
@@ -270,7 +279,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           }
           layerContext.setLineDash([]);
           topLayer = layerId;
-        }  
+        }
       } else if (selectedTool === "eraser") {
         const currentRefs = drawingsRef.current;
         drawingsRef.current = [];
@@ -286,7 +295,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         erasing = true;
       }
     };
-    
+
     const draw = (event: MouseEvent) => {
       const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas;
       const topContext = topCanvas?.getContext("2d");
@@ -299,12 +308,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       topContext.lineTo(x, y);
       topContext.stroke();
     };
-    
+
     const stopDrawing = () => {
       if(erasing){
         erasing = false;
       } else {
-        const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas; 
+        const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas;
         const topContext = topCanvas?.getContext("2d");
         if (!topCanvas || !topContext || !drawing) return;
         drawing = false;
@@ -321,7 +330,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
       setHistory((prev) => [...prev, drawingsRef.current]);
     };
-    
+
     const erase = (event: MouseEvent) => {
       if ((selectedTool !== "eraser") || !erasing) return;
       const rect = canvas.getBoundingClientRect();
@@ -336,7 +345,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         }
       }
     };
-    
+
     const handleMouseMove = (event: MouseEvent) => {
       if (selectedTool === "eraser") {
         erase(event);
@@ -344,12 +353,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         draw(event);
       }
     };
-    
+
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseout", stopDrawing);
-    
+
     return () => {
       canvas.removeEventListener("mousedown", startDrawing);
       canvas.removeEventListener("mousemove", handleMouseMove);
@@ -469,19 +478,19 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       if (!isRecording) {
         mediaRecorderRef.current?.stop();
         // setIsRecording(!isRecording);
-      } 
+      }
       else {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         mediaRecorder.start();
         // setIsRecording(!isRecording);
-  
+
         const audioChunks: Blob[] = [];
         mediaRecorder.ondataavailable = (event) => {
           audioChunks.push(event.data);
         };
-  
+
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
           const formData = new FormData();
@@ -523,7 +532,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         targetCtx.drawImage(tmpCanvas, x, y);
       }
     }
-  
+
     if (selectedTool === "spinner" && canvas && context) {
       const clearLasso = () => {
         lassoExists.current = false;
@@ -537,9 +546,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-        
+
         if (isDragging.current) return;
-        
+
         if (lassoExists.current) {
           if (!isPointInPath(lassoBox.current, x, y)) {
             clearLasso();
@@ -603,25 +612,25 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           height: (box.y1 && box.y2) ? Math.abs(box.y2 - box.y1) : 0,
         };
       }
-  
+
       const handleMouseMove = (event: MouseEvent) => {
         if (isDragging.current) {
           handleLassoDragMove(event);
           return;
         }
         if (!isLassoDrawing.current) return;
-  
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
+
         lassoBox.current = {x1: lassoBox.current.x1, y1: lassoBox.current.y1, x2: x, y2: y};
         context.clearRect(0, 0, canvas.width, canvas.height);
         nullfreeStrokerect(context, lassoBox.current);
       };
-  
+
       const handleMouseUp = (event: MouseEvent) => {
         if (isDragging.current) {
           const capturedList = capturedLayers.current;
@@ -657,16 +666,16 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           return;
         }
         if (!isLassoDrawing.current) return;
-  
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
+
         context.clearRect(0, 0, canvas.width, canvas.height);
         nullfreeStrokerect(context, lassoBox.current);
-  
+
         if(lassoBox.current.x1 === lassoBox.current.x2 || lassoBox.current.y1 === lassoBox.current.y2) {
           lassoBox.current = {x1: null, y1: null, x2: null, y2: null};
           lassoExists.current = false;
@@ -677,19 +686,19 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             if(!isCanvasBlank(layer.canvas, boxBounds(lassoBox.current))){
               capturedLayers.current.push(layer.id);
             }
-          }           
+          }
           console.log('capturedLayers.current', capturedLayers.current);
         }
 
         isLassoDrawing.current = false;
       };
-  
+
       const handleLassoDragMove = (event: MouseEvent) => {
         if (!dragOffset.current || !lassoBox.current.x2 ) return;
 
         const capturedList = capturedLayers.current;
         console.log('capturedList', capturedList);
-  
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -699,7 +708,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const newX = x - dragOffset.current.x;
         const newY = y - dragOffset.current.y;
         lassoBox.current = slideBox(lassoBox.current, newX, newY);
-        
+
         dragOffset.current = {x, y};
 
         slideCanvas(canvas, newX, newY);
@@ -715,25 +724,25 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           }
         }
       };
-  
+
       const handleCanvasClick = (event: MouseEvent) => {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-  
+
         if (lassoExists.current && !isPointInPath(lassoBox.current, x, y)) {
           clearLasso();
         }
       };
-  
+
       canvas.addEventListener("mousedown", handleMouseDown);
       canvas.addEventListener("mousemove", handleMouseMove);
       canvas.addEventListener("mouseup", handleMouseUp);
       canvas.addEventListener("mouseleave", handleMouseUp);
       // canvas.addEventListener("click", handleCanvasClick);
-  
+
       return () => {
         canvas.removeEventListener("mousedown", handleMouseDown);
         canvas.removeEventListener("mousemove", handleMouseMove);
@@ -742,9 +751,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, projectId, pageNumber, setHistory]);  
-  
-  
+  }, [selectedTool, projectId, pageNumber, setHistory]);
+
   const getBoundingBox = (path: { x: number; y: number }[]) => {
     const xValues = path.map(point => point.x);
     const yValues = path.map(point => point.y);
@@ -777,15 +785,20 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     }
   };
 
-  let pageComponents = [];
+  const viewerMode = useRecoilValue(modeState);
+  let scaler = 0.75;
+  if (viewerMode === ViewerMode.REVIEW) {
+    scaler = 0.55;
+  }
+
+  const pageComponents = [];
   switch (gridMode) {
     case 0: {
       pageComponents.push(
         <Page
           pageNumber={pageNumber}
-          width={width}
+          width={width * scaler}
           renderAnnotationLayer={false}
-          scale={scale}
         />
       );
       break;
@@ -798,15 +811,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       const startIndex = startSubSection.page[0];
       const endIndex = endSubSection.page[endSubSection.page.length - 1];
       const length = endIndex - startIndex + 1
+      const tempScaler = (scaler / 2 - 0.005);
       for (let i = 0; i < length; i++) {
         pageComponents.push(
           <Page
-            className="mr-4 mb-10"
+            className="mr-4 mb-10 w-1/5"
             key={i}
             pageNumber={startIndex + i}
-            width={width / 2}
+            width={width * tempScaler}
             renderAnnotationLayer={false}
-            scale={scale}
           />
         );
       }
@@ -816,15 +829,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     case 2: {
       const section = toc[tocIndex.section];
       const subsection = section.subsections[tocIndex.subsection];
+      const tempScaler = (scaler / 2 - 0.005);
       for (const page of subsection.page) {
         pageComponents.push(
           <Page
-            className="mr-4 mb-10"
+            className="mr-4 mb-10 w-3/5"
             key={page}
             pageNumber={page}
-            width={width / 2}
+            width={width * tempScaler}
             renderAnnotationLayer={false}
-            scale={scale}
           />
         );
       }
@@ -834,7 +847,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
+      <div style={{ maxWidth: '100%', position: 'relative' }} ref={viewerRef}>
         <Document
           className="grid grid-cols-2"
           file={pdfUrl}
@@ -846,8 +859,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         </Document>
         <canvas
           ref={canvasRef}
-          width={width}
-          height={height}
+          width={width * scaler}
+          height={height * scaler}
           style={{
             position: 'absolute',
             top: 0,
@@ -859,11 +872,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           }}
         />
         <div style={{ marginTop: '10px', textAlign: 'center', zIndex: 2, position: 'relative' }}>
-          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '10px' }}>
+          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '1%' }}>
             Previous
           </button>
           <button
             onClick={goToNextPage}
+            style={{ marginRight: '30%' }}
             disabled={
               gridMode === 0 ? pageNumber >= numPages :
               gridMode === 1 ? tocIndex.section >= toc.length - 1 :
@@ -871,18 +885,10 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             }>
             Next
           </button>
+          <button onClick={handleSave}>
+            Save
+          </button>
         </div>
-        <button
-          onClick={handleSave}
-          style={{
-            position: 'absolute',
-            bottom: '2px',
-            right: '-25px',
-            zIndex: 2,
-          }}
-        >
-          Save
-        </button>
       </div>
     </div>
   );
