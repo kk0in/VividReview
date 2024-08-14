@@ -8,8 +8,6 @@ from google.cloud import speech
 from typing import Any, List, Dict
 from fastapi.responses import StreamingResponse
 
-from pydantic import BaseModel
-
 import zipfile
 import shutil
 import json
@@ -590,17 +588,9 @@ async def lasso_transform(project_id: int, page_num: int, lasso_id: int, version
 
     return {"message": f"Lasso answer transformed successfully. Version: {version_count}"}
 
-class Lasso_Query_Data(BaseModel):
-    project_id: int
-    page_num: int
-    prompt_text: str
-    image_url: str
-    bbox: List[float]
-    cur_lasso_id: int | None
 
 @app.post("/api/lasso_query/")
-async def lasso_query(data: Lasso_Query_Data):
-    project_id, page_num, prompt_text, image_url, bbox, cur_lasso_id = data.project_id, data.page_num, data.prompt_text, data.image_url, data.bbox, data.cur_lasso_id
+async def lasso_query(project_id: int, page_num: int, prompt_text: str, image_url: str, bbox: list, cur_lasso_id: int):
     # 이미지 저장 경로 설정
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     lasso_id = cur_lasso_id if cur_lasso_id else issue_lasso_id(project_id, page_num)
