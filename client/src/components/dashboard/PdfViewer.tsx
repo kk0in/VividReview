@@ -13,6 +13,7 @@ import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
 import { lassoState, Lasso, defaultPrompts } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery } from "@/utils/api";
+import "./Lasso.css";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -901,21 +902,40 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     return (
       <>
         <ul
+          className="prompt-list"
           style={{
             position: "absolute",
             top: clickedLasso.boundingBox.y,
             left: clickedLasso.boundingBox.x,
             color: "black",
+            background: "gray",
             zIndex: 0,
           }}
         >
           {prompts.map((prompt, idx) => {
             return (
-              <li key={idx} onClick={handlePrompt(prompt.prompt, idx)}>{prompt.prompt}</li>
+              <li
+                key={idx}
+                onClick={handlePrompt(prompt.prompt, idx)}
+                style={{
+                  display: "inline",
+                }}
+              >{prompt.prompt}</li>
             )
           })}
-          {!addPrompt && <li key={-1} onClick={handleAddPrompt}>+</li>}
-          {addPrompt && <li key={-1}>
+          {!addPrompt && <li
+            key={-1}
+            onClick={handleAddPrompt}
+            style={{
+              display: "inline",
+            }}
+          >+</li>}
+          {addPrompt && <li
+            key={-1}
+            style={{
+              display: "inline",
+            }}
+          >
             <input
               type="text"
               value=""
