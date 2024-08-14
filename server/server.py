@@ -1,7 +1,8 @@
 from fastapi import FastAPI, UploadFile, Form, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-
+from hume import HumeBatchClient
+from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
 
@@ -237,7 +238,6 @@ def bbox_api_request(script_segment, encoded_image):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
 
-
 async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
     for i, encoded_image in enumerate(encoded_images):
         page_number = str(i + 1)
@@ -319,6 +319,42 @@ async def create_spm(script_content, encoded_images):
 
     return script_data
 
+async def prosodic_analysis(project_id):
+    recording_path = f"{RECORDING}/{project_id}_recording.mp3"
+    prosody_file_path = f"{RECORDING}/{project_id}_prosody_predictions.json"
+    
+    client = HumeBatchClient(hume_api_key)
+    filepaths = [
+        recording_path
+    ]
+
+    # 음성 분석을 위한 설정을 구성합니다. 필요한 설정을 선택하세요.
+    # language_config = LanguageConfig()  # 언어 감정 분석
+    prosody_config = ProsodyConfig()    # 억양, 음조 분석
+
+    # 작업을 제출합니다.
+    job = client.submit_job(None, [prosody_config], files=filepaths)
+
+    print(job)
+    print("Running...")
+
+    # 작업이 완료될 때까지 대기하고, 결과를 다운로드합니다.
+    details = job.await_complete()
+    job.download_predictions(prosody_file_path)
+    print("Predictions downloaded to predictions.json")
+
+    with open(prosody_file_path, 'r') as file:
+        data = json.load(file)
+    
+    prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
+
+    for segment in prosodic_data:
+        total_score = sum(item["score"] for item in segment['emotions'])
+        for item in segment['emotions']:
+            item["relative_score"] = item["score"] / total_score    
+
+    with open(prosody_file_path, 'w') as file:
+        json.dump(data, file, indent=4)
 
 async def create_lasso_answer(prompt_text, script_content, encoded_image):
     headers = {
@@ -678,7 +714,10 @@ async def activate_review(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
     
     # Phase 3: Prosodic Analysis
-    
+    try:
+        await prosodic_analysis(project_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during prosodic analysis: {e}")
 
     # Time Stamping for matched paragraphs (temporal)
     output = timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp)
