@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ReactHTMLElement } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
-import { useRecoilState } from "recoil";
+import { useRecoilState, useRecoilTransactionObserver_UNSTABLE, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
+import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode, matchedParagraphsState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
@@ -83,7 +84,10 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
 }
 
 function ReviewPage({ projectId }: { projectId: string }) {
-  const [page, ] = useRecoilState(pdfPageState);
+  const page = useRecoilValue(pdfPageState);
+  const gridMode = useRecoilValue(gridModeState);
+  const toc = useRecoilValue(tocState);
+  const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
 
   const fetchMatchedParagraphs = async () => {
@@ -100,11 +104,44 @@ function ReviewPage({ projectId }: { projectId: string }) {
     fetchMatchedParagraphs();
   }, []);
 
-  let paragraph = "";
+  const pages: number[] = [];
+  switch (gridMode) {
+    case 0: {
+      pages.push(page);
+      break;
+    }
+
+    case 1: {
+      const section = toc[tocIndex.section];
+      const startSubSection = section.subsections[0];
+      const endSubSection = section.subsections[section.subsections.length - 1];
+      const startIndex = startSubSection.page[0];
+      const endIndex = endSubSection.page[endSubSection.page.length - 1];
+      const length = endIndex - startIndex + 1
+      for (let i = 0; i < length; i++) {
+        pages.push(startIndex + i);
+      }
+      break;
+    }
+
+    case 2: {
+      const section = toc[tocIndex.section];
+      const subsection = section.subsections[tocIndex.subsection];
+      for (const page of subsection.page) {
+        pages.push(page);
+      }
+      break;
+    }
+  }
+
+  const paragraph = [];
   if (paragraphs) {
-    for (const [key, value] of Object.entries(paragraphs)) {
-      if (key === page.toString()) {
-        paragraph = value;
+    for (const page of pages) {
+      for (const [key, value] of Object.entries(paragraphs)) {
+        if (key === page.toString()) {
+          paragraph.push(<p className="font-bold">Page {key} -</p>);
+          paragraph.push(<p className="mb-2">{value}</p>);
+        }
       }
     }
   }
@@ -112,7 +149,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   return (
     <div className="flex-none w-1/5 bg-gray-50">
       <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-3 font-bold">
-        Script
+        Original
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
         {paragraph}
