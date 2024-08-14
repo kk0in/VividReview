@@ -1,9 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { useRecoilState } from 'recoil';
-import { Disclosure, Menu, Transition } from '@headlessui/react';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
 import {
   FaPencilAlt,
   FaEraser,
@@ -16,11 +14,14 @@ import {
   FaMicrophone,
   FaPlay,
   FaStepForward,
-  FaStepBackward } from 'react-icons/fa';
+  FaStepBackward,
+  FaPause
+} from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
+import { Player, playerState, audioTimeState, audioDurationState } from '@/app/recoil/LectureAudioState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -32,20 +33,43 @@ function classNames(...classes: string[]) {
 }
 
 function ReviewAppBar() {
+  const [ lecturePlayerState, setLecturePlayer ] = useRecoilState(playerState);
+  const setAudioTime = useSetRecoilState(audioTimeState);
+  const audioDuration = useRecoilValue(audioDurationState);
+
+  const handleBackward = () => {
+    setAudioTime((prev) => prev >= 5 ? prev - 5 : 0);
+  };
+
+  const handlePlay = () => {
+    setLecturePlayer(Player.PLAY);
+  };
+
+  const handlePause = () => {
+    setLecturePlayer(Player.PAUSE);
+  };
+
+  const handleForward = () => {
+    setAudioTime((prev) => prev + 5 <= audioDuration ? prev + 5 : audioDuration);
+  };
+
   const icons = [
-    { name: 'backward', icon: FaStepBackward, action: 'backward' },
-    { name: 'play', icon: FaPlay, action: 'play' },
-    { name: 'forward', icon: FaStepForward, action: 'forward' },
+    { name: 'backward', icon: FaStepBackward, action: handleBackward },
+    (lecturePlayerState === Player.PAUSE ?
+      { name: 'play', icon: FaPlay, action: handlePlay } :
+      { name: 'pause', icon: FaPause, action: handlePause }
+    ),
+    { name: 'forward', icon: FaStepForward, action: handleForward },
   ];
 
   return (
     <div className="flex justify-end space-x-4 w-1/5 border-l-4 ml-4 border-dotted border-white-100">
-      {icons.map(({ name, icon: Icon }) => {
+      {icons.map(({ name, icon: Icon, action }) => {
         return (
           <Icon
             key={name}
             className={'h-6 w-6 cursor-pointer transition-colors duration-300 text-white'}
-            onClick={() => {console.log(name)}}
+            onClick={action}
           />
         );
       })}
