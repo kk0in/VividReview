@@ -574,6 +574,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         lassoExists.current = false;
         lassoBox.current = {x1: null, y1: null, x2: null, y2: null};
         context.clearRect(0, 0, canvas.width, canvas.height);
+        setClickedLasso(null);
       }
 
       const handleMouseDown = (event: MouseEvent) => {
@@ -868,32 +869,38 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     }
   }
 
-  const PromptList = () => { // TODO
+  const PromptList = () => {
     if (!clickedLasso) return <></>;
 
     const prompts = clickedLasso.prompts;
-    console.log(prompts);
 
     const boxToArray = (lassoBox: {x: number, y: number, width: number, height: number}) => {
       return [lassoBox.x, lassoBox.y, lassoBox.width, lassoBox.height];
     }
 
-    const handlePrompt = (prompt: string, idx: number) => async () => {
+    const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
+      e.preventDefault();
+      console.log("handlePrompt");
       const response = await lassoQuery(projectId, pageNumber, prompt, getImage(clickedLasso.boundingBox), boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response];
     }
 
-    const handleAddPrompt = () => {
+    const handleAddPrompt = (e: React.MouseEvent) => {
+      e.preventDefault();
+      console.log("handleAddPrompt");
       setAddPrompt(true);
     }
 
     const handleNewPrompt = () => {
+      console.log("handleNewPrompt");
       const newLasso = {...clickedLasso};
       newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
       setClickedLasso(newLasso);
       const newLassoRec = {...lassoRec};
-      lassoRec[projectId][pageNumber][lassoRec[projectId][pageNumber].length - 1] = newLasso;
+      newLassoRec[projectId] = {...lassoRec[projectId]};
+      newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber]];
+      newLassoRec[projectId][pageNumber][newLassoRec[projectId][pageNumber].length - 1] = newLasso;
       setLassoRec(newLassoRec);
       setAddPrompt(false);
       setNewPrompt("");
@@ -903,13 +910,14 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       <>
         <ul
           className="prompt-list"
+          key="prompt-list"
           style={{
             position: "absolute",
             top: clickedLasso.boundingBox.y,
             left: clickedLasso.boundingBox.x,
             color: "black",
             background: "gray",
-            zIndex: 0,
+            zIndex: 2,
           }}
         >
           {prompts.map((prompt, idx) => {
@@ -938,7 +946,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           >
             <input
               type="text"
-              value=""
+              autoFocus
+              value={newPrompt}
               onChange={(e) => setNewPrompt(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
