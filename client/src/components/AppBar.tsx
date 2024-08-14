@@ -229,7 +229,7 @@ export default function AppBar() {
             </div>
           )}
           {
-            (viewerMode === ViewerMode.REVIEW) && <ReviewAppBar />
+            (isViewerPage && viewerMode === ViewerMode.REVIEW) && <ReviewAppBar />
           }
         </div>
       </div>
