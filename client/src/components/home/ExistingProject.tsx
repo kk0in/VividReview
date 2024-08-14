@@ -4,12 +4,16 @@ import React, { useState, Fragment, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 
-import { getProjectList, deleteProject, getMatchParagraphs } from "@/utils/api";
+import { getProjectList, deleteProject, getMatchParagraphs, activateReview } from "@/utils/api";
 import { ArrowUturnLeftIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSetRecoilState } from "recoil";
 import {
   pdfDataState,
 } from "@/app/recoil/DataState";
+import {
+  modeState,
+  ViewerMode,
+} from "@/app/recoil/ViewerState";
 import { Listbox, Dialog, Transition } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 
@@ -18,6 +22,7 @@ const ExistingProject: React.FC = () => {
   const queryClient = useQueryClient();
   const setPdfData = useSetRecoilState(pdfDataState);
   const [activationAvailable, setActivationAvailable] = useState([]);
+  const setViewerMode = useSetRecoilState(modeState);
 
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
@@ -68,7 +73,7 @@ const ExistingProject: React.FC = () => {
 
   useEffect(() => {
     setActivationAvailable([]);
-    filteredProjects.forEach(async (project: any) => {
+    filteredProjects?.forEach(async (project: any) => {
       try {
         const data = await getMatchParagraphs({ queryKey: ["getMatchParagraphs", project.id] });
         if (data) {
@@ -259,9 +264,7 @@ const ExistingProject: React.FC = () => {
                                     href={`/viewer/${project.id}`}
                                     className="rounded-md items-center justify-center text-slate-500 gap-3 bg-white border border-slate-200 px-2 py-2 text-sm shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
                                     onClick={() => {
-                                      setCSVData([]);
-                                      setVideoData("");
-                                      setKeypointData(null);
+                                      setViewerMode(ViewerMode.DEFAULT);
                                     }}
                                   >
                                     Go to Lecture mode
@@ -276,9 +279,7 @@ const ExistingProject: React.FC = () => {
                                     href={`/viewer/${project.id}`}
                                     className="rounded-md items-center justify-center text-slate-500 gap-3 bg-white border border-slate-200 px-2 py-2 text-sm shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-slate-300"
                                     onClick={() => {
-                                      setCSVData([]);
-                                      setVideoData("");
-                                      setKeypointData(null);
+                                      setViewerMode(ViewerMode.REVIEW);
                                     }}
                                   >
                                     Go to Review mode
@@ -287,7 +288,7 @@ const ExistingProject: React.FC = () => {
                                   <button
                                     className="rounded-md items-center justify-center text-white bg-blue-500 hover:bg-blue-600 px-2 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                                     onClick={() => {
-                                      // 활성화 로직을 여기에 추가하세요.
+                                      activateReview(project.id);
                                     }}
                                   >
                                     Activation
