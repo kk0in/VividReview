@@ -880,7 +880,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
       e.preventDefault();
-      console.log("handlePrompt");
       const response = await lassoQuery(projectId, pageNumber, prompt, getImage(clickedLasso.boundingBox), boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response];
@@ -888,12 +887,10 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     const handleAddPrompt = (e: React.MouseEvent) => {
       e.preventDefault();
-      console.log("handleAddPrompt");
       setAddPrompt(true);
     }
 
     const handleNewPrompt = () => {
-      console.log("handleNewPrompt");
       const newLasso = {...clickedLasso};
       newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
       setClickedLasso(newLasso);
