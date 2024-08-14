@@ -684,7 +684,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber], {boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts}];
             setLassoRec(newLassoRec);
 
-            setClickedLasso({boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: []});
+            setClickedLasso({boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts});
             
             return;
           }
@@ -744,7 +744,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               capturedLayers.current.push(layer.id);
             }
           }           
-          console.log('capturedLayers.current', capturedLayers.current);
         }
 
         isLassoDrawing.current = false;
@@ -872,6 +871,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     if (!clickedLasso) return <></>;
 
     const prompts = clickedLasso.prompts;
+    console.log(prompts);
 
     const boxToArray = (lassoBox: {x: number, y: number, width: number, height: number}) => {
       return [lassoBox.x, lassoBox.y, lassoBox.width, lassoBox.height];
