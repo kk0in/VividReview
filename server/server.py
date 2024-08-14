@@ -27,10 +27,12 @@ from openai import OpenAI
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
-api_key = "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"
+GPT_MODEL = "gpt-4o"
+gpt_api_key = "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"
+hume_api_key = "hCcXf3mVNMtVtNvAO9oz60drAywtf4qsHSVArsg2KFij5LvT"
 
 executor = ThreadPoolExecutor(10)
-client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=gpt_api_key)
 
 origins = [
     "*"
@@ -188,7 +190,7 @@ def get_filename(id):
 def bbox_api_request(script_segment, encoded_image):    
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     content = [
@@ -217,7 +219,7 @@ def bbox_api_request(script_segment, encoded_image):
     ]
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -264,7 +266,7 @@ async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
 async def create_spm(script_content, encoded_images):
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     content = [
@@ -285,7 +287,7 @@ async def create_spm(script_content, encoded_images):
     ] + encoded_images
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -321,7 +323,7 @@ async def create_spm(script_content, encoded_images):
 async def create_lasso_answer(prompt_text, script_content, encoded_image):
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # Creating the content for the messages
@@ -340,7 +342,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
 
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -386,7 +388,7 @@ async def transform_lasso_answer(lasso_answer, transform_type):
     
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # 변환 타입에 따른 프롬프트 생성
@@ -410,7 +412,7 @@ async def transform_lasso_answer(lasso_answer, transform_type):
 
     # OpenAI GPT-4 API 요청 준비
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "messages": [
             {
                 "role": "system",
@@ -674,6 +676,9 @@ async def activate_review(project_id: int):
         await create_bbox(bbox_dir, matched_paragraphs, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
+    
+    # Phase 3: Prosodic Analysis
+    
 
     # Time Stamping for matched paragraphs (temporal)
     output = timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp)
@@ -758,7 +763,27 @@ async def get_bbox(project_id: int, page_num: int):
         raise HTTPException(status_code=500, detail=f"Error reading bbox file: {e}")
 
     return bbox_data
+
+@app.get('/api/get_recording/{project_id}', status_code=200)    
+async def get_recording(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 녹음 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 녹음 파일을 찾아 FileResponse 객체로 반환합니다.
     
+    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
+    """
+    
+    recording_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.mp3')]
+
+    if not recording_file:
+        raise HTTPException(status_code=404, detail="Recording file not found")
+    
+    if len(recording_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple recording files found")
+    else:
+        return FileResponse(os.path.join(RECORDING, recording_file[0]))
+
+
 @app.post('/api/save_recording/{project_id}', status_code=200)
 async def save_recording(project_id: int, recording: UploadFile = File(...)):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
@@ -1049,7 +1074,7 @@ async def create_toc(project_id: int, image_dir: str):
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # Creating the content for the messages
@@ -1064,7 +1089,7 @@ async def create_toc(project_id: int, image_dir: str):
             )}] + encoded_images
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
