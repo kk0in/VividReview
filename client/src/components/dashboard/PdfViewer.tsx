@@ -11,9 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
-import { lassoState, Lasso, defaultPrompts } from "@/app/recoil/LassoState";
-import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery } from "@/utils/api";
-import "./Lasso.css";
+import { saveAnnotatedPdf, getPdf, saveRecording} from "@/utils/api";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -34,16 +32,12 @@ export type CanvasLayer = {
 
 const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
-  const [clickedLasso, setClickedLasso] = useState<Lasso | null>(null);
   const [pageNumber, setPageNumber] = useRecoilState(pdfPageState);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [toc, ] = useRecoilState(tocState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
-  const [lassoRec, setLassoRec] = useRecoilState(lassoState);
-  const [addPrompt, setAddPrompt] = useState<boolean>(false);
-  const [newPrompt, setNewPrompt] = useState<string>("");
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,7 +50,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
   const isDragging = useRef(false);
-  const actuallyDragged = useRef(false);
   const lassoBox = useRef<{x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}>({x1: null, y1: null, x2: null, y2: null});
   const dragOffset = useRef<{x: number, y: number} | null>(null);
   const capturedLayers = useRef<number[]>([]);
@@ -87,7 +80,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     console.log("pdf locked");
   };
 
-  const findToCIndex = useCallback((page: number) => {
+  const findToCIndex = (page: number) => {
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
@@ -100,9 +93,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     console.log("No ToC index found for page: ", page);
     return null;
-  }, [toc])
+  }
 
-  const goToNextPage = useCallback(() => {
+  const goToNextPage = () => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.min(pageNumber + 1, numPages);
@@ -133,9 +126,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+  };
 
-  const goToPreviousPage = useCallback(() => {
+  const goToPreviousPage = () => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.max(pageNumber - 1, 1);
@@ -167,7 +160,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+  };
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
@@ -238,7 +231,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         viewer.removeEventListener("touchmove", handleTouchMove);
       }
     };
-  }, [goToNextPage, goToPreviousPage, numPages]);
+  }, [goToNextPage, numPages]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -392,38 +385,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     }
   }, [makeNewCanvas, pageNumber, projectId]);
 
-  const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
-    const x = lassoBox.x;
-    const y = lassoBox.y;
-    const w = lassoBox.width;
-    const h = lassoBox.height;
-    const canvas = canvasRef.current;
-    if (!canvas) return "";
-    const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
-    const tmpCanvas = document.createElement("canvas");
-    tmpCanvas.width = w;
-    tmpCanvas.height = h;
-    const tmpContext = tmpCanvas.getContext("2d");
-    if (tmpContext) {
-      tmpContext.imageSmoothingEnabled = false;
-      tmpContext.clearRect(0, 0, w, h);
-      for (let l = 1; l <= numLayers; l++) {
-        const drawingLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${l}`);
-        if (drawingLayer) {
-          const img = new Image();
-          img.src = drawingLayer;
-          img.onload = () => {
-            tmpContext.drawImage(img, x, y, w, h, 0, 0, w, h);
-            if (l === numLayers){
-              return tmpCanvas.toDataURL();
-            }
-          }; 
-        }
-      }
-    }
-    return "";
-  }
-
   useEffect(() => {
     const handleUndoCanvas = (event: {detail: CanvasLayer[]}) => {
       console.log("handleUndoCanvas");
@@ -469,36 +430,15 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     };
   }, [pageNumber, projectId]);
 
-  const handleSave = async () => {
+  const handleSave = async () => { // toFix
     const canvas = canvasRef.current;
     if (canvas) {
       try {
         const drawings: Record<number, string> = {};
         for (let i = 1; i <= numPages; i++) {
-          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
-          console.log('numLayers', numLayers);
-          const tmpCanvas = document.createElement("canvas");
-          tmpCanvas.width = canvas.width;
-          tmpCanvas.height = canvas.height;
-          const tmpContext = tmpCanvas.getContext("2d");
-          if (tmpContext) {
-            tmpContext.imageSmoothingEnabled = false;
-            tmpContext.clearRect(0, 0, canvas.width, canvas.height);
-            for (let l = 1; l <= numLayers; l++) {
-              const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
-              if (drawingLayer) {
-                const img = new Image();
-                img.src = drawingLayer;
-                img.onload = () => {
-                  tmpContext.drawImage(img, 0, 0);
-                  if (l === numLayers){
-                    console.log("hello!");
-                    drawings[i] = tmpCanvas.toDataURL();
-                    console.log(drawings[i]);
-                  }
-                }; 
-              }
-            }
+          const drawingData = localStorage.getItem(`drawings_${projectId}_${i}`);
+          if (drawingData) {
+            drawings[i] = drawingData;
           }
         }
         await saveAnnotatedPdf(projectId, drawings, numPages);
@@ -507,6 +447,21 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         console.error("Failed to save annotated PDF:", error);
       }
     }
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    setRedoStack((prev) => [...prev, previous]);
+    setHistory((prev) => prev.slice(0, -1));
+    const lastDrawing = history.length > 1 ? history[history.length - 2] : [];
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setHistory((prev) => [...prev, next]);
+    setRedoStack((prev) => prev.slice(0, -1));
   };
 
   useEffect(() => {
@@ -574,7 +529,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         lassoExists.current = false;
         lassoBox.current = {x1: null, y1: null, x2: null, y2: null};
         context.clearRect(0, 0, canvas.width, canvas.height);
-        setClickedLasso(null);
       }
 
       const handleMouseDown = (event: MouseEvent) => {
@@ -597,6 +551,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             context.strokeStyle = "black";
             context.lineWidth = 1;
           } else {
+            localStorage.setItem(`drawings_${projectId}_${pageNumber}_0`, canvas.toDataURL());
             dragOffset.current = {
               x: x,
               y: y,
@@ -613,7 +568,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               }
             })
             isDragging.current = true;
-            actuallyDragged.current = false;
           }
         } else if (!lassoExists.current) {
           isLassoDrawing.current = true;
@@ -652,7 +606,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   
       const handleMouseMove = (event: MouseEvent) => {
         if (isDragging.current) {
-          actuallyDragged.current = true;
           handleLassoDragMove(event);
           return;
         }
@@ -671,27 +624,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   
       const handleMouseUp = (event: MouseEvent) => {
         if (isDragging.current) {
-          isDragging.current = false;
-
-          if (!actuallyDragged.current) {
-            // lasso exists and clicked inside lasso
-            const newLassoRec = {...lassoRec};
-
-            if (!newLassoRec[projectId]){
-              newLassoRec[projectId] = {};
-            } else newLassoRec[projectId] = {...lassoRec[projectId]};
-            if (!newLassoRec[projectId][pageNumber]){
-              newLassoRec[projectId][pageNumber] = [];
-            }
-            newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber], {boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts}];
-            setLassoRec(newLassoRec);
-
-            setClickedLasso({boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts});
-            
-            return;
-          }
-          actuallyDragged.current = false;
-
           const capturedList = capturedLayers.current;
 
           const rect = canvas.getBoundingClientRect();
@@ -703,6 +635,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const newX = x - (dragOffset.current?.x ?? 0);
           const newY = y - (dragOffset.current?.y ?? 0);
 
+          isDragging.current = false;
           dragOffset.current = null;
           lassoBox.current = slideBox(lassoBox.current, newX, newY);
           slideCanvas(canvas, newX, newY);
@@ -730,8 +663,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         const scaleY = canvas.height / rect.height;
         const x = (event.clientX - rect.left) * scaleX;
         const y = (event.clientY - rect.top) * scaleY;
-        
-        lassoBox.current = {x1: lassoBox.current.x1, y1: lassoBox.current.y1, x2: x, y2: y};
+  
         context.clearRect(0, 0, canvas.width, canvas.height);
         nullfreeStrokerect(context, lassoBox.current);
   
@@ -746,6 +678,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               capturedLayers.current.push(layer.id);
             }
           }           
+          console.log('capturedLayers.current', capturedLayers.current);
         }
 
         isLassoDrawing.current = false;
@@ -755,6 +688,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         if (!dragOffset.current || !lassoBox.current.x2 ) return;
 
         const capturedList = capturedLayers.current;
+        console.log('capturedList', capturedList);
   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -782,20 +716,49 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         }
       };
   
+      const handleCanvasClick = (event: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+  
+        if (lassoExists.current && !isPointInPath(lassoBox.current, x, y)) {
+          clearLasso();
+        }
+      };
+  
       canvas.addEventListener("mousedown", handleMouseDown);
       canvas.addEventListener("mousemove", handleMouseMove);
       canvas.addEventListener("mouseup", handleMouseUp);
       canvas.addEventListener("mouseleave", handleMouseUp);
+      // canvas.addEventListener("click", handleCanvasClick);
   
       return () => {
         canvas.removeEventListener("mousedown", handleMouseDown);
         canvas.removeEventListener("mousemove", handleMouseMove);
         canvas.removeEventListener("mouseup", handleMouseUp);
         canvas.removeEventListener("mouseleave", handleMouseUp);
+        // canvas.removeEventListener("click", handleCanvasClick);
       };
     }
-  }, [selectedTool, projectId, pageNumber, setHistory, makeNewCanvas, lassoRec, setLassoRec]);  
-
+  }, [selectedTool, projectId, pageNumber, setHistory]);  
+  
+  
+  const getBoundingBox = (path: { x: number; y: number }[]) => {
+    const xValues = path.map(point => point.x);
+    const yValues = path.map(point => point.y);
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    return {
+      x: xMin,
+      y: yMin,
+      width: xMax - xMin,
+      height: yMax - yMin,
+    };
+  };
 
   const isPointInPath = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}, x: number, y: number) => {
     if (!box.x1 || !box.y1 || !box.x2 || !box.y2) return false;
@@ -869,95 +832,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     }
   }
 
-  const PromptList = () => {
-    if (!clickedLasso) return <></>;
-
-    const prompts = clickedLasso.prompts;
-
-    const boxToArray = (lassoBox: {x: number, y: number, width: number, height: number}) => {
-      return [lassoBox.x, lassoBox.y, lassoBox.width, lassoBox.height];
-    }
-
-    const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
-      e.preventDefault();
-      const response = await lassoQuery(projectId, pageNumber, prompt, getImage(clickedLasso.boundingBox), boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
-      const newLasso = {...clickedLasso};
-      newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response];
-    }
-
-    const handleAddPrompt = (e: React.MouseEvent) => {
-      e.preventDefault();
-      setAddPrompt(true);
-    }
-
-    const handleNewPrompt = () => {
-      const newLasso = {...clickedLasso};
-      newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
-      setClickedLasso(newLasso);
-      const newLassoRec = {...lassoRec};
-      newLassoRec[projectId] = {...lassoRec[projectId]};
-      newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber]];
-      newLassoRec[projectId][pageNumber][newLassoRec[projectId][pageNumber].length - 1] = newLasso;
-      setLassoRec(newLassoRec);
-      setAddPrompt(false);
-      setNewPrompt("");
-    }
-
-    return (
-      <>
-        <ul
-          className="prompt-list"
-          key="prompt-list"
-          style={{
-            position: "absolute",
-            top: clickedLasso.boundingBox.y,
-            left: clickedLasso.boundingBox.x,
-            color: "black",
-            background: "gray",
-            zIndex: 2,
-          }}
-        >
-          {prompts.map((prompt, idx) => {
-            return (
-              <li
-                key={idx}
-                onClick={handlePrompt(prompt.prompt, idx)}
-                style={{
-                  display: "inline",
-                }}
-              >{prompt.prompt}</li>
-            )
-          })}
-          {!addPrompt && <li
-            key={-1}
-            onClick={handleAddPrompt}
-            style={{
-              display: "inline",
-            }}
-          >+</li>}
-          {addPrompt && <li
-            key={-1}
-            style={{
-              display: "inline",
-            }}
-          >
-            <input
-              type="text"
-              autoFocus
-              value={newPrompt}
-              onChange={(e) => setNewPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleNewPrompt();
-                }
-              }}  
-            />
-          </li>}
-        </ul>
-      </>
-    )
-  }
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
       <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
@@ -1009,9 +883,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         >
           Save
         </button>
-        {clickedLasso !== null && (
-          <PromptList/>
-        )}
       </div>
     </div>
   );

@@ -179,6 +179,16 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   );
 
+  useEffect(() => {
+    refetch();
+  }, []);
+
+  useEffect(() => {
+    if (data?.project?.done) {
+      refetchPdf();
+    }
+  }, [data]);
+
   const { refetch: refetchPdf, isLoading: loadingPdf } = useQuery(
     ["pdfData", params.id],
     getPdf,
@@ -203,7 +213,7 @@ export default function Page({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchTableOfContents();
-  }, [params.id, setTableOfContents]);
+  }, []);
 
   const buildTableOfContents = (tocData: any) => {
     const toc = [];
