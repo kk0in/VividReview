@@ -5,7 +5,12 @@ type Prompt = {
   answers: string[];
 }
 
-type Lasso = {
+export const defaultPrompts: Prompt[] = [
+  {prompt: "summarize", answers: []},
+  {prompt: "translate to korean", answers: []}
+]
+
+export type Lasso = {
   boundingBox: {
     x: number;
     y: number;
