@@ -154,3 +154,16 @@ export async function deleteProject(projectId: string) {
     const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);
     return response.data;
 }
+
+export async function lassoQuery(projectId: string, pageNumber: number, prompt: string, image: string, boundingBox: number[], lassoId: number | null) {
+    const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_query/`, {
+      project_id: projectId,
+      page_num: pageNumber,
+      prompt_text: prompt,
+      image_url: image,
+      bbox: boundingBox,
+      cur_lasso_id: lassoId
+    });
+
+    return response.data;
+}
