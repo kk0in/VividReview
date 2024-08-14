@@ -4,7 +4,7 @@ import React, { useState, Fragment, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 
-import { getProjectList, deleteProject } from "@/utils/api";
+import { getProjectList, deleteProject, getMatchParagraphs } from "@/utils/api";
 import { ArrowUturnLeftIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSetRecoilState } from "recoil";
 import {
@@ -17,6 +17,7 @@ import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 const ExistingProject: React.FC = () => {
   const queryClient = useQueryClient();
   const setPdfData = useSetRecoilState(pdfDataState);
+  const [activationAvailable, setActivationAvailable] = useState([]);
 
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
@@ -64,6 +65,21 @@ const ExistingProject: React.FC = () => {
     // console.log(filteredProjects);
 
   }, [selecteduserID, selectedInsertDate, projectListData?.projects]);
+
+  useEffect(() => {
+    setActivationAvailable([]);
+    filteredProjects.forEach(async (project: any) => {
+      try {
+        const data = await getMatchParagraphs({ queryKey: ["getMatchParagraphs", project.id] });
+        if (data) {
+          activationAvailable.push(project.id);
+          setActivationAvailable(activationAvailable);
+        }
+      } catch (error) {
+        console.error("Failed to fetch paragraphs:", error);
+      }
+    });
+  }, [filteredProjects]);
 
   return (
     <>
@@ -248,7 +264,7 @@ const ExistingProject: React.FC = () => {
                                       setKeypointData(null);
                                     }}
                                   >
-                                    Go to Dashboard
+                                    Go to Lecture mode
                                   </Link>
                                 ) : (
                                   "NOT DONE"
@@ -265,9 +281,9 @@ const ExistingProject: React.FC = () => {
                                       setKeypointData(null);
                                     }}
                                   >
-                                    Go to Dashboard
+                                    Go to Review mode
                                   </Link>
-                                ) : (
+                                ) : activationAvailable.includes(project.id) ? (
                                   <button
                                     className="rounded-md items-center justify-center text-white bg-blue-500 hover:bg-blue-600 px-2 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                                     onClick={() => {
@@ -276,6 +292,8 @@ const ExistingProject: React.FC = () => {
                                   >
                                     Activation
                                   </button>
+                                ) : (
+                                  "NOT AVAILABLE"
                                 )}
                               </td>
                               <td className="border-b border-slate-100 dark:border-slate-700 p-4 pl-6 text-slate-500 dark:text-slate-400">
