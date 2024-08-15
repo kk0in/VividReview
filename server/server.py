@@ -25,6 +25,7 @@ from pdf2image import convert_from_path
 import requests
 import re
 from openai import OpenAI
+import math
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
@@ -348,10 +349,14 @@ async def prosodic_analysis(project_id):
     
     prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
 
+    # 각 segment에 대해 softmax를 적용하여 "relative_score" 계산 및 추가
     for segment in prosodic_data:
-        total_score = sum(item["score"] for item in segment['emotions'])
-        for item in segment['emotions']:
-            item["relative_score"] = item["score"] / total_score    
+        scores = [item["score"] for item in segment['emotions']]
+        exp_scores = [math.exp(score) for score in scores]
+        sum_exp_scores = sum(exp_scores)
+    
+    for item, exp_score in zip(segment['emotions'], exp_scores):
+        item["relative_score"] = exp_score / sum_exp_scores     
 
     with open(prosody_file_path, 'w') as file:
         json.dump(data, file, indent=4)
