@@ -88,7 +88,7 @@ def read_script(script_path):
 
 def convert_webm_to_mp3(webm_path, mp3_path):
     try:
-        ffmpeg.input(webm_path).output(mp3_path).run()
+        ffmpeg.input(webm_path).output(mp3_path).run(overwrite_output=True)
     except ffmpeg.Error as e:
         print(f"ffmpeg error: {e.stderr}")
         raise Exception(f"Error message: {e}")
@@ -103,12 +103,14 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
     transcript1 = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
+        language="en"  
     )
 
     transcript2 = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
         response_format="verbose_json",
+        language="en",
         timestamp_granularities=["word"]
     )
 
