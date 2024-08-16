@@ -394,26 +394,36 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
     const pdfImage: HTMLCanvasElement | null = document.querySelector('.react-pdf__Page canvas');
     if (!pdfImage) return "";
-
-    const x = lassoBox.x;
-    const y = lassoBox.y;
-    const w = lassoBox.width;
-    const h = lassoBox.height;
     const canvas = canvasRef.current;
     if (!canvas){
       console.error("no canvas!");
       return "";
     }
+    const pdfRect = pdfImage.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+
+    const xScale = canvasRect.width / canvas.width / pdfRect.width * pdfImage.width;
+    const yScale = canvasRect.height / canvas.height / pdfRect.height * pdfImage.height;
+
+    const x = lassoBox.x;
+    const pdfx = x * xScale;
+    const y = lassoBox.y;
+    const pdfy = y * yScale
+    const w = lassoBox.width;
+    const pdfw = w * xScale;
+    const h = lassoBox.height;
+    const pdfh = h * yScale;
+
     const tmpCanvas = document.createElement("canvas");
-    tmpCanvas.width = w;
-    tmpCanvas.height = h;
+    tmpCanvas.width = canvasRect.width;
+    tmpCanvas.height = canvasRect.height;
     const tmpContext = tmpCanvas.getContext("2d");
     if (tmpContext) {
       tmpContext.imageSmoothingEnabled = false;
-      tmpContext.clearRect(0, 0, w, h);
-      tmpContext.drawImage(pdfImage, x, y, w, h, 0, 0, w, h);
+      tmpContext.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+      tmpContext.drawImage(pdfImage, pdfx, pdfy, pdfw, pdfh, 0, 0, tmpCanvas.width, tmpCanvas.height);
       for (const layer of drawingsRef.current) {
-        tmpContext.drawImage(layer.canvas, x, y, w, h, 0, 0, w, h);
+        tmpContext.drawImage(layer.canvas, x, y, w, h, 0, 0, tmpCanvas.width, tmpCanvas.height);
       }
     }
     return tmpCanvas.toDataURL();
@@ -876,6 +886,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
       e.preventDefault();
       const image = getImage(clickedLasso.boundingBox);
+      console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso, lassoId: response.lassoId};
       newLasso.prompts = {...clickedLasso.prompts};
@@ -901,6 +912,11 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       setNewPrompt("");
     }
 
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if(!rect || !canvasRef.current) return <></>;
+    const scaleX = canvasRef.current?.width / rect?.width;
+    const scaleY = canvasRef.current?.height / rect?.height;
+
     return (
       <>
         <ul
@@ -908,8 +924,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           key="prompt-list"
           style={{
             position: "absolute",
-            top: clickedLasso.boundingBox.y,
-            left: clickedLasso.boundingBox.x,
+            top: clickedLasso.boundingBox.y / scaleY,
+            left: clickedLasso.boundingBox.x / scaleX,
             color: "black",
             background: "gray",
             zIndex: 2,
