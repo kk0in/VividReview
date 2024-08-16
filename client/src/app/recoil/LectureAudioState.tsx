@@ -1,9 +1,9 @@
 import { atom } from "recoil";
 
-export enum Player {
-  PLAY,
-  PAUSE,
-  STOP,
+export enum PlayerState {
+  PLAYING,
+  PAUSED,
+  IDLE,
 };
 
 export const audioTimeState = atom<number>({
@@ -16,8 +16,7 @@ export const audioDurationState = atom<number>({
   default: 0,
 });
 
-
-export const playerState = atom<Player>({
+export const playerState = atom<PlayerState>({
   key: "playerState",
-  default: Player.PAUSE,
+  default: PlayerState.PAUSED,
 });

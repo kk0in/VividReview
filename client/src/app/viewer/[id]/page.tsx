@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
+import { audioTimeState, audioDurationState, playerState, PlayerState } from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -61,7 +62,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
     subtitles = (
       <ul>
         {subsections.map((subsection: IToCSubsection) => {
-          const element = (<SubSectionTitle sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
+          const element = (<SubSectionTitle key={index} sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
           subsectionIndex++;
           return element;
         })}
@@ -95,6 +96,11 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+  const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioSource, setAudioSource] = useState<string>("");
+  const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
+  const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const subTabs: TabProps[] = [
     {
@@ -138,6 +144,31 @@ function ReviewPage({ projectId }: { projectId: string }) {
   useEffect(() => {
     fetchMatchedParagraphs();
   }, []);
+
+  useEffect(() => {
+    if (audioRef.current === null) {
+      return;
+    }
+
+    switch (currentPlayerState) {
+      case PlayerState.PLAYING:
+        audioRef.current.src = 'http://localhost:3000/7_recording.mp3';
+        audioRef.current.currentTime = audioTime;
+        audioRef.current.play();
+        break;
+
+      case PlayerState.PAUSED:
+        audioRef.current.pause();
+        setAudioTime(audioRef.current.currentTime);
+        break;
+
+      case PlayerState.IDLE:
+        setAudioTime(0);
+        audioRef.current.src = '';
+        audioRef.current.pause();
+        break;
+    }
+  }, [currentPlayerState]);
 
   const pages: number[] = [];
   switch (gridMode) {
@@ -194,6 +225,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
           {paragraph}
         </div>
       </div>
+      <audio ref={audioRef} className="w-fit mt-4"/>
     </div>
   );
 }

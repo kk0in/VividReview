@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, createRef } from 'react';
 import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
 import {
   FaPencilAlt,
@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
-import { Player, playerState, audioTimeState, audioDurationState } from '@/app/recoil/LectureAudioState';
+import { PlayerState, playerState, audioTimeState, audioDurationState } from '@/app/recoil/LectureAudioState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -42,11 +42,11 @@ function ReviewAppBar() {
   };
 
   const handlePlay = () => {
-    setLecturePlayer(Player.PLAY);
+    setLecturePlayer(PlayerState.PLAYING);
   };
 
   const handlePause = () => {
-    setLecturePlayer(Player.PAUSE);
+    setLecturePlayer(PlayerState.PAUSED);
   };
 
   const handleForward = () => {
@@ -55,7 +55,7 @@ function ReviewAppBar() {
 
   const icons = [
     { name: 'backward', icon: FaStepBackward, action: handleBackward },
-    (lecturePlayerState === Player.PAUSE ?
+    (lecturePlayerState === PlayerState.PAUSED ?
       { name: 'play', icon: FaPlay, action: handlePlay } :
       { name: 'pause', icon: FaPause, action: handlePause }
     ),
