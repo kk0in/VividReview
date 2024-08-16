@@ -171,7 +171,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
-    console.log(drawingsRef.current);
     const newId = (drawingsRef.current.at(-1)?.id ?? 0)+ 1;
     newCanvas.id = `canvas_${newId}`;
     newCanvas.className = "multilayer-canvas";
@@ -393,13 +392,18 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   }, [makeNewCanvas, pageNumber, projectId]);
 
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
+    const pdfImage: HTMLCanvasElement | null = document.querySelector('.react-pdf__Page canvas');
+    if (!pdfImage) return "";
+
     const x = lassoBox.x;
     const y = lassoBox.y;
     const w = lassoBox.width;
     const h = lassoBox.height;
     const canvas = canvasRef.current;
-    if (!canvas) return "";
-    const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${pageNumber}`));
+    if (!canvas){
+      console.error("no canvas!");
+      return "";
+    }
     const tmpCanvas = document.createElement("canvas");
     tmpCanvas.width = w;
     tmpCanvas.height = h;
@@ -407,21 +411,12 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     if (tmpContext) {
       tmpContext.imageSmoothingEnabled = false;
       tmpContext.clearRect(0, 0, w, h);
-      for (let l = 1; l <= numLayers; l++) {
-        const drawingLayer = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${l}`);
-        if (drawingLayer) {
-          const img = new Image();
-          img.src = drawingLayer;
-          img.onload = () => {
-            tmpContext.drawImage(img, x, y, w, h, 0, 0, w, h);
-            if (l === numLayers){
-              return tmpCanvas.toDataURL();
-            }
-          }; 
-        }
+      tmpContext.drawImage(pdfImage, x, y, w, h, 0, 0, w, h);
+      for (const layer of drawingsRef.current) {
+        tmpContext.drawImage(layer.canvas, x, y, w, h, 0, 0, w, h);
       }
     }
-    return "";
+    return tmpCanvas.toDataURL();
   }
 
   useEffect(() => {
@@ -880,7 +875,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
     const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
       e.preventDefault();
-      const response = await lassoQuery(projectId, pageNumber, prompt, getImage(clickedLasso.boundingBox), boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
+      const image = getImage(clickedLasso.boundingBox);
+      console.log(image);
+      const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response];
     }
