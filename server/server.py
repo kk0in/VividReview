@@ -681,7 +681,11 @@ async def lasso_query(data: Lasso_Query_Data):
     with open(result_json_path, "w") as json_file:
         json.dump(lasso_answer, json_file, indent=4)
 
-    return {"message": "Lasso Answer is created successfully"}
+    return {
+        "message": "Lasso Answer is created successfully",
+        "lasso_id": lasso_id,
+        "response": lasso_answer
+    }
 
 
 @app.post('/api/activate_review/{project_id}', status_code=201)
