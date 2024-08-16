@@ -741,7 +741,7 @@ async def activate_review(project_id: int):
     with open(metadata_file_path, 'w') as file:
         json.dump(data, file)
 
-    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
+    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}?mode=review"})
 
 @app.get('/api/get_lasso_answer/{project_id}/{page_num}/{lasso_id}', status_code=200)
 async def get_lasso_answer(project_id: int, page_num: int, lasso_id: int, prompt_text: str, version: int):
@@ -1131,7 +1131,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
 
     executor.submit(metadata_file_path, pdf_file_path)
 
-    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}"})
+    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}?mode=default"})
 
 async def create_toc(project_id: int, image_dir: str):
     # Encode images to base64
