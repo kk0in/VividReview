@@ -878,6 +878,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       const image = getImage(clickedLasso.boundingBox);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso, lassoId: response.lassoId};
+      newLasso.prompts = {...clickedLasso.prompts};
+      newLasso.prompts[idx] = {...clickedLasso.prompts[idx]};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response.response.toString()];
     }
 

@@ -652,7 +652,7 @@ async def lasso_query(data: Lasso_Query_Data):
     os.makedirs(lasso_path, exist_ok=True)
 
     # 이미지 인코딩
-    encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_url}"}}]
+    encoded_image = [{"type": "image_url", "image_url": {"url": f"{image_url}"}}]
     script_content = read_script(script_path)
 
     try:
