@@ -156,7 +156,12 @@ function ReviewPage({ projectId }: { projectId: string }) {
         audioRef.current.src = 'http://localhost:3000/7_recording.mp3';
         audioRef.current.currentTime = audioTime;
         audioRef.current.play();
-        // setAudioDuration(audioRef.current.duration);
+        audioRef.current.onloadedmetadata = () => {
+          if (audioRef.current) {
+            setAudioDuration(audioRef.current.duration);
+            console.log(audioRef.current.duration);
+          }
+        };
         break;
 
       case PlayerState.PAUSED:
