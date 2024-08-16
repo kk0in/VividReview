@@ -26,6 +26,7 @@ from pdf2image import convert_from_path
 import requests
 import re
 from openai import OpenAI
+from typing import Union
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
@@ -596,7 +597,7 @@ class Lasso_Query_Data(BaseModel):
     prompt_text: str
     image_url: str
     bbox: List[float]
-    cur_lasso_id: int | None
+    cur_lasso_id: Union[int, None]
 
 @app.post("/api/lasso_query/")
 async def lasso_query(data: Lasso_Query_Data):
