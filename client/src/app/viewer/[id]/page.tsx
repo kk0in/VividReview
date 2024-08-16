@@ -5,11 +5,12 @@ import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilTransactionObserver_UNSTABLE, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode, matchedParagraphsState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
+import { useSearchParams } from "next/navigation";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -162,10 +163,10 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
-  const [viewerMode, ] = useRecoilState(modeState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
+  const isReviewMode = useSearchParams().get('mode') === 'review';
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -284,7 +285,7 @@ export default function Page({ params }: { params: { id: string } }) {
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
           </div>
-          {(viewerMode === ViewerMode.REVIEW) && <ReviewPage projectId={params.id} />}
+          {(isReviewMode && <ReviewPage projectId={params.id} />)}
         </div>
       )}
     </div>

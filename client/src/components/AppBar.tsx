@@ -18,10 +18,9 @@ import {
   FaStepForward,
   FaStepBackward } from 'react-icons/fa';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
-import { modeState, ViewerMode } from '@/app/recoil/ViewerState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -64,7 +63,7 @@ export default function AppBar() {
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [gridMode, setGridMode] = useRecoilState(gridModeState);
-  const [viewerMode, ] = useRecoilState(modeState);
+  const isReviewMode = useSearchParams().get('mode') === 'review';
 
   const handleGridIconClick = (tool: string) => {
     switch (gridMode) {
@@ -229,7 +228,7 @@ export default function AppBar() {
             </div>
           )}
           {
-            (isViewerPage && viewerMode === ViewerMode.REVIEW) && <ReviewAppBar />
+            (isViewerPage && isReviewMode && <ReviewAppBar />)
           }
         </div>
       </div>
