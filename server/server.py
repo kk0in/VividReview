@@ -6,8 +6,9 @@ from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
 
-from typing import Any, List, Dict
+from typing import Any, List, Union, Dict
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 import zipfile
 import shutil
@@ -26,7 +27,6 @@ import requests
 import re
 from openai import OpenAI
 import math
-from typing import Union
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
@@ -650,8 +650,6 @@ async def lasso_query(data: Lasso_Query_Data):
     lasso_id = cur_lasso_id if cur_lasso_id else issue_lasso_id(project_id, page_num)
     lasso_path = os.path.join(LASSO, f"{project_id}", f"{page_num}", f"{lasso_id}")
     os.makedirs(lasso_path, exist_ok=True)
-
-
 
     # 이미지 인코딩
     encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_url}"}}]
