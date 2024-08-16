@@ -1,14 +1,13 @@
 from fastapi import FastAPI, UploadFile, Form, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-
+from hume import HumeBatchClient
+from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
 
 from typing import Any, List, Dict
 from fastapi.responses import StreamingResponse
-
-from pydantic import BaseModel
 
 import zipfile
 import shutil
@@ -26,14 +25,17 @@ from pdf2image import convert_from_path
 import requests
 import re
 from openai import OpenAI
+import math
 from typing import Union
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
-api_key = "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"
+GPT_MODEL = "gpt-4o"
+gpt_api_key = "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"
+hume_api_key = "hCcXf3mVNMtVtNvAO9oz60drAywtf4qsHSVArsg2KFij5LvT"
 
 executor = ThreadPoolExecutor(10)
-client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=gpt_api_key)
 
 origins = [
     "*"
@@ -87,7 +89,7 @@ def read_script(script_path):
 
 def convert_webm_to_mp3(webm_path, mp3_path):
     try:
-        ffmpeg.input(webm_path).output(mp3_path).run()
+        ffmpeg.input(webm_path).output(mp3_path).run(overwrite_output=True)
     except ffmpeg.Error as e:
         print(f"ffmpeg error: {e.stderr}")
         raise Exception(f"Error message: {e}")
@@ -102,12 +104,14 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
     transcript1 = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
+        language="en"  
     )
 
     transcript2 = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
         response_format="verbose_json",
+        language="en",
         timestamp_granularities=["word"]
     )
 
@@ -191,7 +195,7 @@ def get_filename(id):
 def bbox_api_request(script_segment, encoded_image):    
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     content = [
@@ -220,7 +224,7 @@ def bbox_api_request(script_segment, encoded_image):
     ]
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -237,7 +241,6 @@ def bbox_api_request(script_segment, encoded_image):
 
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
-
 
 async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
     for i, encoded_image in enumerate(encoded_images):
@@ -267,7 +270,7 @@ async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
 async def create_spm(script_content, encoded_images):
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     content = [
@@ -288,7 +291,7 @@ async def create_spm(script_content, encoded_images):
     ] + encoded_images
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -320,11 +323,51 @@ async def create_spm(script_content, encoded_images):
 
     return script_data
 
+async def prosodic_analysis(project_id):
+    recording_path = f"{RECORDING}/{project_id}_recording.mp3"
+    prosody_file_path = f"{RECORDING}/{project_id}_prosody_predictions.json"
+    
+    client = HumeBatchClient(hume_api_key)
+    filepaths = [
+        recording_path
+    ]
+
+    # 음성 분석을 위한 설정을 구성합니다. 필요한 설정을 선택하세요.
+    # language_config = LanguageConfig()  # 언어 감정 분석
+    prosody_config = ProsodyConfig()    # 억양, 음조 분석
+
+    # 작업을 제출합니다.
+    job = client.submit_job(None, [prosody_config], files=filepaths)
+
+    print(job)
+    print("Running...")
+
+    # 작업이 완료될 때까지 대기하고, 결과를 다운로드합니다.
+    details = job.await_complete()
+    job.download_predictions(prosody_file_path)
+    print("Predictions downloaded to predictions.json")
+
+    with open(prosody_file_path, 'r') as file:
+        data = json.load(file)
+    
+    prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
+
+    # 각 segment에 대해 softmax를 적용하여 "relative_score" 계산 및 추가
+    for segment in prosodic_data:
+        scores = [item["score"] for item in segment['emotions']]
+        exp_scores = [math.exp(score) for score in scores]
+        sum_exp_scores = sum(exp_scores)
+    
+    for item, exp_score in zip(segment['emotions'], exp_scores):
+        item["relative_score"] = exp_score / sum_exp_scores     
+
+    with open(prosody_file_path, 'w') as file:
+        json.dump(data, file, indent=4)
 
 async def create_lasso_answer(prompt_text, script_content, encoded_image):
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # Creating the content for the messages
@@ -343,7 +386,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
 
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -389,7 +432,7 @@ async def transform_lasso_answer(lasso_answer, transform_type):
     
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # 변환 타입에 따른 프롬프트 생성
@@ -413,7 +456,7 @@ async def transform_lasso_answer(lasso_answer, transform_type):
 
     # OpenAI GPT-4 API 요청 준비
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "messages": [
             {
                 "role": "system",
@@ -685,6 +728,12 @@ async def activate_review(project_id: int):
         await create_bbox(bbox_dir, matched_paragraphs, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
+    
+    # Phase 3: Prosodic Analysis
+    try:
+        await prosodic_analysis(project_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during prosodic analysis: {e}")
 
     # Time Stamping for matched paragraphs (temporal)
     output = timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp)
@@ -769,7 +818,47 @@ async def get_bbox(project_id: int, page_num: int):
         raise HTTPException(status_code=500, detail=f"Error reading bbox file: {e}")
 
     return bbox_data
+
+@app.get('/api/get_recording/{project_id}', status_code=200)    
+async def get_recording(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 녹음 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 녹음 파일을 찾아 FileResponse 객체로 반환합니다.
     
+    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
+    """
+    
+    recording_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.mp3')]
+
+    if not recording_file:
+        raise HTTPException(status_code=404, detail="Recording file not found")
+    
+    if len(recording_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple recording files found")
+    else:
+        return FileResponse(os.path.join(RECORDING, recording_file[0]))
+
+
+@app.get('/api/get_prosody/{project_id}', status_code=200)
+async def get_prosody(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 prosody 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 일치하는 prosody 파일을 찾아 JSON 파일로 반환합니다.
+    
+    :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
+    """
+    
+    prosody_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.json')]
+
+    if not prosody_file:
+        raise HTTPException(status_code=404, detail="Prosody file not found")
+    
+    if len(prosody_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple prosody files found")
+    else:
+        with open(os.path.join(RECORDING, prosody_file[0]), 'r') as f:
+            return json.load(f)
+
 @app.post('/api/save_recording/{project_id}', status_code=200)
 async def save_recording(project_id: int, recording: UploadFile = File(...)):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
@@ -1060,7 +1149,7 @@ async def create_toc(project_id: int, image_dir: str):
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {gpt_api_key}"
     }
 
     # Creating the content for the messages
@@ -1075,7 +1164,7 @@ async def create_toc(project_id: int, image_dir: str):
             )}] + encoded_images
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {

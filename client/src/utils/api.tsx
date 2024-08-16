@@ -18,9 +18,9 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
-export async function activateReview(projectId: string) { 
-    const response = await axios.post(`${SERVER_ENDPOINT}/api/activate_review/${projectId}`);
-    
+export async function activateReview(projectId: string) {
+    const response = await axios.post(`${SERVER_ENDPOINT}api/activate_review/${projectId}`);
+
     return response.data;
 }
 
@@ -35,29 +35,29 @@ export async function saveRecording(projectId: string, formData: FormData) {
 
 export async function saveAnnotatedPdf(projectId: string, drawings: Record<number, string>, numPages: number) {
     const pdfDoc = new jsPDF();
-  
+
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       if (pageNum > 1) {
         pdfDoc.addPage();
       }
-  
+
       const imgData = drawings[pageNum];
       if (imgData) {
         pdfDoc.addImage(imgData, 'PNG', 0, 0, pdfDoc.internal.pageSize.getWidth(), pdfDoc.internal.pageSize.getHeight());
       }
     }
-  
+
     const pdfBlob = pdfDoc.output('blob');
-  
+
     const formData = new FormData();
     formData.append('annotated_pdf', pdfBlob, 'annotated.pdf');
-  
+
     const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
-  
+
     return response.data;
   }
 
@@ -152,18 +152,5 @@ export async function getTestKeypoint() {
 
 export async function deleteProject(projectId: string) {
     const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);
-    return response.data;
-}
-
-export async function lassoQuery(projectId: string, pageNumber: number, prompt: string, image: string, boundingBox: number[], lassoId: number | null) {
-    const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_query/`, {
-      project_id: projectId,
-      page_num: pageNumber,
-      prompt_text: prompt,
-      image_url: image,
-      bbox: boundingBox,
-      cur_lasso_id: lassoId
-    });
-
     return response.data;
 }

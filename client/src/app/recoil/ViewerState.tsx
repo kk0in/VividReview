@@ -37,7 +37,7 @@ export const tocIndexState = atom<IToCIndex>({
 
 export const modeState = atom<ViewerMode>({
   key: "modeState",
-  default: ViewerMode.REVIEW,
+  default: ViewerMode.DEFAULT,
 });
 
 export const matchedParagraphsState = atom<Object | null>({
