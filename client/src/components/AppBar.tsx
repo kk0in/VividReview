@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, createRef } from 'react';
+import React, { useState } from 'react';
 import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
 import {
   FaPencilAlt,
@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
-import { PlayerState, playerState, audioTimeState, audioDurationState } from '@/app/recoil/LectureAudioState';
+import { PlayerState, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -34,23 +34,34 @@ function classNames(...classes: string[]) {
 
 function ReviewAppBar() {
   const [ lecturePlayerState, setLecturePlayer ] = useRecoilState(playerState);
-  const setAudioTime = useSetRecoilState(audioTimeState);
-  const audioDuration = useRecoilValue(audioDurationState);
+  const setPlayerRequest = useSetRecoilState(playerRequestState);
+  const [ activeIndex, setActiveIndex ] = useState<number>(-2);
+
+  const activeIcon = (index: number) => {
+    setActiveIndex(index);
+    setTimeout(() => {
+      setActiveIndex(-2);
+    }, 500);
+  }
 
   const handleBackward = () => {
-    setAudioTime((prev) => prev >= 5 ? prev - 5 : 0);
+    setPlayerRequest(PlayerRequestType.BACKWARD);
+    activeIcon(0);
   };
 
   const handlePlay = () => {
     setLecturePlayer(PlayerState.PLAYING);
+    activeIcon(1);
   };
 
   const handlePause = () => {
     setLecturePlayer(PlayerState.PAUSED);
+    activeIcon(1);
   };
 
   const handleForward = () => {
-    setAudioTime((prev) => prev + 5 <= audioDuration ? prev + 5 : audioDuration);
+    setPlayerRequest(PlayerRequestType.FORWARD);
+    activeIcon(2);
   };
 
   const icons = [
@@ -62,13 +73,16 @@ function ReviewAppBar() {
     { name: 'forward', icon: FaStepForward, action: handleForward },
   ];
 
+  let i = 0;
   return (
     <div className="flex justify-end space-x-4 w-1/5 border-l-4 ml-4 border-dotted border-white-100">
       {icons.map(({ name, icon: Icon, action }) => {
         return (
           <Icon
             key={name}
-            className={'h-6 w-6 cursor-pointer transition-colors duration-300 text-white'}
+            className={classNames('h-6 w-6 cursor-pointer transition-colors duration-300',
+              activeIndex === i++ ? 'text-yellow-500' : 'text-white'
+            )}
             onClick={action}
           />
         );

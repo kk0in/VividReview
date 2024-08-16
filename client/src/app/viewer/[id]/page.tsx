@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
-import { audioTimeState, audioDurationState, playerState, PlayerState } from "@/app/recoil/LectureAudioState";
+import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -101,6 +101,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
+  const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const subTabs: TabProps[] = [
     {
@@ -155,6 +156,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
         audioRef.current.src = 'http://localhost:3000/7_recording.mp3';
         audioRef.current.currentTime = audioTime;
         audioRef.current.play();
+        // setAudioDuration(audioRef.current.duration);
         break;
 
       case PlayerState.PAUSED:
@@ -169,6 +171,24 @@ function ReviewPage({ projectId }: { projectId: string }) {
         break;
     }
   }, [currentPlayerState]);
+
+  useEffect(() => {
+    if (audioRef.current === null) {
+      return;
+    }
+
+    switch (playerRequest) {
+      case PlayerRequestType.BACKWARD:
+        audioRef.current.currentTime -= 5;
+        setPlayerRequest(PlayerRequestType.NONE);
+        break;
+
+      case PlayerRequestType.FORWARD:
+        audioRef.current.currentTime += 5;
+        setPlayerRequest(PlayerRequestType.NONE);
+        break;
+    }
+  }, [playerRequest]);
 
   const pages: number[] = [];
   switch (gridMode) {
