@@ -46,6 +46,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -53,6 +54,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const lassoBox = useRef<{x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}>({x1: null, y1: null, x2: null, y2: null});
   const dragOffset = useRef<{x: number, y: number} | null>(null);
   const capturedLayers = useRef<number[]>([]);
+  const pageTimeline = useRef<{pageNum: number, start: number, end: number}[]>([]);
+  const pageStart = useRef<number>(0);
+  const pageTrack = useRef<number>(0);
 
   const width = 700;
   const height = 600;
@@ -500,9 +504,26 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       console.log("Recording started");
       handleMic();
     } else if (mediaRecorderRef.current) {
+      console.log(pageTimeline.current);
       mediaRecorderRef.current.stop();
     }
   }, [isRecording, projectId]);
+
+  useEffect(() => { // Timer
+    let interval: NodeJS.Timer;
+    if (isRecording) {
+      if (pageTrack.current === 0) {
+        pageTrack.current = pageNumber;
+        pageStart.current = recordingTime;
+      } else if (pageTrack.current !== pageNumber) {
+        pageTimeline.current = [...pageTimeline.current, {pageNum: pageTrack.current, start: pageStart.current, end: recordingTime}];
+        pageTrack.current = pageNumber;
+        pageStart.current = recordingTime;
+      }
+      interval = setInterval(() => setRecordingTime(recordingTime + 10), 10);
+    }
+    return () => clearInterval(interval);
+  }, [recordingTime, isRecording]);
 
   useEffect(() => { // lasso
     const canvas = canvasRef.current;
