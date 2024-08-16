@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, ReactHTMLElement } from "react";
+import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
-import { useRecoilState, useRecoilTransactionObserver_UNSTABLE, useRecoilValue } from "recoil";
+import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
@@ -23,6 +23,11 @@ interface SectionTitleProps {
   index: number;
   title: string;
   subsections: IToCSubsection[];
+}
+
+interface TabProps {
+  title: string;
+  onClick: () => void;
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
@@ -90,6 +95,35 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+  const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const subTabs: TabProps[] = [
+    {
+      title: "Original",
+      onClick: () => {
+        setActiveSubTabIndex(0);
+      },
+    },
+    {
+      title: "Processing",
+      onClick: () => {
+        setActiveSubTabIndex(1);
+      },
+    },
+  ];
+
+  let i = 0;
+  const subTabElements = subTabs.map((tab) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
+
+    return (
+      <div className={className}
+        onClick={tab.onClick}
+      >
+        {tab.title}
+      </div>
+    );
+  })
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -149,11 +183,16 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex-none w-1/5 bg-gray-50">
-      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-3 font-bold">
-        Original
+      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
+        Script
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        {paragraph}
+        <div className="flex flex-row">
+          {subTabElements}
+        </div>
+        <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
+          {paragraph}
+        </div>
       </div>
     </div>
   );
