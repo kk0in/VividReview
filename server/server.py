@@ -61,6 +61,7 @@ IMAGE = './images'
 SPM = './spms'  
 BBOX = './bboxs'
 LASSO = './lasso'
+KEYWORD = './keywords'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -77,6 +78,11 @@ os.makedirs(BBOX, exist_ok=True)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
 
 confidence_threshold = 0.5
+
+
+def filter_script_data(script_data):
+    allowed_keys = {"keyword", "formal"}
+    return {key: value for key, value in script_data.items() if key in allowed_keys}
 
 def sanitize_filename(input_string):
     return re.sub(r'[\\/*?:"<>|]', "", input_string).strip().replace(" ", "_")
@@ -192,6 +198,43 @@ def get_filename(id):
     else:
         return None
 
+def keyword_api_request(script_segment):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {gpt_api_key}"
+    }
+    content = [
+        {
+            "type": "text",
+            "text": (
+                "Given the lecture script, identify at least one important keywords. "
+                "Next, transform the script into a more formal tone, breaking it down into a bullet point structure where appropriate. "
+                "The output should be in JSON format with the following structure: "
+                "{\"keyword\": [\"string\", \"string\", ...], \"formal\": \"string\"} "
+                f"lecture script: {script_segment} "
+            )
+        },
+    ]
+
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant designed to output JSON."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    return response.json()
+
 def bbox_api_request(script_segment, encoded_image):    
     headers = {
         "Content-Type": "application/json",
@@ -242,15 +285,15 @@ def bbox_api_request(script_segment, encoded_image):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
 
-async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
+async def create_bbox_and_keyword(bbox_dir, keyword_dir, matched_paragraphs, encoded_images):
     for i, encoded_image in enumerate(encoded_images):
         page_number = str(i + 1)
         script_segment = matched_paragraphs[page_number]
-        response_data = bbox_api_request(page_number, script_segment, encoded_image)
-        
-        # Process the response data
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            script_text = response_data['choices'][0]['message']['content']
+        response_data_bbox = bbox_api_request(script_segment, encoded_image)
+
+        # Process the response data for bbox
+        if 'choices' in response_data_bbox and len(response_data_bbox['choices']) > 0:
+            script_text = response_data_bbox['choices'][0]['message']['content']
             # Convert the script text to JSON format
             try:
                 script_data = json.loads(script_text)
@@ -260,12 +303,39 @@ async def create_bbox(bbox_dir, matched_paragraphs, encoded_images):
         else:
             print(f"Error: 'choices' key not found in the response for page {page_number}")
             script_data = {"error": "Failed to retrieve scripts"}
-
         # Save the script data as a JSON file
         bbox_path = os.path.join(bbox_dir, f"{page_number}_spm.json")
         with open(bbox_path, "w") as json_file:
             json.dump(script_data, json_file, indent=4)
 
+        response_data_keyword = keyword_api_request(script_segment)
+    
+         # Process the response data for keyword
+        if 'choices' in response_data_keyword and len(response_data_keyword['choices']) > 0:
+            script_text = response_data_keyword['choices'][0]['message']['content']
+            # Convert the script text to JSON format
+            try:
+                script_data = json.loads(script_text)
+                script_data = filter_script_data(script_data)
+                script_data["original"] = script_segment
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON for page {page_number}: {e}")
+                script_data = {"error": "Failed to decode JSON"}
+        else:
+            print(f"Error: 'choices' key not found in the response for page {page_number}")
+            script_data = {"error": "Failed to retrieve scripts"}
+
+        ## 하나로 저장하고 싶으면 나중에 수정
+        # final_data = {
+        #     "bboxes": bbox_data.get("bboxes", []),
+        #     "keyword": keyword_data.get("keyword", []),
+        #     "formal": keyword_data.get("formal", ""),
+        #     "original": script_segment
+        # }
+
+        keyword_path = os.path.join(keyword_path, f"{page_number}_spm.json")
+        with open(keyword_path, "w") as json_file:
+            json.dump(script_data, json_file, indent=4)
 
 async def create_spm(script_content, encoded_images):
     headers = {
@@ -701,7 +771,9 @@ async def activate_review(project_id: int):
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     matched_paragraphs_json_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
+    keyword_dir = os.path.join(KEYWORD, str(project_id))
     os.makedirs(bbox_dir, exist_ok=True)
+    os.makedirs(keyword_dir, exist_ok=True)
 
     with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), 'r') as file:
         word_timestamp = json.load(file)
@@ -727,7 +799,7 @@ async def activate_review(project_id: int):
 
     # Phase 2: spatially match the script content to the images
     try:
-        await create_bbox(bbox_dir, matched_paragraphs, encoded_images)
+        await create_bbox_and_keyword(bbox_dir, keyword_dir, matched_paragraphs, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
     
@@ -808,7 +880,7 @@ async def get_bbox(project_id: int, page_num: int):
 
     :param project_id: 프로젝트 ID
     """
-    bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_matched_paragraphs.json")
+    bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
 
     if not os.path.exists(bbox_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
@@ -821,6 +893,26 @@ async def get_bbox(project_id: int, page_num: int):
 
     return bbox_data
 
+@app.get('/api/get_keyword/{project_id}', status_code=200)
+async def get_keyword(project_id: int, page_num: int):
+    """
+    생성된 keyword 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    keyword_path = os.path.join(KEYWORD, str(project_id), f"{page_num}_spm.json")
+
+    if not os.path.exists(keyword_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(keyword_path, "r") as keyword_file:
+            keyword_data = json.load(keyword_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading keyword file: {e}")
+
+    return keyword_data
+    
 @app.get('/api/get_recording/{project_id}', status_code=200)    
 async def get_recording(project_id: int):
     """
