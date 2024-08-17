@@ -5,6 +5,8 @@ from hume import HumeBatchClient
 from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
+from pydantic import BaseModel
+from collections import defaultdict
 
 from typing import Any, List, Dict
 from fastapi.responses import StreamingResponse
@@ -850,13 +852,31 @@ async def get_prosody(project_id: int):
         with open(os.path.join(RECORDING, prosody_file[0]), 'r') as f:
             return json.load(f)
 
+class TimestampRecord(BaseModel):
+    pageNumber: int
+    start: int
+    end: int
+
 @app.post('/api/save_recording/{project_id}', status_code=200)
-async def save_recording(project_id: int, recording: UploadFile = File(...)):
+async def save_recording(project_id: int, recording: UploadFile = File(...), timestamp: List[TimestampRecord] = None):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
     transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
-    timestamp_path = os.path.join(SCRIPT, f"{project_id}_timestamp.json")
-    
+    gpt_timestamp_path = os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json")
+    real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
+
+    # Save real timestamp
+    dic = defaultdict(list)
+    for ele in timestamp:
+        dic[ele["pageNumber"]].append(ele)
+    result = {}
+    for page_number, elements in dic.items():
+        max_diff_element = max(elements, key=lambda x: x["end"] - x["start"])
+        result[str(page_number)] = {"start": max_diff_element["start"], "end": max_diff_element["end"]}
+    with open(real_timestamp_path, "w") as json_file:
+        json.dump(result, json_file, indent=4)
+
+    # save recording file
     with open(webm_path, "wb") as buffer:
         shutil.copyfileobj(recording.file, buffer)
 
@@ -868,7 +888,7 @@ async def save_recording(project_id: int, recording: UploadFile = File(...)):
     
     # STT 모델 실행
     try:
-        executor.submit(run_stt, mp3_path, transcription_path, timestamp_path)
+        executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
     
