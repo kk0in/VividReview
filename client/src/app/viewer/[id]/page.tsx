@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, ReactHTMLElement } from "react";
+import React, { useState, useEffect } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
-import { useRecoilState, useRecoilTransactionObserver_UNSTABLE, useRecoilValue } from "recoil";
+import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, modeState, ViewerMode, matchedParagraphsState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
+import { useSearchParams } from "next/navigation";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -22,6 +23,11 @@ interface SectionTitleProps {
   index: number;
   title: string;
   subsections: IToCSubsection[];
+}
+
+interface TabProps {
+  title: string;
+  onClick: () => void;
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
@@ -89,6 +95,35 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+  const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const subTabs: TabProps[] = [
+    {
+      title: "Original",
+      onClick: () => {
+        setActiveSubTabIndex(0);
+      },
+    },
+    {
+      title: "Processing",
+      onClick: () => {
+        setActiveSubTabIndex(1);
+      },
+    },
+  ];
+
+  let i = 0;
+  const subTabElements = subTabs.map((tab) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
+
+    return (
+      <div className={className}
+        onClick={tab.onClick}
+      >
+        {tab.title}
+      </div>
+    );
+  })
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -148,11 +183,16 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex-none w-1/5 bg-gray-50">
-      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-3 font-bold">
-        Original
+      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
+        Script
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        {paragraph}
+        <div className="flex flex-row">
+          {subTabElements}
+        </div>
+        <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
+          {paragraph}
+        </div>
       </div>
     </div>
   );
@@ -162,10 +202,10 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
-  const [viewerMode, ] = useRecoilState(modeState);
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
+  const isReviewMode = useSearchParams().get('mode') === 'review';
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -284,7 +324,7 @@ export default function Page({ params }: { params: { id: string } }) {
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
           </div>
-          {(viewerMode === ViewerMode.REVIEW) && <ReviewPage projectId={params.id} />}
+          {(isReviewMode && <ReviewPage projectId={params.id} />)}
         </div>
       )}
     </div>
