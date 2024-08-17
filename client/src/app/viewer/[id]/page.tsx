@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -146,20 +146,41 @@ function ReviewPage({ projectId }: { projectId: string }) {
     fetchMatchedParagraphs();
   }, []);
 
+  // 음성 파일을 가져오는 함수
+  const { data: recordingUrl, refetch: fetchRecording } = useQuery(
+    ["getRecording", projectId],
+    getRecording,
+    {
+      enabled: false, // 수동으로 호출
+    }
+  );
+
   useEffect(() => {
-    if (audioRef.current === null) {
+    const fetchAudio = async () => {
+      try {
+        const url = await fetchRecording();
+        setAudioSource(url.data); // 음성 파일 URL 저장
+      } catch (error) {
+        console.error("Failed to fetch recording:", error);
+      }
+    };
+
+    fetchAudio();
+  }, [projectId, fetchRecording]);
+
+  useEffect(() => {
+    if (audioRef.current === null || !audioSource) {
       return;
     }
 
     switch (currentPlayerState) {
       case PlayerState.PLAYING:
-        audioRef.current.src = 'http://localhost:3000/7_recording.mp3';
+        audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
         audioRef.current.currentTime = audioTime;
         audioRef.current.play();
         audioRef.current.onloadedmetadata = () => {
           if (audioRef.current) {
             setAudioDuration(audioRef.current.duration);
-            console.log(audioRef.current.duration);
           }
         };
         break;
@@ -171,11 +192,11 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
       case PlayerState.IDLE:
         setAudioTime(0);
-        audioRef.current.src = '';
+        audioRef.current.src = "";
         audioRef.current.pause();
         break;
     }
-  }, [currentPlayerState]);
+  }, [currentPlayerState, audioSource]);
 
   useEffect(() => {
     if (audioRef.current === null) {
