@@ -6,8 +6,9 @@ from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import speech
 
-from typing import Any, List, Dict
+from typing import Any, List, Union, Dict
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 import zipfile
 import shutil
@@ -633,19 +634,25 @@ async def lasso_transform(project_id: int, page_num: int, lasso_id: int, version
 
     return {"message": f"Lasso answer transformed successfully. Version: {version_count}"}
 
+class Lasso_Query_Data(BaseModel):
+    project_id: int
+    page_num: int
+    prompt_text: str
+    image_url: str
+    bbox: List[float]
+    cur_lasso_id: Union[int, None]
 
 @app.post("/api/lasso_query/")
-async def lasso_query(project_id: int, page_num: int, prompt_text: str, image_url: str, bbox: list, cur_lasso_id: int):
+async def lasso_query(data: Lasso_Query_Data):
+    project_id, page_num, prompt_text, image_url, bbox, cur_lasso_id = data.project_id, data.page_num, data.prompt_text, data.image_url, data.bbox, data.cur_lasso_id
     # 이미지 저장 경로 설정
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     lasso_id = cur_lasso_id if cur_lasso_id else issue_lasso_id(project_id, page_num)
     lasso_path = os.path.join(LASSO, f"{project_id}", f"{page_num}", f"{lasso_id}")
     os.makedirs(lasso_path, exist_ok=True)
 
-
-
     # 이미지 인코딩
-    encoded_image = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_url}"}}]
+    encoded_image = [{"type": "image_url", "image_url": {"url": f"{image_url}"}}]
     script_content = read_script(script_path)
 
     try:
@@ -674,7 +681,11 @@ async def lasso_query(project_id: int, page_num: int, prompt_text: str, image_ur
     with open(result_json_path, "w") as json_file:
         json.dump(lasso_answer, json_file, indent=4)
 
-    return {"message": "Lasso Answer is created successfully"}
+    return {
+        "message": "Lasso Answer is created successfully",
+        "lasso_id": lasso_id,
+        "response": lasso_answer
+    }
 
 
 @app.post('/api/activate_review/{project_id}', status_code=201)
