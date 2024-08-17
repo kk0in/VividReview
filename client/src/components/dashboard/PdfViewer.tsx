@@ -485,14 +485,26 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         mediaRecorder.ondataavailable = (event) => {
           audioChunks.push(event.data);
         };
+
+        const appendFormData = (formData: FormData, key: string, data: any) => {
+          if (data === Object(data) || Array.isArray(data)) {
+              for (var i in data) {
+                  appendFormData(formData, key + '[' + i + ']', data[i]);
+              }
+          } else {
+              formData.append(key, data);
+          }
+        }
   
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
           const formData = new FormData();
           formData.append('recording', audioBlob, 'recording.webm');
+          appendFormData(formData, 'pageTimeline', pageTimeline.current);
           try {
             await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
             console.log("Recording saved successfully");
+            pageTimeline.current = [];
           } catch (error) {
             console.error("Failed to save recording:", error);
           }
@@ -504,7 +516,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       console.log("Recording started");
       handleMic();
     } else if (mediaRecorderRef.current) {
-      console.log(pageTimeline.current);
       mediaRecorderRef.current.stop();
     }
   }, [isRecording, projectId]);
@@ -521,6 +532,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         pageStart.current = recordingTime;
       }
       interval = setInterval(() => setRecordingTime(recordingTime + 10), 10);
+    } else {
+      if (pageStart.current !== 0) {
+        pageTimeline.current = [...pageTimeline.current, {pageNum: pageTrack.current, start: pageStart.current, end: recordingTime}];
+        pageStart.current = 0;
+        pageTrack.current = 0;
+        setRecordingTime(0);
+      }
     }
     return () => clearInterval(interval);
   }, [recordingTime, isRecording]);
