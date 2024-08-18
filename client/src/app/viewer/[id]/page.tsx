@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
+import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -61,7 +62,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
     subtitles = (
       <ul>
         {subsections.map((subsection: IToCSubsection) => {
-          const element = (<SubSectionTitle sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
+          const element = (<SubSectionTitle key={index} sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
           subsectionIndex++;
           return element;
         })}
@@ -95,6 +96,12 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+  const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioSource, setAudioSource] = useState<string>("");
+  const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
+  const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
+  const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const subTabs: TabProps[] = [
     {
@@ -138,6 +145,84 @@ function ReviewPage({ projectId }: { projectId: string }) {
   useEffect(() => {
     fetchMatchedParagraphs();
   }, []);
+
+  // 음성 파일을 가져오는 함수
+  const { data: recordingUrl, refetch: fetchRecording } = useQuery(
+    ["getRecording", projectId],
+    getRecording,
+    {
+      enabled: false, // 수동으로 호출
+    }
+  );
+
+  useEffect(() => {
+    const fetchAudio = async () => {
+      try {
+        const url = await fetchRecording();
+        setAudioSource(url.data); // 음성 파일 URL 저장
+      } catch (error) {
+        console.error("Failed to fetch recording:", error);
+      }
+    };
+
+    fetchAudio();
+  }, [projectId, fetchRecording]);
+
+  useEffect(() => {
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+
+    audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
+    audioRef.current.onloadedmetadata = () => {
+      if (audioRef.current) {
+        console.log(audioRef.current.duration);
+        setAudioDuration(audioRef.current.duration);
+      }
+    };
+
+  }, [audioSource]);
+
+  useEffect(() => {
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+
+    switch (currentPlayerState) {
+      case PlayerState.PLAYING:
+        audioRef.current.currentTime = audioTime;
+        audioRef.current.play();
+        break;
+
+      case PlayerState.PAUSED:
+        audioRef.current.pause();
+        setAudioTime(audioRef.current.currentTime);
+        break;
+
+      case PlayerState.IDLE:
+        setAudioTime(0);
+        audioRef.current.pause();
+        break;
+    }
+  }, [currentPlayerState]);
+
+  useEffect(() => {
+    if (audioRef.current === null) {
+      return;
+    }
+
+    switch (playerRequest) {
+      case PlayerRequestType.BACKWARD:
+        audioRef.current.currentTime -= 5;
+        setPlayerRequest(PlayerRequestType.NONE);
+        break;
+
+      case PlayerRequestType.FORWARD:
+        audioRef.current.currentTime += 5;
+        setPlayerRequest(PlayerRequestType.NONE);
+        break;
+    }
+  }, [playerRequest]);
 
   const pages: number[] = [];
   switch (gridMode) {
@@ -194,6 +279,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
           {paragraph}
         </div>
       </div>
+      <audio ref={audioRef} className="w-fit mt-4"/>
     </div>
   );
 }

@@ -112,6 +112,19 @@ export async function getBbox({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getRecording({ queryKey }: { queryKey: string[] }) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT + `api/get_recording/${project_id}`, {
+        responseType: 'blob' // 녹음 파일을 바이너리 데이터(blob)로 받아옵니다.
+    });
+
+    // URL.createObjectURL을 통해 blob을 다룰 수 있는 객체 URL을 만듭니다.
+    const audioUrl = URL.createObjectURL(response.data);
+
+    return audioUrl;
+}
+
+
 export async function getKeypoint({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_keypoint/${project_id}`);
