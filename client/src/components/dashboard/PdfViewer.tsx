@@ -52,6 +52,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -60,6 +61,9 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const lassoBox = useRef<{x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}>({x1: null, y1: null, x2: null, y2: null});
   const dragOffset = useRef<{x: number, y: number} | null>(null);
   const capturedLayers = useRef<number[]>([]);
+  const pageTimeline = useRef<{pageNum: number, start: number, end: number}[]>([]);
+  const pageStart = useRef<number>(0);
+  const pageTrack = useRef<number>(0);
 
   const width = 700;
   const height = 600;
@@ -531,14 +535,29 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         mediaRecorder.ondataavailable = (event) => {
           audioChunks.push(event.data);
         };
+
+        const appendFormData = (formData: FormData, key: string, data: any) => {
+          if (data === Object(data) || Array.isArray(data)) {
+              for (var i in data) {
+                  appendFormData(formData, key + '[' + i + ']', data[i]);
+              }
+          } else {
+              formData.append(key, data);
+          }
+        }
   
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
           const formData = new FormData();
           formData.append('recording', audioBlob, 'recording.webm');
+
+          // pageTimeline을 JSON 문자열로 변환하여 FormData에 추가
+          formData.append('timestamp', JSON.stringify(pageTimeline.current));
+          // appendFormData(formData, 'pageTimeline', pageTimeline.current);
           try {
             await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
             console.log("Recording saved successfully");
+            pageTimeline.current = [];
           } catch (error) {
             console.error("Failed to save recording:", error);
           }
@@ -553,6 +572,29 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       mediaRecorderRef.current.stop();
     }
   }, [isRecording, projectId]);
+
+  useEffect(() => { // Timer
+    let interval: NodeJS.Timer;
+    if (isRecording) {
+      if (pageTrack.current === 0) {
+        pageTrack.current = pageNumber;
+        pageStart.current = recordingTime;
+      } else if (pageTrack.current !== pageNumber) {
+        pageTimeline.current = [...pageTimeline.current, {pageNum: pageTrack.current, start: pageStart.current, end: recordingTime}];
+        pageTrack.current = pageNumber;
+        pageStart.current = recordingTime;
+      }
+      interval = setInterval(() => setRecordingTime(recordingTime + 10), 10);
+    } else {
+      if (pageStart.current !== 0) {
+        pageTimeline.current = [...pageTimeline.current, {pageNum: pageTrack.current, start: pageStart.current, end: recordingTime}];
+        pageStart.current = 0;
+        pageTrack.current = 0;
+        setRecordingTime(0);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [recordingTime, isRecording]);
 
   useEffect(() => { // lasso
     const canvas = canvasRef.current;
