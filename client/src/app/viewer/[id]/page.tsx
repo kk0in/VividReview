@@ -98,11 +98,14 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+
   const subTabs: TabProps[] = [
     {
       title: "Original",
@@ -178,10 +181,51 @@ function ReviewPage({ projectId }: { projectId: string }) {
       if (audioRef.current) {
         console.log(audioRef.current.duration);
         setAudioDuration(audioRef.current.duration);
+
+        progressRef.current!.max = audioRef.current.duration;
+      }
+    };
+  }, [audioSource]);
+
+  useEffect(() => {
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+
+    audioRef.current.ontimeupdate = () => {
+      if (!isMouseDown && audioRef.current) {
+        progressRef.current!.value = audioRef.current.currentTime;
+      }
+    };
+  }, [audioRef.current?.currentTime, isMouseDown]);
+
+  useEffect(() => {
+    if (progressRef.current === null) {
+      return;
+    }
+
+    const getNewProgressValue = (event: MouseEvent) => {
+      return (event.offsetX / progressRef.current!.offsetWidth) * audioRef.current!.duration;
+    }
+
+    progressRef.current.onmousedown = (event) => {
+      console.log('mousedown', event.offsetX);
+      progressRef.current!.value = getNewProgressValue(event);
+      setIsMouseDown(true);
+    };
+
+    progressRef.current.onmousemove = (event) => {
+      if (isMouseDown && progressRef.current) {
+        progressRef.current.value = getNewProgressValue(event);
       }
     };
 
-  }, [audioSource]);
+    progressRef.current.onmouseup = (event) => {
+      console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
+      audioRef.current!.currentTime = getNewProgressValue(event);
+      setIsMouseDown(false);
+    };
+  }, [progressRef, isMouseDown]);
 
   useEffect(() => {
     if (audioRef.current === null || !audioSource) {
@@ -279,7 +323,10 @@ function ReviewPage({ projectId }: { projectId: string }) {
           {paragraph}
         </div>
       </div>
-      <audio ref={audioRef} className="w-fit mt-4"/>
+      <div className="w-full mt-4 px-4">
+        <audio ref={audioRef}/>
+        <progress ref={progressRef} className="w-full" />
+      </div>
     </div>
   );
 }
