@@ -173,16 +173,25 @@ function ReviewPage({ projectId }: { projectId: string }) {
       return;
     }
 
+    audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
+    audioRef.current.onloadedmetadata = () => {
+      if (audioRef.current) {
+        console.log(audioRef.current.duration);
+        setAudioDuration(audioRef.current.duration);
+      }
+    };
+
+  }, [audioSource]);
+
+  useEffect(() => {
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+
     switch (currentPlayerState) {
       case PlayerState.PLAYING:
-        audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
         audioRef.current.currentTime = audioTime;
         audioRef.current.play();
-        audioRef.current.onloadedmetadata = () => {
-          if (audioRef.current) {
-            setAudioDuration(audioRef.current.duration);
-          }
-        };
         break;
 
       case PlayerState.PAUSED:
@@ -192,11 +201,10 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
       case PlayerState.IDLE:
         setAudioTime(0);
-        audioRef.current.src = "";
         audioRef.current.pause();
         break;
     }
-  }, [currentPlayerState, audioSource]);
+  }, [currentPlayerState]);
 
   useEffect(() => {
     if (audioRef.current === null) {
