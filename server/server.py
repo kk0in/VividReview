@@ -853,26 +853,33 @@ async def get_prosody(project_id: int):
             return json.load(f)
 
 class TimestampRecord(BaseModel):
-    pageNumber: int
+    pageNum: int
     start: int
     end: int
 
 @app.post('/api/save_recording/{project_id}', status_code=200)
-async def save_recording(project_id: int, recording: UploadFile = File(...), timestamp: List[TimestampRecord] = None):
+async def save_recording(project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...)):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
     transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     gpt_timestamp_path = os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json")
     real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
 
+    # JSON 문자열을 파싱하여 TimestampRecord 리스트로 변환
+    try:
+        timestamp_data = json.loads(timestamp)
+        timestamps = [TimestampRecord(**item) for item in timestamp_data]
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format for timestamp")
+
     # Save real timestamp
     dic = defaultdict(list)
-    for ele in timestamp:
-        dic[ele["pageNumber"]].append(ele)
+    for ele in timestamps:
+        dic[ele.pageNum].append(ele)
     result = {}
     for page_number, elements in dic.items():
-        max_diff_element = max(elements, key=lambda x: x["end"] - x["start"])
-        result[str(page_number)] = {"start": max_diff_element["start"], "end": max_diff_element["end"]}
+        max_diff_element = max(elements, key=lambda x: x.end - x.start)
+        result[str(page_number)] = {"start": max_diff_element.start / 1000, "end": max_diff_element.end / 1000}
     with open(real_timestamp_path, "w") as json_file:
         json.dump(result, json_file, indent=4)
 

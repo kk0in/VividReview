@@ -500,7 +500,10 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
           const formData = new FormData();
           formData.append('recording', audioBlob, 'recording.webm');
-          appendFormData(formData, 'pageTimeline', pageTimeline.current);
+
+          // pageTimeline을 JSON 문자열로 변환하여 FormData에 추가
+          formData.append('timestamp', JSON.stringify(pageTimeline.current));
+          // appendFormData(formData, 'pageTimeline', pageTimeline.current);
           try {
             await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
             console.log("Recording saved successfully");
