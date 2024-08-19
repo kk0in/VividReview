@@ -53,6 +53,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   let subtitles;
   const [clicked, setClicked] = useState(false);
   const [tocIndex, ] = useRecoilState(tocIndexState);
+  const [mode, setMode] = useState("script");
 
   const handleSectionClick = () => {
     setClicked(!clicked);
@@ -316,6 +317,9 @@ function ReviewPage({ projectId }: { projectId: string }) {
     <div className="flex-none w-1/5 bg-gray-50">
       <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
         Script
+      </div>
+      <div className="rounded-t-2xl w-fit bg-gray-200/50 mt-4 mx-4 py-1 px-4 font-bold">
+        Prompts
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
         <div className="flex flex-row">
