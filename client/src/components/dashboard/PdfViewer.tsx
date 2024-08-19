@@ -42,7 +42,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [toc, ] = useRecoilState(tocState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
   const [lassoRec, setLassoRec] = useRecoilState(lassoState);
-  const [focusedLasso, ] = useRecoilState(focusedLassoState);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [addPrompt, setAddPrompt] = useState<boolean>(false);
   const [newPrompt, setNewPrompt] = useState<string>("");
 
@@ -949,6 +949,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       newLasso.prompts = {...clickedLasso.prompts};
       newLasso.prompts[idx] = {...clickedLasso.prompts[idx]};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response.response.toString()];
+      setFocusedLasso(newLasso);
     }
 
     const handleAddPrompt = (e: React.MouseEvent) => {
@@ -1067,20 +1068,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             height: '100%',
             zIndex: 1,
             pointerEvents:'none',
-          }}
-        />
-        <canvas
-          ref={spotlightRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            pointerEvents: 'none',
           }}
         />
         <div style={{ marginTop: '10px', textAlign: 'center', zIndex: 2, position: 'relative' }}>

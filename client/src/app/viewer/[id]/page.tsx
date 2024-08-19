@@ -12,7 +12,7 @@ import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
 import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
-import { lassoState } from "@/app/recoil/LassoState";
+import { lassoState, focusedLassoState } from "@/app/recoil/LassoState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -107,6 +107,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [lassoRec, setLassoRec] = useRecoilState(lassoState);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
 
   const subTabs: TabProps[] = [
     {
