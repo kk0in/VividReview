@@ -25,3 +25,8 @@ export const lassoState = atom<Record<string, Record<number, Lasso[]>>>({
   key: 'lassoState',
   default: {},
 });
+
+export const focusedLassoState = atom<Lasso | null>({
+  key: 'focusedLassoState',
+  default: null,
+});

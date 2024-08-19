@@ -11,7 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
-import { lassoState, Lasso, defaultPrompts } from "@/app/recoil/LassoState";
+import { lassoState, Lasso, defaultPrompts, focusedLassoState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery } from "@/utils/api";
 import "./Lasso.css";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
@@ -42,11 +42,14 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
   const [toc, ] = useRecoilState(tocState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
   const [lassoRec, setLassoRec] = useRecoilState(lassoState);
+  const [focusedLasso, ] = useRecoilState(focusedLassoState);
   const [addPrompt, setAddPrompt] = useState<boolean>(false);
   const [newPrompt, setNewPrompt] = useState<string>("");
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const focusedLassoRef = useRef<HTMLCanvasElement>(null);
+  const spotlightRef = useRef<HTMLCanvasElement>(null);
   const drawingsRef = useRef<CanvasLayer[]>([]);
   const selectedTool = useRecoilValue(toolState);
   const gridMode = useRecoilValue(gridModeState);
@@ -242,6 +245,18 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       }
     };
   }, [goToNextPage, goToPreviousPage, numPages]);
+
+  useEffect(() => {
+    const canvas = focusedLassoRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (focusedLasso !== null) {
+      context.strokeStyle = "red";
+      context.strokeRect(focusedLasso.boundingBox.x, focusedLasso.boundingBox.y, focusedLasso.boundingBox.width, focusedLasso.boundingBox.height);
+    }
+  }, [focusedLasso]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1038,6 +1053,34 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             height: '100%',
             zIndex: 1,
             pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
+          }}
+        />
+        <canvas
+          ref={focusedLassoRef}
+          width={width}
+          height={height}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 1,
+            pointerEvents:'none',
+          }}
+        />
+        <canvas
+          ref={spotlightRef}
+          width={width}
+          height={height}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 1,
+            pointerEvents: 'none',
           }}
         />
         <div style={{ marginTop: '10px', textAlign: 'center', zIndex: 2, position: 'relative' }}>

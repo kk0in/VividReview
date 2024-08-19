@@ -12,6 +12,7 @@ import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
 import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
+import { lassoState } from "@/app/recoil/LassoState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -105,6 +106,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+  const [lassoRec, setLassoRec] = useRecoilState(lassoState);
 
   const subTabs: TabProps[] = [
     {
@@ -121,10 +123,9 @@ function ReviewPage({ projectId }: { projectId: string }) {
     },
   ];
 
-  let i = 0;
-  const subTabElements = subTabs.map((tab) => {
+  const subTabElements = subTabs.map((tab, idx) => {
     const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-      (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
+      (idx === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
       <div className={className}
