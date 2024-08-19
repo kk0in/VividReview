@@ -12,10 +12,9 @@ from typing import Any, List, Union, Dict
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from PIL import Image
-import pytesseract
 from io import BytesIO
 
+import pymupdf
 import cv2
 import numpy as np
 import zipfile
@@ -34,6 +33,10 @@ import requests
 import re
 from openai import OpenAI
 import math
+from sentence_transformers import SentenceTransformer, util
+import torch
+import clip
+from PIL import Image
 
 app = FastAPI()
 logging.basicConfig(filename='info.log', level=logging.DEBUG)
@@ -69,6 +72,8 @@ SPM = './spms'
 BBOX = './bboxs'
 LASSO = './lasso'
 KEYWORD = './keywords'
+CROP = './crops'
+SIMILARITY = './similarity'
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -81,6 +86,10 @@ os.makedirs(TOC, exist_ok=True)
 os.makedirs(IMAGE, exist_ok=True)
 os.makedirs(SPM, exist_ok=True)
 os.makedirs(BBOX, exist_ok=True)
+os.makedirs(LASSO, exist_ok=True)
+os.makedirs(KEYWORD, exist_ok=True)
+os.makedirs(CROP, exist_ok=True)
+os.makedirs(SIMILARITY, exist_ok=True)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb46.json"
 
@@ -232,6 +241,27 @@ def issue_lasso_id(project_id, page_num):
     else:
         return 1
 
+def issue_search_id(project_id):
+    """
+    지정된 프로젝트에 대해 새로운 search_id를 발급하는 함수.
+    
+    :param project_id: 프로젝트의 ID
+    :return: 새로운 search_id
+    """
+    similarity_path = os.path.join(SIMILARITY, str(project_id))
+    if not os.path.exists(similarity_path):
+        os.makedirs(similarity_path, exist_ok=True)
+        return 1
+    
+    existing_search_ids = [
+        int(f.split('.')[0]) for f in os.listdir(similarity_path)
+        if f.split('.')[0].isdigit()
+    ]
+    
+    if existing_search_ids:
+        return max(existing_search_ids) + 1
+    else:
+        return 1
 
 def issue_version(project_id):
     """
@@ -670,18 +700,115 @@ def match_paragraphs_2(script_content, first_sentences):
                 print(f"Error occurred at page {page}")
     return matched_paragraphs
 
-def timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp):
+def calculate_similarity(data, query):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    text_model = SentenceTransformer('all-MiniLM-L6-v2')  # Sentence Transformers 모델
+    clip_model, preprocess = clip.load("ViT-B/32", device=device)
+    
+    # Query 텍스트 임베딩 계산
+    query_embedding = text_model.encode(query, convert_to_tensor=True)
+
+    results = {}
+
+    for page, content in data.items():
+        page_result = {}
+        
+        # script 유사도 계산
+        if content["script"]:
+            text_embedding = text_model.encode(content["script"], convert_to_tensor=True)
+            page_result["script"] = util.pytorch_cos_sim(query_embedding, text_embedding).item()
+        else:
+            page_result["script"] = 0.0
+
+        # pdf_text 유사도 계산
+        if content["pdf_text"]:
+            pdf_text_embedding = text_model.encode(content["pdf_text"], convert_to_tensor=True)
+            page_result["pdf_text"] = util.pytorch_cos_sim(query_embedding, pdf_text_embedding).item()
+        else:
+            page_result["pdf_text"] = 0.0
+
+        # annotation 유사도 계산
+        if content["annotation"]:
+            annotation_embedding = text_model.encode(content["annotation"], convert_to_tensor=True)
+            page_result["annotation"] = util.pytorch_cos_sim(query_embedding, annotation_embedding).item()
+        else:
+            page_result["annotation"] = 0.0
+        # pdf_images 유사도 계산 (CLIP 사용)
+        image_similarities = []
+        for image_path in content["pdf_images"]:
+            image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
+            with torch.no_grad():
+                image_features = clip_model.encode_image(image)
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                
+                # Query 텍스트 임베딩도 CLIP을 사용해 계산
+                text_tokens = clip.tokenize([query]).to(device)
+                text_features = clip_model.encode_text(text_tokens)
+                text_features /= text_features.norm(dim=-1, keepdim=True)
+
+                similarity = (image_features @ text_features.T).item()
+                image_similarities.append(similarity)
+
+        # 여러 이미지가 있을 경우 평균 유사도 계산
+        if image_similarities:
+            page_result["pdf_image"] = sum(image_similarities) / len(image_similarities)
+        else:
+            page_result["pdf_image"] = 0.0
+
+        results[page] = page_result
+
+    return results
+
+
+def get_pdf_text_and_image(project_id, pdf_path):
+    doc = pymupdf.open(pdf_path)
+
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        text = page.get_text("text")  
+        images_info = page.get_image_info(xrefs=True)  
+        image_path = os.path.join(CROP, str(project_id), str(page_num + 1)) 
+        os.makedirs(image_path, exist_ok=True)
+
+        crop_images = []
+        for image_index, img_info in enumerate(images_info):
+            xref = img_info['xref']  # 이미지의 xref 값
+            base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+            image_bytes = base_image["image"]  # 이미지 바이트 데이터
+            crop_path = os.path.join(image_path, f"{image_index + 1}.png")  
+            crop_images.append(crop_path)
+            # 이미지 저장
+            with open(crop_path, "wb") as img_file:
+                img_file.write(image_bytes)
+
+        return text, crop_images
+
+def create_page_info(project_id, matched_paragraphs, word_timestamp):
+    pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
+    if not pdf_file:
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    if len(pdf_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple PDF files found")
+    pdf_path = os.path.join(PDF, pdf_file[0])
+    annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    with open(annnotation_path, "r") as file:
+        annotations = json.load(file)
+    
     output = {}
     offset = 0
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
         start_time = word_timestamp[offset]["start"]
         end_time = word_timestamp[offset + len(words) - 1]["end"]
-        
+        pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
+        annotation = annotations[para_id]
         output[para_id] = {
             "start": start_time,
             "end": end_time,
-            "text": paragraph_text
+            "script": paragraph_text,
+            "pdf_text": pdf_text,
+            "pdf_image": pdf_image,
+            "annotation": annotation
         }
         offset += len(words) 
 
@@ -826,6 +953,36 @@ async def lasso_query(data: Lasso_Query_Data):
         "response": lasso_answer
     }
 
+@app.post('/api/search_query/{project_id}', status_code=201)
+async def search_query(project_id: int, search_query: str = Form(...)):
+    """
+    특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
+    
+    :param project_id: 프로젝트 ID
+    :param search_text: 검색어
+    """
+    spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
+    similarity_path = os.path.join(SIMILARITY, str(project_id))
+
+    with open(spm_path, 'r') as file:
+        page_info = json.load(file)
+
+    result = {}
+    # 유사도 계산
+    similarities = calculate_similarity(page_info, search_query)
+    result["query"] = search_query
+    result["similarities"] = similarities
+
+    search_id = issue_search_id(project_id)
+    sim_json_path = os.path.join(similarity_path, f"{search_id}.json")
+    with open(sim_json_path, 'w') as file:
+        json.dump(result, file, indent=4)
+    
+    return {
+        "message": "Similarity for the Query is created successfully",
+        "lasso_id": search_id,
+        "response": result
+    }
 
 @app.post('/api/activate_review/{project_id}', status_code=201)
 async def activate_review(project_id: int):
@@ -834,11 +991,11 @@ async def activate_review(project_id: int):
 
     :param project_id: 프로젝트 ID
     """
-    
+
     metadata_file_path = os.path.join(META_DATA, f"{project_id}_metadata.json")
     image_directory = os.path.join(IMAGE, f"{str(project_id)}")
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
-    matched_paragraphs_json_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
+    page_info_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
     keyword_dir = os.path.join(KEYWORD, str(project_id))
     os.makedirs(bbox_dir, exist_ok=True)
@@ -879,8 +1036,8 @@ async def activate_review(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error during prosodic analysis: {e}")
 
     # Time Stamping for matched paragraphs (temporal)
-    output = timestamp_for_matched_paragraphs(matched_paragraphs, word_timestamp)
-    with open(matched_paragraphs_json_path, "w") as json_file:
+    output = create_page_info(project_id, matched_paragraphs, word_timestamp)
+    with open(page_info_path, "w") as json_file:
         json.dump(output, json_file, indent=4)
 
     # Time Stamping for bbox (spatial)
@@ -921,7 +1078,49 @@ async def get_lasso_answer(project_id: int, page_num: int, lasso_id: int, prompt
 
     return lasso_answer_data
 
+@app.get('/api/get_search_result/{project_id}/{search_id}', status_code=200)
+async def get_search_result(project_id: int, search_id: int):
+    """
+    특정 프로젝트 ID와 search_id에 해당하는 검색 결과를 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
     
+    :param project_id: 프로젝트 ID
+    :param search_id: search_id
+    """
+
+    similarity_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+
+    if not os.path.exists(similarity_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(similarity_path, "r") as similarity_file:
+            similarity_data = json.load(similarity_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading similarity file: {e}")
+
+    return similarity_data
+
+@app.get('/api/get_page_info/{project_id}', status_code=200)
+async def get_page_info(project_id: int):
+    """
+    생성된 page_info 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
+
+    if not os.path.exists(page_info_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(page_info_path, "r") as page_info_file:
+            page_info_data = json.load(page_info_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
+
+    return page_info_data
+
 @app.get('/api/get_matched_paragraphs/{project_id}', status_code=200)
 async def get_matched_paragraphs(project_id: int):
     """
