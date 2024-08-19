@@ -102,6 +102,16 @@ export async function getMatchParagraphs({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getKeywords({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id, page_num] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_keyword/${project_id}`, {
+        params: {
+            page_num: page_num
+        }
+    });
+    return response.data;
+}
+
 export async function getBbox({queryKey}: {queryKey: string[]}) {
     const [_key, project_id, page_num] = queryKey;
     const response = await axios.get(`${SERVER_ENDPOINT}/api/get_bbox/${project_id}`, {
