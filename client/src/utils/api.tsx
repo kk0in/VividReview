@@ -143,6 +143,14 @@ export async function getCSV({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getProsody({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    console.log(SERVER_ENDPOINT+`api/get_prosody/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_prosody/${project_id}`);
+    console.log(response.data);
+    return response.data;
+}
+
 export async function updateResult({project_id, result}: {project_id: string, result: any}) {
     const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, {data: result});
     return response.data;
@@ -162,6 +170,7 @@ export async function getTestKeypoint() {
     const response = await axios.get(SERVER_ENDPOINT+'test/get_json');
     return response.data;
 }
+
 
 export async function deleteProject(projectId: string) {
     const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);

@@ -952,8 +952,39 @@ async def get_prosody(project_id: int):
     if len(prosody_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple prosody files found")
     else:
-        with open(os.path.join(RECORDING, prosody_file[0]), 'r') as f:
-            return json.load(f)
+        with open(os.path.join(RECORDING, prosody_file[0]), "r") as f:
+            json_data = json.load(f)
+
+            predictions = json_data[0]["results"]["predictions"][0]["models"][
+                "prosody"
+            ]["grouped_predictions"][0]["predictions"]
+            result = []
+
+            for pred in predictions:
+                res = {"begin": pred["time"]["begin"], "end": pred["time"]["end"]}
+                for emotion in pred["emotions"]:
+                    res[emotion["name"]] = emotion["relative_score"]
+
+                result.append(res)
+
+            df = pd.DataFrame(result)
+            columns_to_roll = [col for col in df.columns if col not in ["begin", "end"]]
+
+            rolling_means = df[columns_to_roll].rolling(window=WINDOW_SIZE).mean()
+
+            interval = WINDOW_SIZE 
+            result_filtered = df.iloc[WINDOW_SIZE-1::interval].copy()
+
+
+            result_filtered['begin'] = df.iloc[0::interval]['begin'].values
+            result_filtered['end'] = df['end'].iloc[WINDOW_SIZE-1::interval].values
+
+            for col in columns_to_roll:
+                result_filtered[col] = rolling_means.iloc[WINDOW_SIZE-1::interval][col].values
+
+            json_result = result_filtered.to_dict(orient='records')
+
+            return json_result
 
 class TimestampRecord(BaseModel):
     pageNum: int

@@ -5,13 +5,34 @@ import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
+import {
+  pdfPageState,
+  tocState,
+  IToCSubsection,
+  tocIndexState,
+  matchedParagraphsState,
+} from "@/app/recoil/ViewerState";
+import {
+  getProject,
+  getPdf,
+  getTableOfContents,
+  getMatchParagraphs,
+  getRecording,
+  getProsody,
+} from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
+import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import { useSearchParams } from "next/navigation";
-import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
+import {
+  audioTimeState,
+  audioDurationState,
+  playerState,
+  PlayerState,
+  playerRequestState,
+  PlayerRequestType,
+} from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -31,38 +52,51 @@ interface TabProps {
   onClick: () => void;
 }
 
-function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
+function SubSectionTitle({
+  sectionIndex,
+  index,
+  title,
+  page,
+}: SubSectionTitleProps) {
   const [, setPdfPage] = useRecoilState(pdfPageState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
 
   const handleClick = () => {
     setPdfPage(page[0]);
-    setTocIndexState({section: sectionIndex, subsection: index});
-  }
+    setTocIndexState({ section: sectionIndex, subsection: index });
+  };
 
   let className = "ml-2 hover:font-bold";
   if (sectionIndex === tocIndex.section && index === tocIndex.subsection) {
     className += " font-bold";
   }
 
-  return (<li className={className} onClick={handleClick} >{`• ${title}`}</li>);
+  return <li className={className} onClick={handleClick}>{`• ${title}`}</li>;
 }
 
 function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   let subtitles;
   const [clicked, setClicked] = useState(false);
-  const [tocIndex, ] = useRecoilState(tocIndexState);
+  const [tocIndex] = useRecoilState(tocIndexState);
 
   const handleSectionClick = () => {
     setClicked(!clicked);
-  }
+  };
 
   if (subsections) {
     let subsectionIndex = 0;
     subtitles = (
       <ul>
         {subsections.map((subsection: IToCSubsection) => {
-          const element = (<SubSectionTitle key={index} sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
+          const element = (
+            <SubSectionTitle
+              key={index}
+              sectionIndex={index}
+              index={subsectionIndex}
+              title={subsection.title}
+              page={subsection.page}
+            />
+          );
           subsectionIndex++;
           return element;
         })}
@@ -105,6 +139,21 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+  const [prosodyData, setProsoyData] = useState<any>(null);
+  const [positiveEmotion, setpositiveEmotion] = useState([
+    "Part for taking away",
+    "Excitement",
+    "Enthusiasm",
+    "Interest",
+    "Amusement",
+    "Joy",
+  ]);
+  const [negativeEmotion, setnegativeEmotion] = useState([
+    "Part for throwing away",
+    "Calmness",
+    "Boredom",
+    "Tiredness",
+  ]);
 
   const subTabs: TabProps[] = [
     {
@@ -123,21 +172,22 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
   let i = 0;
   const subTabElements = subTabs.map((tab) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+    const className =
+      "rounded-t-2xl w-fit py-1 px-4 font-bold " +
       (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
-      <div className={className}
-        onClick={tab.onClick}
-      >
+      <div className={className} onClick={tab.onClick}>
         {tab.title}
       </div>
     );
-  })
+  });
 
   const fetchMatchedParagraphs = async () => {
     try {
-      const paragraphs = await getMatchParagraphs({ queryKey: ["matchParagraphs", projectId] });
+      const paragraphs = await getMatchParagraphs({
+        queryKey: ["matchParagraphs", projectId],
+      });
       setParagraphs(paragraphs);
       console.log(paragraphs);
     } catch (error) {
@@ -157,6 +207,26 @@ function ReviewPage({ projectId }: { projectId: string }) {
       enabled: false, // 수동으로 호출
     }
   );
+
+  // Prosody 정보를 가져오는 함수
+  const fetchProsody = async () => {
+    try {
+      const result = await getProsody({ queryKey: ["getProsody", projectId] });
+      setProsoyData(result);
+    } catch (error) {
+      console.error("Failed to fetch prosody:", error);
+    }
+  };
+
+  useEffect(() => {
+    console.log("fetching prosody");
+    fetchProsody();
+  }, []);
+
+  const handlePointClick = (data) => {
+    console.log("Clicked data point:", data);
+    progressRef.current!.value = data.begin;
+  };
 
   useEffect(() => {
     const fetchAudio = async () => {
@@ -205,11 +275,14 @@ function ReviewPage({ projectId }: { projectId: string }) {
     }
 
     const getNewProgressValue = (event: MouseEvent) => {
-      return (event.offsetX / progressRef.current!.offsetWidth) * audioRef.current!.duration;
-    }
+      return (
+        (event.offsetX / progressRef.current!.offsetWidth) *
+        audioRef.current!.duration
+      );
+    };
 
     progressRef.current.onmousedown = (event) => {
-      console.log('mousedown', event.offsetX);
+      console.log("mousedown", event.offsetX);
       progressRef.current!.value = getNewProgressValue(event);
       setIsMouseDown(true);
     };
@@ -221,7 +294,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
     };
 
     progressRef.current.onmouseup = (event) => {
-      console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
+      console.log("mouseup", progressRef.current!.offsetWidth, event.offsetX);
       audioRef.current!.currentTime = getNewProgressValue(event);
       setIsMouseDown(false);
     };
@@ -281,7 +354,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
       const endSubSection = section.subsections[section.subsections.length - 1];
       const startIndex = startSubSection.page[0];
       const endIndex = endSubSection.page[endSubSection.page.length - 1];
-      const length = endIndex - startIndex + 1
+      const length = endIndex - startIndex + 1;
       for (let i = 0; i < length; i++) {
         pages.push(startIndex + i);
       }
@@ -316,16 +389,17 @@ function ReviewPage({ projectId }: { projectId: string }) {
         Script
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row">
-          {subTabElements}
-        </div>
+        <div className="flex flex-row">{subTabElements}</div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
           {paragraph}
         </div>
       </div>
       <div className="w-full mt-4 px-4">
-        <audio ref={audioRef}/>
+        <audio ref={audioRef} />
         <progress ref={progressRef} className="w-full" />
+      </div>
+      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+        <ArousalGraph data={prosodyData} onPointClick={handlePointClick} positiveEmotion={positiveEmotion} negativeEmotion={negativeEmotion}/>
       </div>
     </div>
   );
@@ -338,7 +412,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
-  const isReviewMode = useSearchParams().get('mode') === 'review';
+  const isReviewMode = useSearchParams().get("mode") === "review";
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -376,7 +450,9 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const fetchTableOfContents = async () => {
     try {
-      const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
+      const tableOfContents = await getTableOfContents({
+        queryKey: ["tocData", params.id],
+      });
       setTableOfContents(tableOfContents);
       console.log(tableOfContents);
     } catch (error) {
@@ -391,11 +467,18 @@ export default function Page({ params }: { params: { id: string } }) {
   const buildTableOfContents = (tocData: any) => {
     const toc = [];
     for (let i = 0; i < tocData.length; i++) {
-      toc.push(<SectionTitle key={i} index={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
+      toc.push(
+        <SectionTitle
+          key={i}
+          index={i}
+          title={tocData[i].title}
+          subsections={tocData[i].subsections}
+        />
+      );
     }
 
-    return (<ul>{toc}</ul>);
-  }
+    return <ul>{toc}</ul>;
+  };
 
   useEffect(() => {
     if (pdfData === "") {
@@ -450,14 +533,12 @@ export default function Page({ params }: { params: { id: string } }) {
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-50 p-4">
             <div className="mb-4 font-bold">Table</div>
-            <ol>
-              {buildTableOfContents(tableOfContents)}
-            </ol>
+            <ol>{buildTableOfContents(tableOfContents)}</ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
           </div>
-          {(isReviewMode && <ReviewPage projectId={params.id} />)}
+          {isReviewMode && <ReviewPage projectId={params.id} />}
         </div>
       )}
     </div>
