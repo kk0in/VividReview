@@ -540,9 +540,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           formData.append('timestamp', JSON.stringify(pageTimeline.current));
           
           const drawings: string[] = [];
-          for (let i = 1; i < numPages; i++) {
+          for (let i = 1; i <= numPages; i++) {
             const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
-            console.log('numLayers', numLayers);
             const tmpCanvas = document.createElement("canvas");
             tmpCanvas.width = width;
             tmpCanvas.height = height;
@@ -550,7 +549,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             if (tmpContext) {
               tmpContext.imageSmoothingEnabled = false;
               tmpContext.clearRect(0, 0, width, height);
-              // tmpContext.drawImage(document.querySelector(`#canvas_${i}`) as HTMLCanvasElement, 0, 0);
               for (let l = 1; l <= numLayers; l++) {
                 const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
                 if (drawingLayer) {
