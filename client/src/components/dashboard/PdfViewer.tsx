@@ -539,7 +539,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
           // pageTimeline을 JSON 문자열로 변환하여 FormData에 추가
           formData.append('timestamp', JSON.stringify(pageTimeline.current));
           
-          // TODO
           const drawings: string[] = [];
           for (let i = 1; i < numPages; i++) {
             const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
@@ -564,8 +563,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               drawings.push(tmpCanvas.toDataURL());
             }
           }
-          console.log(drawings[0]);
-          console.log(drawings[5]);
           formData.append('drawings', JSON.stringify(drawings));
 
           try {
