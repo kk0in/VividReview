@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from hume import HumeBatchClient
 from hume.models.config import LanguageConfig, ProsodyConfig
 from concurrent.futures import ThreadPoolExecutor
-from google.cloud import speech
+from google.cloud import vision
 from pydantic import BaseModel
 from collections import defaultdict
 
@@ -12,6 +12,12 @@ from typing import Any, List, Union, Dict
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from PIL import Image
+import pytesseract
+from io import BytesIO
+
+import cv2
+import numpy as np
 import zipfile
 import shutil
 import json
@@ -22,7 +28,6 @@ import io
 import fitz
 import ffmpeg
 import logging
-from google.cloud import speech_v1p1beta1 as speech
 import base64
 from pdf2image import convert_from_path
 import requests
@@ -77,10 +82,72 @@ os.makedirs(IMAGE, exist_ok=True)
 os.makedirs(SPM, exist_ok=True)
 os.makedirs(BBOX, exist_ok=True)
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "watchful-lotus-383310-7782daea2dc1.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb46.json"
 
 confidence_threshold = 0.5
 
+def detect_handwritten_text(image_path):
+    # Google Cloud Vision 클라이언트 설정
+    client = vision.ImageAnnotatorClient()
+
+    # 이미지 파일을 읽고 Vision API에 전송
+    with open(image_path, 'rb') as image_file:
+        content = image_file.read()
+
+    image = vision.Image(content=content)
+    image_context = vision.ImageContext(language_hints=["en-t-i0-handwrit"])
+
+    # 손글씨 인식 수행
+    response = client.document_text_detection(image=image, image_context=image_context)
+
+    if response.error.message:
+        raise Exception(f'{response.error.message}')
+    
+    if response.text_annotations:
+        return response.text_annotations[0].description
+    
+    return ""
+    
+def remove_transparency(image_path):
+    # PNG 이미지를 불러오기 (투명 배경 포함)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+    # 알파 채널이 있는지 확인
+    if image.shape[2] == 4:
+        # 알파 채널 분리
+        b, g, r, a = cv2.split(image)
+        
+        # 투명한 영역을 흰색 배경으로 채우기
+        alpha_inv = cv2.bitwise_not(a)
+        white_background = np.full_like(a, 255)
+        b = cv2.bitwise_or(b, white_background, mask=alpha_inv)
+        g = cv2.bitwise_or(g, white_background, mask=alpha_inv)
+        r = cv2.bitwise_or(r, white_background, mask=alpha_inv)
+
+        # 다시 합쳐서 BGR 이미지로 변환
+        image = cv2.merge([b, g, r])
+
+    # 저장된 이미지 반환
+    cv2.imwrite(image_path, image)
+
+def decode_base64_image(data):
+    """Base64로 인코딩된 이미지를 디코딩하여 PIL Image 객체로 변환"""
+    # 'data:image/png;base64,' 접두사가 있을 경우 제거
+    if data.startswith('data:image'):
+        data = data.split(',', 1)[1]
+
+    try:
+        image_data = base64.b64decode(data)
+        image = Image.open(BytesIO(image_data))
+        image.verify()  # 이미지가 유효한지 검증
+        image = Image.open(BytesIO(image_data))  # 다시 열어야 실제 이미지로 사용 가능
+        return image
+    except base64.binascii.Error as e:
+        raise ValueError(f"Base64 decoding failed: {e}")
+    except (IOError, ValueError) as e:
+        # 디버깅을 위해 Base64 문자열의 일부를 출력 (보안상 전체를 출력하지 않음)
+        sample_data = data[:30] + "..." + data[-30:]
+        raise ValueError(f"Failed to decode image: {e}. Base64 sample: {sample_data}")
 
 def filter_script_data(script_data):
     allowed_keys = {"keyword", "formal"}
@@ -961,12 +1028,15 @@ class TimestampRecord(BaseModel):
     end: int
 
 @app.post('/api/save_recording/{project_id}', status_code=200)
-async def save_recording(project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...)):
+async def save_recording(project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...), drawings: str = Form(...)):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
     transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     gpt_timestamp_path = os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json")
     real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
+    annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
+    os.makedirs(drawings_dir, exist_ok=True)
 
     # JSON 문자열을 파싱하여 TimestampRecord 리스트로 변환
     try:
@@ -974,7 +1044,13 @@ async def save_recording(project_id: int, recording: UploadFile = File(...), tim
         timestamps = [TimestampRecord(**item) for item in timestamp_data]
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format for timestamp")
-
+    
+    # JSON 문자열을 파싱하여 drawings 리스트로 변환
+    try:
+        drawings_data = json.loads(drawings)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format for drawings")
+    
     # Save real timestamp
     dic = defaultdict(list)
     for ele in timestamps:
@@ -986,6 +1062,25 @@ async def save_recording(project_id: int, recording: UploadFile = File(...), tim
     with open(real_timestamp_path, "w") as json_file:
         json.dump(result, json_file, indent=4)
 
+    # Perform OCR on each drawing and save the extracted text
+    # annotation_image = {}
+    # annotation_image['url'] = drawings
+    # with open(annnotation_path, "w") as json_file:
+    #     json.dump(annotation_image, json_file, indent=4)
+
+    print("length of drawings: ", len(drawings_data))
+    ocr_results = {}
+    for i in range(len(drawings_data)//2):  # 절반만 순회
+        image = decode_base64_image(drawings_data[i])
+        image_path = os.path.join(drawings_dir, f"{i + 1}.png")
+        image.save(image_path)
+        remove_transparency(image_path)
+        text = detect_handwritten_text(image_path)
+        ocr_results[str(i + 1)] = text.strip()
+
+    with open(annnotation_path, "w") as json_file:
+        json.dump(ocr_results, json_file, indent=4)
+    
     # save recording file
     with open(webm_path, "wb") as buffer:
         shutil.copyfileobj(recording.file, buffer)
