@@ -334,6 +334,10 @@ function ReviewPage({ projectId }: { projectId: string }) {
     return text.replace(/\n/g, '<br />');
   }
 
+  const convertListSymbols = (text: string) => {
+    return text.replace(/- (.*?)(\n|$)/g, '• $1\n');
+  }
+
   const highlightKeywords = (text: string, keywords: string[]) => {
     let result = text;
     for (const keyword of keywords) {
@@ -343,7 +347,8 @@ function ReviewPage({ projectId }: { projectId: string }) {
   }
 
   const preprocessText = (text: string, keywords: string[]) => {
-    let processedHTML = convertLineEscapes(text);
+    let processedHTML = convertListSymbols(text);
+    processedHTML = convertLineEscapes(processedHTML);
     processedHTML = convertStrongSymbols(processedHTML);
     processedHTML = convertWhiteSpaces(processedHTML);
     processedHTML = highlightKeywords(processedHTML, keywords);
