@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, lassoQuery } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -362,6 +362,32 @@ function ReviewPage({ projectId }: { projectId: string }) {
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
           {mode === "script" ? paragraph : lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers[activePromptIndex[2]]}
         </div>
+        {(mode === "script") && (
+          <div>
+            <div>
+              <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}>Previous</button>
+              <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>Next</button>
+            </div>
+            <div>
+              {
+                lassoRec[projectId][page][activePromptIndex[0]].prompts.map((prompt) => {
+                  return (
+                    <button onClick={() => {
+                      const boxArr = (box: {x: number, y: number, width: number, height: number}) => {
+                        return [box.x, box.y, box.width, box.height];
+                      }
+                      const response = await lassoQuery(projectId, page, prompt.prompt, lassoRec[projectId][page][activePromptIndex[0]].image ?? "", boxArr(lassoRec[projectId][page][activePromptIndex[0]].boundingBox), lassoRec[projectId][page][activePromptIndex[0]].lassoId);
+                      const newLasso = {...lassoRec[projectId][page][activePromptIndex[0]], lassoId: response.lassoId};
+                      newLasso.prompts = {...lassoRec[projectId][page][activePromptIndex[0]].prompts, [activePromptIndex[1]]: {...lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]], answers: [...lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers, response.answer]}};
+                      setFocusedLasso(newLasso);
+                      setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers.length]);
+                    }}>{prompt.prompt}</button>
+                  )
+                })
+              }
+            </div>
+          </div>
+        )}
       </div>
       <div className="w-full mt-4 px-4">
         <audio ref={audioRef}/>

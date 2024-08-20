@@ -17,6 +17,7 @@ export type Lasso = {
     width: number;
     height: number;
   };
+  image?: string;
   lassoId: number | null;
   prompts: Prompt[];
 }
