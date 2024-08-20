@@ -90,7 +90,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage({ projectId }: { projectId: string }) {
+function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement> }) {
   const page = useRecoilValue(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -105,6 +105,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+  const [bboxIndex, setBboxIndex] = useState(0);
 
   const subTabs: TabProps[] = [
     {
@@ -198,6 +199,27 @@ function ReviewPage({ projectId }: { projectId: string }) {
       }
     };
   }, [audioRef.current?.currentTime, isMouseDown]);
+
+  useEffect(() => { // spotlight for 3000 ms, bboxlist needed to be connected to API
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+    audioRef.current.ontimeupdate = () => {
+      if (!isMouseDown && audioRef.current) {
+        if (audioRef.current.currentTime >= bboxlist[bboxIndex].start) {
+          const bbox = bboxlist[bboxIndex].bbox;
+          const canvas = spotlightRef.current;
+          const ctx = canvas?.getContext('2d');
+          if (!canvas || !ctx) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.clearRect(bbox.x, bbox.y, bbox.width, bbox.height);
+          setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
+        }
+      }
+    }
+  })
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -339,6 +361,7 @@ export default function Page({ params }: { params: { id: string } }) {
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const isReviewMode = useSearchParams().get('mode') === 'review';
+  const spotlightRef = useRef<HTMLCanvasElement>(null);
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -455,9 +478,9 @@ export default function Page({ params }: { params: { id: string } }) {
             </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer scale={1.5} projectId={params.id} />
+            <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
           </div>
-          {(isReviewMode && <ReviewPage projectId={params.id} />)}
+          {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>
       )}
     </div>
