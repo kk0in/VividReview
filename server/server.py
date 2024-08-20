@@ -94,6 +94,7 @@ os.makedirs(SIMILARITY, exist_ok=True)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb46.json"
 
 confidence_threshold = 0.5
+miss_threshold = 0.5
 
 def detect_handwritten_text(image_path):
     # Google Cloud Vision 클라이언트 설정
@@ -790,27 +791,45 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     if len(pdf_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple PDF files found")
     pdf_path = os.path.join(PDF, pdf_file[0])
+    real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    
+    with open(real_timestamp_path, "r") as file:
+        real_timestamp = json.load(file)
     with open(annnotation_path, "r") as file:
         annotations = json.load(file)
     
     output = {}
+    missed_parts = []
     offset = 0
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
-        start_time = word_timestamp[offset]["start"]
-        end_time = word_timestamp[offset + len(words) - 1]["end"]
+        gpt_start_time = word_timestamp[offset]["start"]
+        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"]
         pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
         annotation = annotations[para_id]
-        output[para_id] = {
-            "start": start_time,
-            "end": end_time,
+        output["pages"][para_id] = {
             "script": paragraph_text,
             "pdf_text": pdf_text,
             "pdf_image": pdf_image,
-            "annotation": annotation
+            "annotation": annotation,
+            "gpt_timestamp": {
+                "start": gpt_start_time,
+                "end": gpt_end_time
+            },
+            "user_timestamp": {
+                "start": real_timestamp[para_id]["start"],
+                "end": real_timestamp[para_id]["end"]
+            }
         }
+        if para_id != "1":
+            prev_page = str(int(para_id) - 1)
+            if ((output[prev_page]["user_timestamp"]["end"]-output[para_id]["gpt_timestamp"]["start"]) / (output[para_id]["gpt_timestamp"]["end"] - output[para_id]["gpt_timestamp"]["start"])) > miss_threshold:
+                missed_parts.append([output[para_id]["gpt_timestamp"]["start"], output[prev_page]["user_timestamp"]["end"]])
+            
         offset += len(words) 
+    
+    output["missed_parts"] = missed_parts
 
     return output
 
@@ -922,7 +941,7 @@ async def lasso_query(data: Lasso_Query_Data):
     script_content = read_script(script_path)
 
     try:
-        lasso_answer = await create_lasso_answer(prompt_text, script_content, encoded_image)  
+        lasso_answer = await create_lasso_answer(prompt_text.lower(), script_content, encoded_image)  
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating lasso answer: {e}")
     
@@ -969,7 +988,7 @@ async def search_query(project_id: int, search_query: str = Form(...)):
 
     result = {}
     # 유사도 계산
-    similarities = calculate_similarity(page_info, search_query)
+    similarities = calculate_similarity(page_info['pages'], search_query)
     result["query"] = search_query
     result["similarities"] = similarities
 
@@ -1037,6 +1056,7 @@ async def activate_review(project_id: int):
 
     # Time Stamping for matched paragraphs (temporal)
     output = create_page_info(project_id, matched_paragraphs, word_timestamp)
+
     with open(page_info_path, "w") as json_file:
         json.dump(output, json_file, indent=4)
 
@@ -1119,7 +1139,29 @@ async def get_page_info(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
 
-    return page_info_data
+    return page_info_data['pages']
+
+@app.get('/api/get_missed_parts/{project_id}', status_code=200)
+async def get_missed_parts(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 missed parts을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID에 해당하는 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    """
+
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
+
+    if not os.path.exists(page_info_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(page_info_path, "r") as page_info_file:
+            page_info_data = json.load(page_info_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
+
+    return page_info_data['missed_parts']
 
 @app.get('/api/get_matched_paragraphs/{project_id}', status_code=200)
 async def get_matched_paragraphs(project_id: int):
