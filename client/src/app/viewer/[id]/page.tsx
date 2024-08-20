@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getKeywords } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -29,6 +29,13 @@ interface SectionTitleProps {
 interface TabProps {
   title: string;
   onClick: () => void;
+}
+
+interface IScript {
+  page: number;
+  keyword: string[];
+  formal: string;
+  original: string;
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
@@ -105,6 +112,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+  const [scripts, setScripts] = useState<IScript[]>([]);
 
   const subTabs: TabProps[] = [
     {
@@ -148,6 +156,22 @@ function ReviewPage({ projectId }: { projectId: string }) {
   useEffect(() => {
     fetchMatchedParagraphs();
   }, []);
+
+  useEffect(() => {
+    const fetchKeywords = async () => {
+      try {
+        for (let i = 1; i <= Object.keys(paragraphs!).length; i++) {
+          const keywords = await getKeywords({ queryKey: ["getKeywords", projectId, i.toString()] });
+          keywords.page = i;
+          setScripts((prev) => [...prev, keywords]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch keywords:", error);
+      }
+    };
+
+    fetchKeywords();
+  }, [paragraphs]);
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
@@ -298,14 +322,55 @@ function ReviewPage({ projectId }: { projectId: string }) {
     }
   }
 
-  const paragraph = [];
-  if (paragraphs) {
-    for (const page of pages) {
-      for (const [key, value] of Object.entries(paragraphs)) {
-        if (key === page.toString()) {
-          paragraph.push(<p className="font-bold">Page {key} -</p>);
-          paragraph.push(<p className="mb-2">{value}</p>);
+  const convertWhiteSpaces = (text: string) => {
+    return text.replace(/  /g, '\u00a0\u00a0');
+  }
+
+  const convertStrongSymbols = (text: string) => {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  const convertLineEscapes = (text: string) => {
+    return text.replace(/\n/g, '<br />');
+  }
+
+  const convertListSymbols = (text: string) => {
+    return text.replace(/- (.*?)(\n|$)/g, '• $1\n');
+  }
+
+  const highlightKeywords = (text: string, keywords: string[]) => {
+    let result = text;
+    for (const keyword of keywords) {
+      result = result.replace(new RegExp(keyword, 'gi'), text => `<span class="text-red-600 font-bold">${text}</span>`);
+    }
+    return result;
+  }
+
+  const preprocessText = (text: string, keywords: string[]) => {
+    let processedHTML = convertListSymbols(text);
+    processedHTML = convertLineEscapes(processedHTML);
+    processedHTML = convertStrongSymbols(processedHTML);
+    processedHTML = convertWhiteSpaces(processedHTML);
+    processedHTML = highlightKeywords(processedHTML, keywords);
+    return processedHTML;
+  }
+
+  const paragraph: React.JSX.Element[] = [];
+  for (const page of pages) {
+    for (const script of scripts) {
+      if (script.page === page) {
+        let processedHTML = ""
+        if (activeSubTabIndex === 0) {
+          processedHTML = preprocessText(script.original, script.keyword);
+        } else {
+          processedHTML = preprocessText(script.formal, script.keyword);
         }
+
+        paragraph.push(<>
+            <p className="font-bold text-lg">Page {script.page} -</p>
+            <p className="mb-2" dangerouslySetInnerHTML={{__html:processedHTML}}></p>
+          </>);
+        break;
       }
     }
   }
