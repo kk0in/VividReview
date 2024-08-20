@@ -255,6 +255,8 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
     if (focusedLasso !== null) {
       context.strokeStyle = "red";
       context.strokeRect(focusedLasso.boundingBox.x, focusedLasso.boundingBox.y, focusedLasso.boundingBox.width, focusedLasso.boundingBox.height);
+
+      setTimeout(() => {context.clearRect(0, 0, canvas.width, canvas.height); setFocusedLasso(null);}, 3000);
     }
   }, [focusedLasso]);
 

@@ -53,7 +53,6 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   let subtitles;
   const [clicked, setClicked] = useState(false);
   const [tocIndex, ] = useRecoilState(tocIndexState);
-  const [mode, setMode] = useState("script");
 
   const handleSectionClick = () => {
     setClicked(!clicked);
@@ -106,9 +105,11 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const [activePromptIndex, setActivePromptIndex] = useState<[number, number, number]>([0, 0, 0]);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [lassoRec, setLassoRec] = useRecoilState(lassoState);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
+  const [mode, setMode] = useState("script");
 
   const subTabs: TabProps[] = [
     {
@@ -137,6 +138,32 @@ function ReviewPage({ projectId }: { projectId: string }) {
       </div>
     );
   })
+
+  const promptTabElements = lassoRec[projectId][page].map((lasso, idx) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (idx === activePromptIndex[0] ? "bg-gray-300/50" : "bg-gray-300");
+
+    return (
+      <>
+      <div className={className}
+        onClick={() => {setActivePromptIndex([idx, 0, 0]); setFocusedLasso(lasso);}}
+      >
+        {idx}
+      </div>
+      <div className={className}>
+        {lasso.prompts.map((prompt, iidx) => {
+          return (
+            <div className={"rounded-t-2xl w-fit py-1 px-4 font-bold" + (iidx === activePromptIndex[1] ? "bg-gray-400/50" : )}
+              onClick={() => setActivePromptIndex([activePromptIndex[0], iidx, 0])}
+            >
+              {prompt.prompt}
+            </div>
+          );
+        })}
+      </div>
+      </>
+    );
+  });
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -313,20 +340,27 @@ function ReviewPage({ projectId }: { projectId: string }) {
     }
   }
 
+  const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
+  const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
+  const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
+  const unfocusedPrompts = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 py-1 px-4 font-bold";
+
   return (
     <div className="flex-none w-1/5 bg-gray-50">
-      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
-        Script
-      </div>
-      <div className="rounded-t-2xl w-fit bg-gray-200/50 mt-4 mx-4 py-1 px-4 font-bold">
-        Prompts
+      <div className="flex">
+        <div className={mode === "script" ? focusedScript : unfocusedScript} onClick={() => setMode("script")}>
+          Script
+        </div>
+        <div className={mode === "prompts" ? focusedPrompts : unfocusedPrompts} onClick={() => setMode("prompts")}>
+          Prompts
+        </div>
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
         <div className="flex flex-row">
-          {subTabElements}
+          {mode === "script" ? subTabElements : promptTabElements}
         </div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {paragraph}
+          {mode === "script" ? paragraph : lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers[activePromptIndex[2]]}
         </div>
       </div>
       <div className="w-full mt-4 px-4">
