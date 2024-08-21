@@ -2,25 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
-import { useRecoilState, useRecoilValue } from "recoil";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
-import {
-  pdfPageState,
-  tocState,
-  IToCSubsection,
-  tocIndexState,
-  matchedParagraphsState,
-} from "@/app/recoil/ViewerState";
-import {
-  getProject,
-  getPdf,
-  getTableOfContents,
-  getMatchParagraphs,
-  getRecording,
-  getProsody,
-} from "@/utils/api";
-
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -62,7 +48,7 @@ interface IScript {
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
-  const [, setPdfPage] = useRecoilState(pdfPageState);
+  const setPdfPage = useSetRecoilState(pdfPageState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
 
   const handleClick = () => {
@@ -70,66 +56,48 @@ function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitlePr
     setTocIndexState({ section: sectionIndex, subsection: index });
   };
 
-  let className = "ml-2 hover:font-bold";
-  if (sectionIndex === tocIndex.section && index === tocIndex.subsection) {
-    className += " font-bold";
-  }
-
-  return <li className={className} onClick={handleClick}>{`• ${title}`}</li>;
+  const className = "ml-3 hover:font-bold " +
+      (sectionIndex === tocIndex.section && index === tocIndex.subsection && "font-bold");
+  return (<li className={className} onClick={handleClick} >{`• ${title}`}</li>);
 }
 
 function SectionTitle({ index, title, subsections }: SectionTitleProps) {
-  let subtitles;
+  const tocIndex = useRecoilValue(tocIndexState);
+
   const [clicked, setClicked] = useState(false);
-  const [tocIndex] = useRecoilState(tocIndexState);
 
-  const handleSectionClick = () => {
-    setClicked(!clicked);
-  };
+  const handleSectionClick = () => setClicked(!clicked);
 
-  if (subsections) {
-    let subsectionIndex = 0;
-    subtitles = (
-      <ul>
-        {subsections.map((subsection: IToCSubsection) => {
-          const element = (
-            <SubSectionTitle
-              key={index}
-              sectionIndex={index}
-              index={subsectionIndex}
-              title={subsection.title}
-              page={subsection.page}
-            />
-          );
-          subsectionIndex++;
-          return element;
-        })}
-      </ul>
-    );
-  }
+  let subsectionIndex = 0;
+  const subTitleElements = (
+    <ul>
+      {subsections?.map((subsection: IToCSubsection) => (
+        <SubSectionTitle
+          key={`${index}-${subsectionIndex}`}
+          sectionIndex={index}
+          index={subsectionIndex++}
+          title={subsection.title}
+          page={subsection.page} />)
+      )}
+    </ul>
+  );
 
-  let className = "text-center hover:font-bold";
-  if (index === tocIndex.section) {
-    className += " font-bold";
-  }
-
+  const className = "hover:font-bold " + (index === tocIndex.section && "font-bold");
   return (
-    <li className="bg-gray-200 pl-3 pr-3 pt-2 pb-2 mb-1 rounded-2xl">
+    <li className="bg-gray-200 px-4 py-2 mb-1 rounded-2xl">
       <p className={className} onClick={handleSectionClick}>
         {`${index + 1}. ${title}`}
       </p>
-      {clicked && subsections && (
-        <>
-          <div className="mb-3" />
-          {subtitles}
-        </>
-      )}
+      {clicked && subsections &&
+        <div className="mt-3">
+          {subTitleElements}
+        </div>
+      }
     </li>
   );
 }
 
-
-function ReviewPage({ projectId }: { projectId: string }) {
+function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement> }) {
   const [page, setPage] = useRecoilState(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -145,6 +113,10 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{start:number, end:number}>({start: 0, end: 0});
   const [pageInfo, setPageInfo] = useState({});
+  const [bboxList, setBboxList] = useState<any[]>([]);
+  const pdfWidth = useRef(0);
+  const pdfHeight = useRef(0);
+  const bboxIndex = useRef(-1);
 
   const subTabs: TabProps[] = [
     {
@@ -162,13 +134,15 @@ function ReviewPage({ projectId }: { projectId: string }) {
   ];
 
   let i = 0;
-  const subTabElements = subTabs.map((tab) => {
-    const className =
-      "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+  const subTabElements = subTabs.map((tab, idx) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
       (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
-      <div className={className} onClick={tab.onClick}>
+      <div className={className}
+        onClick={tab.onClick}
+        key={"subtab-" + idx}
+      >
         {tab.title}
       </div>
     );
@@ -216,6 +190,17 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
     fetchKeywords();
   }, [paragraphs]);
+
+  useEffect(() => { // Bbox 가져오기
+    const getBboxes = async () => {
+      const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
+      pdfWidth.current = bboxes.image_size.width;
+      pdfHeight.current = bboxes.image_size.height;
+      setBboxList(bboxes.bboxes);
+    }
+    bboxIndex.current = -1;
+    getBboxes();
+  }, [projectId, page])
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
@@ -278,6 +263,49 @@ function ReviewPage({ projectId }: { projectId: string }) {
       }
     };
   }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
+
+  useEffect(() => { // spotlight for 3000 ms
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+    audioRef.current.ontimeupdate = () => {
+      if (!isMouseDown && audioRef.current) {
+        console.log(audioRef.current.currentTime);
+        console.log(bboxList[0]);
+        console.log(bboxIndex.current);
+        let changeIndexFlag = false;
+        for(let i=0; i<bboxList.length; i++) {
+          if (audioRef.current.currentTime >= bboxList[i].start && audioRef.current.currentTime < bboxList[i].end) {
+            if (i !== bboxIndex.current) {
+              bboxIndex.current = i;
+              changeIndexFlag = true;
+            }
+            break;
+          }
+        }
+        if (!changeIndexFlag) return;
+        const bbox = bboxList[bboxIndex.current].bbox;
+        const canvas = spotlightRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height);
+        console.log(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height
+        )
+        setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
+      }
+    }
+  })
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -541,8 +569,6 @@ export default function Page({ params }: { params: { id: string } }) {
     audioRef.current!.currentTime = data?.begin;
   };
 
-  const isReviewMode = useSearchParams().get("mode") === "review";
-
   const [prosodyData, setProsodyData] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
     "Part for taking away",
@@ -558,6 +584,8 @@ export default function Page({ params }: { params: { id: string } }) {
     "Boredom",
     "Tiredness",
   ]);
+  const isReviewMode = useSearchParams().get('mode') === 'review';
+  const spotlightRef = useRef<HTMLCanvasElement>(null);
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -698,7 +726,7 @@ export default function Page({ params }: { params: { id: string } }) {
             <ol>{buildTableOfContents(tableOfContents)}</ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer scale={1.5} projectId={params.id} />
+            <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
             <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
               <ArousalGraph
                 data={prosodyData}
@@ -708,8 +736,7 @@ export default function Page({ params }: { params: { id: string } }) {
               />
             </div>
           </div>
-
-          {isReviewMode && <ReviewPage projectId={params.id} audioRef={audioRef} />}
+          {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>
       )}
     </div>
