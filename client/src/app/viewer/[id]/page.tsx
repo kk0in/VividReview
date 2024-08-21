@@ -233,6 +233,7 @@ function ReviewPage({ projectId }: { projectId: string }) {
     }
 
     progressRef.current.onmousedown = (event) => {
+      event.preventDefault();
       console.log('mousedown', event.offsetX);
       progressRef.current!.value = getNewProgressValue(event);
       setIsMouseDown(true);
@@ -245,8 +246,15 @@ function ReviewPage({ projectId }: { projectId: string }) {
     };
 
     progressRef.current.onmouseup = (event) => {
-      console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
-      audioRef.current!.currentTime = getNewProgressValue(event);
+      event.preventDefault();
+      if (isMouseDown) {
+        console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
+        audioRef.current!.currentTime = getNewProgressValue(event);
+        setIsMouseDown(false);
+      }
+    };
+
+    window.onmouseup = () => {
       setIsMouseDown(false);
     };
   }, [progressRef, isMouseDown]);
