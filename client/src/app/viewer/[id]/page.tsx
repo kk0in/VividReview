@@ -6,12 +6,12 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
-import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
+import { audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -29,6 +29,13 @@ interface SectionTitleProps {
 interface TabProps {
   title: string;
   onClick: () => void;
+}
+
+interface IScript {
+  page: number;
+  keyword: string[];
+  formal: string;
+  original: string;
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
@@ -91,7 +98,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
 }
 
 function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement> }) {
-  const page = useRecoilValue(pdfPageState);
+  const [page, setPage] = useRecoilState(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
@@ -101,10 +108,12 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
-  const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+  const [scripts, setScripts] = useState<IScript[]>([]);
+  const [timeline, setTimeline] = useState<{start:number, end:number}>({start: 0, end: 0});
+  const [pageInfo, setPageInfo] = useState({});
   const [bboxList, setBboxList] = useState<any[]>([]);
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
@@ -150,9 +159,36 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
   };
 
+  const fetchPageInfo = async () => {
+    try {
+      const pageInfo = await getPageInfo({ queryKey: ["getPageInfo", projectId] });
+      setPageInfo(pageInfo);
+      console.log(pageInfo);
+    } catch (error) {
+      console.error("Failed to fetch page information:", error);
+    }
+  }
+
   useEffect(() => {
     fetchMatchedParagraphs();
+    fetchPageInfo();
   }, []);
+
+  useEffect(() => {
+    const fetchKeywords = async () => {
+      try {
+        for (let i = 1; i <= Object.keys(paragraphs!).length; i++) {
+          const keywords = await getKeywords({ queryKey: ["getKeywords", projectId, i.toString()] });
+          keywords.page = i;
+          setScripts((prev) => [...prev, keywords]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch keywords:", error);
+      }
+    };
+
+    fetchKeywords();
+  }, [paragraphs]);
 
   useEffect(() => { // Bbox 가져오기
     const getBboxes = async () => {
@@ -212,8 +248,20 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
       if (!isMouseDown && audioRef.current) {
         progressRef.current!.value = audioRef.current.currentTime;
       }
+
+      const currentPageInfo = Object.entries<{start:number, end:number}>(pageInfo)[page - 1][1]
+      if (gridMode !== 0 &&
+          audioRef.current!.currentTime <= timeline.end &&
+          audioRef.current!.currentTime >= currentPageInfo.end) {
+        setPage((page) => page + 1);
+      }
+
+      if (audioRef.current!.currentTime >= timeline.end) {
+        console.log('Time is up');
+        setPlayerState(PlayerState.IDLE);
+      }
     };
-  }, [audioRef.current?.currentTime, isMouseDown]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
 
   useEffect(() => { // spotlight for 3000 ms
     if (audioRef.current === null || !audioSource) {
@@ -268,6 +316,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
 
     progressRef.current.onmousedown = (event) => {
+      event.preventDefault();
       console.log('mousedown', event.offsetX);
       progressRef.current!.value = getNewProgressValue(event);
       setIsMouseDown(true);
@@ -280,11 +329,73 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     };
 
     progressRef.current.onmouseup = (event) => {
-      console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
-      audioRef.current!.currentTime = getNewProgressValue(event);
+      event.preventDefault();
+      if (isMouseDown) {
+        console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
+        audioRef.current!.currentTime = getNewProgressValue(event);
+        setIsMouseDown(false);
+      }
+    };
+
+    window.onmouseup = () => {
       setIsMouseDown(false);
     };
   }, [progressRef, isMouseDown]);
+
+  useEffect(() => {
+    const newTimeline = {start: 0, end: 0};
+
+    switch (gridMode) {
+      case 0: {
+        const value = Object.entries<{start:number, end:number}>(pageInfo)[page - 1];
+
+        if (value) {
+          newTimeline.start = value[1].start;
+          newTimeline.end = value[1].end;
+        }
+        break;
+      }
+
+      case 1: {
+        const section = toc[tocIndex.section];
+        const startSubSection = section.subsections[0];
+        const endSubSection = section.subsections[section.subsections.length - 1];
+        const startPage = startSubSection.page[0];
+        const endPage = endSubSection.page[endSubSection.page.length - 1];
+
+        const startValue = Object.entries<{start:number, end:number}>(pageInfo)[startPage - 1];
+        const endValue = Object.entries<{start:number, end:number}>(pageInfo)[endPage - 1];
+
+        if (startValue && endValue) {
+          newTimeline.start = startValue[1].start;
+          newTimeline.end = endValue[1].end;
+        }
+        break;
+      }
+
+      case 2: {
+        const section = toc[tocIndex.section];
+        const subsection = section.subsections[tocIndex.subsection];
+        const startPage = subsection.page[0];
+        const endPage = subsection.page[subsection.page.length - 1];
+
+        const startValue = Object.entries<{start:number, end:number}>(pageInfo)[startPage - 1];
+        const endValue = Object.entries<{start:number, end:number}>(pageInfo)[endPage - 1];
+
+        if (startValue && endValue) {
+          newTimeline.start = startValue[1].start;
+          newTimeline.end = endValue[1].end;
+        }
+        break;
+      }
+    }
+
+    console.log('newTimeline', newTimeline, audioRef.current!.currentTime);
+    if (audioRef.current!.currentTime < newTimeline.start || audioRef.current!.currentTime > newTimeline.end) {
+      audioRef.current!.currentTime = newTimeline.start;
+    }
+    setTimeline(newTimeline);
+  }, [pageInfo, page, gridMode]);
 
   useEffect(() => {
     if (audioRef.current === null || !audioSource) {
@@ -292,20 +403,24 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
 
     switch (currentPlayerState) {
-      case PlayerState.PLAYING:
-        audioRef.current.currentTime = audioTime;
+      case PlayerState.PLAYING: {
+        console.log('PLAYING', timeline, audioRef.current!.currentTime);
         audioRef.current.play();
         break;
+      }
 
-      case PlayerState.PAUSED:
-        audioRef.current.pause();
-        setAudioTime(audioRef.current.currentTime);
-        break;
-
-      case PlayerState.IDLE:
-        setAudioTime(0);
+      case PlayerState.PAUSED: {
+        console.log('PAUSED', timeline, audioRef.current!.currentTime );
         audioRef.current.pause();
         break;
+      }
+
+      case PlayerState.IDLE: {
+        console.log('IDLE');
+        audioRef.current.currentTime = timeline.start;
+        audioRef.current.pause();
+        break;
+      }
     }
   }, [currentPlayerState]);
 
@@ -357,14 +472,55 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
   }
 
-  const paragraph = [];
-  if (paragraphs) {
-    for (const page of pages) {
-      for (const [key, value] of Object.entries(paragraphs)) {
-        if (key === page.toString()) {
-          paragraph.push(<p className="font-bold">Page {key} -</p>);
-          paragraph.push(<p className="mb-2">{value}</p>);
+  const convertWhiteSpaces = (text: string) => {
+    return text.replace(/  /g, '\u00a0\u00a0');
+  }
+
+  const convertStrongSymbols = (text: string) => {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  const convertLineEscapes = (text: string) => {
+    return text.replace(/\n/g, '<br />');
+  }
+
+  const convertListSymbols = (text: string) => {
+    return text.replace(/- (.*?)(\n|$)/g, '• $1\n');
+  }
+
+  const highlightKeywords = (text: string, keywords: string[]) => {
+    let result = text;
+    for (const keyword of keywords) {
+      result = result.replace(new RegExp(keyword, 'gi'), text => `<span class="text-red-600 font-bold">${text}</span>`);
+    }
+    return result;
+  }
+
+  const preprocessText = (text: string, keywords: string[]) => {
+    let processedHTML = convertListSymbols(text);
+    processedHTML = convertLineEscapes(processedHTML);
+    processedHTML = convertStrongSymbols(processedHTML);
+    processedHTML = convertWhiteSpaces(processedHTML);
+    processedHTML = highlightKeywords(processedHTML, keywords);
+    return processedHTML;
+  }
+
+  const paragraph: React.JSX.Element[] = [];
+  for (const page of pages) {
+    for (const script of scripts) {
+      if (script.page === page) {
+        let processedHTML = ""
+        if (activeSubTabIndex === 0) {
+          processedHTML = preprocessText(script.original, script.keyword);
+        } else {
+          processedHTML = preprocessText(script.formal, script.keyword);
         }
+
+        paragraph.push(<>
+            <p className="font-bold text-lg">Page {script.page} -</p>
+            <p className="mb-2" dangerouslySetInnerHTML={{__html:processedHTML}}></p>
+          </>);
+        break;
       }
     }
   }

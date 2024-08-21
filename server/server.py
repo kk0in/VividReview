@@ -21,7 +21,7 @@ import zipfile
 import shutil
 import json
 import os
-import numpy as np 
+import numpy as np
 import csv
 import io
 import fitz
@@ -68,7 +68,7 @@ RECORDING = './recordings'
 SCRIPT = './scripts'
 TOC = './tocs'
 IMAGE = './images'
-SPM = './spms'  
+SPM = './spms'
 BBOX = './bboxs'
 LASSO = './lasso'
 KEYWORD = './keywords'
@@ -112,12 +112,12 @@ def detect_handwritten_text(image_path):
 
     if response.error.message:
         raise Exception(f'{response.error.message}')
-    
+
     if response.text_annotations:
         return response.text_annotations[0].description
-    
+
     return ""
-    
+
 def remove_transparency(image_path):
     # PNG 이미지를 불러오기 (투명 배경 포함)
     image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
@@ -126,7 +126,7 @@ def remove_transparency(image_path):
     if image.shape[2] == 4:
         # 알파 채널 분리
         b, g, r, a = cv2.split(image)
-        
+
         # 투명한 영역을 흰색 배경으로 채우기
         alpha_inv = cv2.bitwise_not(a)
         white_background = np.full_like(a, 255)
@@ -185,11 +185,11 @@ def encode_image(image_path):
 
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
-    
+
     transcript1 = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
-        language="en"  
+        language="en"
     )
 
     transcript2 = client.audio.transcriptions.create(
@@ -202,7 +202,7 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
 
     with open(transcription_path, "w") as output_file:
         json.dump(transcript1.text, output_file, indent=4)
-    
+
     with open(timestamp_path, "w") as output_file:
         json.dump(transcript2.words, output_file, indent=4)
 
@@ -222,7 +222,7 @@ def issue_id():
 def issue_lasso_id(project_id, page_num):
     """
     지정된 프로젝트와 페이지에 대해 새로운 lasso_id를 발급하는 함수.
-    
+
     :param project_id: 프로젝트의 ID
     :param page_num: 페이지 번호
     :return: 새로운 lasso_id
@@ -231,12 +231,12 @@ def issue_lasso_id(project_id, page_num):
     if not os.path.exists(lasso_path):
         os.makedirs(lasso_path, exist_ok=True)
         return 1
-    
+
     existing_lasso_ids = [
         int(f.split('.')[0]) for f in os.listdir(lasso_path)
         if f.split('.')[0].isdigit()
     ]
-    
+
     if existing_lasso_ids:
         return max(existing_lasso_ids) + 1
     else:
@@ -245,7 +245,7 @@ def issue_lasso_id(project_id, page_num):
 def issue_search_id(project_id):
     """
     지정된 프로젝트에 대해 새로운 search_id를 발급하는 함수.
-    
+
     :param project_id: 프로젝트의 ID
     :return: 새로운 search_id
     """
@@ -253,12 +253,12 @@ def issue_search_id(project_id):
     if not os.path.exists(similarity_path):
         os.makedirs(similarity_path, exist_ok=True)
         return 1
-    
+
     existing_search_ids = [
         int(f.split('.')[0]) for f in os.listdir(similarity_path)
         if f.split('.')[0].isdigit()
     ]
-    
+
     if existing_search_ids:
         return max(existing_search_ids) + 1
     else:
@@ -268,7 +268,7 @@ def issue_version(project_id):
     """
     특정 프로젝트 ID에 대한 버전을 발급하는 함수입니다.
     결과 디렉토리에서 프로젝트 ID와 일치하는 파일들을 찾아 가장 높은 버전 번호를 반환합니다.
-    
+
     :param project_id: 프로젝트의 고유 ID입니다.
     """
 
@@ -283,7 +283,7 @@ def get_filename(id):
     """
     특정 ID에 해당하는 파일 이름을 반환하는 함수입니다.
     metadata 디렉토리에서 ID와 일치하는 파일을 찾아 파일 이름을 반환합니다.
-    
+
     :param id: 찾고자 하는 파일의 ID입니다.
     """
 
@@ -321,7 +321,7 @@ def keyword_api_request(script_segment):
         "response_format": {"type": "json_object"},
         "messages": [
             {
-                "role": "system", 
+                "role": "system",
                 "content": "You are a helpful assistant designed to output JSON."
             },
             {
@@ -335,7 +335,7 @@ def keyword_api_request(script_segment):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
 
-def bbox_api_request(script_segment, encoded_image):    
+def bbox_api_request(script_segment, encoded_image):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {gpt_api_key}"
@@ -371,7 +371,7 @@ def bbox_api_request(script_segment, encoded_image):
         "response_format": {"type": "json_object"},
         "messages": [
             {
-                "role": "system", 
+                "role": "system",
                 "content": "You are a helpful assistant designed to output JSON."
             },
             {
@@ -409,7 +409,7 @@ async def create_bbox_and_keyword(bbox_dir, keyword_dir, matched_paragraphs, enc
             json.dump(script_data, json_file, indent=4)
 
         response_data_keyword = keyword_api_request(script_segment)
-    
+
          # Process the response data for keyword
         if 'choices' in response_data_keyword and len(response_data_keyword['choices']) > 0:
             script_text = response_data_keyword['choices'][0]['message']['content']
@@ -465,7 +465,7 @@ async def create_spm(script_content, encoded_images):
         "response_format": {"type": "json_object"},
         "messages": [
             {
-                "role": "system", 
+                "role": "system",
                 "content": "You are a helpful assistant designed to output JSON."
             },
             {
@@ -496,7 +496,7 @@ async def create_spm(script_content, encoded_images):
 async def prosodic_analysis(project_id):
     recording_path = f"{RECORDING}/{project_id}_recording.mp3"
     prosody_file_path = f"{RECORDING}/{project_id}_prosody_predictions.json"
-    
+
     client = HumeBatchClient(hume_api_key)
     filepaths = [
         recording_path
@@ -519,7 +519,7 @@ async def prosodic_analysis(project_id):
 
     with open(prosody_file_path, 'r') as file:
         data = json.load(file)
-    
+
     prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
 
     # 각 segment에 대해 softmax를 적용하여 "relative_score" 계산 및 추가
@@ -527,9 +527,9 @@ async def prosodic_analysis(project_id):
         scores = [item["score"] for item in segment['emotions']]
         exp_scores = [math.exp(score) for score in scores]
         sum_exp_scores = sum(exp_scores)
-    
+
     for item, exp_score in zip(segment['emotions'], exp_scores):
-        item["relative_score"] = exp_score / sum_exp_scores     
+        item["relative_score"] = exp_score / sum_exp_scores
 
     with open(prosody_file_path, 'w') as file:
         json.dump(data, file, indent=4)
@@ -560,7 +560,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
         "response_format": {"type": "json_object"},
         "messages": [
             {
-                "role": "system", 
+                "role": "system",
                 "content": "You are a helpful assistant designed to output JSON."
             },
             {
@@ -579,7 +579,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
     if 'choices' in response_data and len(response_data['choices']) > 0:
         # 요약된 스크립트 내용 파싱
         result_text = response_data['choices'][0]['message']['content']
-        
+
         try:
             result_data = json.loads(result_text)
         except json.JSONDecodeError as e:
@@ -594,12 +594,12 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
 async def transform_lasso_answer(lasso_answer, transform_type):
     """
     lasso_answer를 주어진 transform_type에 따라 변환하는 함수.
-    
+
     :param lasso_answer: 원본 lasso_answer
     :param transform_type: 변환 타입 ('regenerate', 'shorten', 'bullet_point' 등)
     :return: 변환된 lasso_answer
     """
-    
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {gpt_api_key}"
@@ -683,7 +683,7 @@ def match_paragraphs_2(script_content, first_sentences):
     for i, page in enumerate(page_numbers):
         current_sentence = first_sentences[page]
         next_page_number = str(int(page) + 1)
-        
+
         if i == 0:
             try:
                 matched_paragraphs[page] = script_content.split(first_sentences[next_page_number].lower())[0].strip()
@@ -705,7 +705,7 @@ def calculate_similarity(data, query):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     text_model = SentenceTransformer('all-MiniLM-L6-v2')  # Sentence Transformers 모델
     clip_model, preprocess = clip.load("ViT-B/32", device=device)
-    
+
     # Query 텍스트 임베딩 계산
     query_embedding = text_model.encode(query, convert_to_tensor=True)
 
@@ -713,7 +713,7 @@ def calculate_similarity(data, query):
 
     for page, content in data.items():
         page_result = {}
-        
+
         # script 유사도 계산
         if content["script"]:
             text_embedding = text_model.encode(content["script"], convert_to_tensor=True)
@@ -741,7 +741,7 @@ def calculate_similarity(data, query):
             with torch.no_grad():
                 image_features = clip_model.encode_image(image)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
-                
+
                 # Query 텍스트 임베딩도 CLIP을 사용해 계산
                 text_tokens = clip.tokenize([query]).to(device)
                 text_features = clip_model.encode_text(text_tokens)
@@ -766,9 +766,9 @@ def get_pdf_text_and_image(project_id, pdf_path):
 
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
-        text = page.get_text("text")  
-        images_info = page.get_image_info(xrefs=True)  
-        image_path = os.path.join(CROP, str(project_id), str(page_num + 1)) 
+        text = page.get_text("text")
+        images_info = page.get_image_info(xrefs=True)
+        image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
         os.makedirs(image_path, exist_ok=True)
 
         crop_images = []
@@ -776,7 +776,7 @@ def get_pdf_text_and_image(project_id, pdf_path):
             xref = img_info['xref']  # 이미지의 xref 값
             base_image = doc.extract_image(xref)  # 이미지 데이터 추출
             image_bytes = base_image["image"]  # 이미지 바이트 데이터
-            crop_path = os.path.join(image_path, f"{image_index + 1}.png")  
+            crop_path = os.path.join(image_path, f"{image_index + 1}.png")
             crop_images.append(crop_path)
             # 이미지 저장
             with open(crop_path, "wb") as img_file:
@@ -793,12 +793,12 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     pdf_path = os.path.join(PDF, pdf_file[0])
     real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
-    
+
     with open(real_timestamp_path, "r") as file:
         real_timestamp = json.load(file)
     with open(annnotation_path, "r") as file:
         annotations = json.load(file)
-    
+
     output = {}
     missed_parts = []
     offset = 0
@@ -826,9 +826,9 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
             prev_page = str(int(para_id) - 1)
             if ((output[prev_page]["user_timestamp"]["end"]-output[para_id]["gpt_timestamp"]["start"]) / (output[para_id]["gpt_timestamp"]["end"] - output[para_id]["gpt_timestamp"]["start"])) > miss_threshold:
                 missed_parts.append([output[para_id]["gpt_timestamp"]["start"], output[prev_page]["user_timestamp"]["end"]])
-            
-        offset += len(words) 
-    
+
+        offset += len(words)
+
     output["missed_parts"] = missed_parts
 
     return output
@@ -846,7 +846,7 @@ def timestamp_for_bbox(project_id, word_timestamp):
             bbox = item["bbox"]
             if not bbox or bbox[2]==0 or bbox[3]==0:
                 continue
-        
+
             start_time, end_time = get_script_times(item["script"], word_timestamp)
             if start_time is not None:
                 item["start"] = start_time
@@ -861,17 +861,17 @@ def timestamp_for_bbox(project_id, word_timestamp):
 def get_script_times(script_text, word_timestamp):
     # Remove punctuation from the script_text and split into words
     words = re.findall(r'\b[\w\']+\b', script_text.lower())
-    
+
     start_time = None
     end_time = None
 
     if len(words) >= 3:
         for i in range(len(word_timestamp) - 2):
             if (word_timestamp[i]['word'].lower() == words[0] and word_timestamp[i + 1]['word'].lower() == words[1] and word_timestamp[i + 2]['word'].lower() == words[2]):
-                
+
                 # Set start time from the first word
                 start_time = word_timestamp[i]['start']
-                
+
                 # Find end time from the last word in words
                 for j in range(i + 2, len(word_timestamp)):
                     if word_timestamp[j]['word'].lower() == words[-1]:
@@ -887,30 +887,30 @@ def get_script_times(script_text, word_timestamp):
 async def lasso_transform(project_id: int, page_num: int, lasso_id: int, version: int, prompt_text: str, transform_type: str):
     """
     lasso_answer에 대해 다양한 버전을 생성하는 API.
-    
+
     :param project_id: 프로젝트 ID
     :param page_num: 페이지 번호
     :param lasso_id: Lasso ID
     :param prompt_text: 원본 프롬프트 텍스트
     :param transform_type: 적용할 변환 타입 ('regenerate', 'shorten', 'bullet_point' 등)
     """
-    
+
     # Lasso answer가 저장된 경로 설정
     result_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id), sanitize_filename(prompt_text))
     result_json_path = os.path.join(result_path, f"{version}.json")
-    
+
     if not os.path.exists(result_json_path):
         raise HTTPException(status_code=404, detail="Original lasso answer not found")
-    
+
     with open(result_json_path, "r") as json_file:
         lasso_answer = json.load(json_file)
-    
+
     # 변환된 버전을 생성
     try:
         transformed_answer = await transform_lasso_answer(lasso_answer, transform_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during transforming lasso answer: {e}")
-    
+
     # 변환된 내용 JSON 파일로 저장
     version_count = len([f for f in os.listdir(result_path) if f.endswith('.json')]) + 1
     transform_json_path = os.path.join(result_path, f"{version_count}.json")
@@ -941,17 +941,17 @@ async def lasso_query(data: Lasso_Query_Data):
     script_content = read_script(script_path)
 
     try:
-        lasso_answer = await create_lasso_answer(prompt_text.lower(), script_content, encoded_image)  
+        lasso_answer = await create_lasso_answer(prompt_text.lower(), script_content, encoded_image)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating lasso answer: {e}")
-    
+
     if cur_lasso_id is None:
         caption = lasso_answer.get('caption', 'untitled')
         lasso_info = {
             "name" : caption,
             "bbox" : bbox,
             "image_url" : image_url
-        } 
+        }
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
@@ -976,7 +976,7 @@ async def lasso_query(data: Lasso_Query_Data):
 async def search_query(project_id: int, search_query: str = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
-    
+
     :param project_id: 프로젝트 ID
     :param search_text: 검색어
     """
@@ -996,7 +996,7 @@ async def search_query(project_id: int, search_query: str = Form(...)):
     sim_json_path = os.path.join(similarity_path, f"{search_id}.json")
     with open(sim_json_path, 'w') as file:
         json.dump(result, file, indent=4)
-    
+
     return {
         "message": "Similarity for the Query is created successfully",
         "lasso_id": search_id,
@@ -1022,7 +1022,7 @@ async def activate_review(project_id: int):
 
     with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), 'r') as file:
         word_timestamp = json.load(file)
-    
+
     image_paths = sorted([os.path.join(image_directory, f) for f in os.listdir(image_directory) if f.lower().endswith('.png')])
     encoded_images = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"}} for image in image_paths]
 
@@ -1047,7 +1047,7 @@ async def activate_review(project_id: int):
         await create_bbox_and_keyword(bbox_dir, keyword_dir, matched_paragraphs, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
-    
+
     # Phase 3: Prosodic Analysis
     try:
         await prosodic_analysis(project_id)
@@ -1077,7 +1077,7 @@ async def get_lasso_answer(project_id: int, page_num: int, lasso_id: int, prompt
     """
     특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 답변을 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 prompt_text에 해당하는 JSON 파일을 찾아 반환합니다.
-    
+
     :param project_id: 프로젝트 ID
     :param page_num: 페이지 번호
     :param lasso_id: lasso_id
@@ -1103,7 +1103,7 @@ async def get_search_result(project_id: int, search_id: int):
     """
     특정 프로젝트 ID와 search_id에 해당하는 검색 결과를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
-    
+
     :param project_id: 프로젝트 ID
     :param search_id: search_id
     """
@@ -1139,7 +1139,7 @@ async def get_page_info(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
 
-    return page_info_data['pages']
+    return page_info_data
 
 @app.get('/api/get_missed_parts/{project_id}', status_code=200)
 async def get_missed_parts(project_id: int):
@@ -1227,21 +1227,21 @@ async def get_keyword(project_id: int, page_num: int):
         raise HTTPException(status_code=500, detail=f"Error reading keyword file: {e}")
 
     return keyword_data
-    
-@app.get('/api/get_recording/{project_id}', status_code=200)    
+
+@app.get('/api/get_recording/{project_id}', status_code=200)
 async def get_recording(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 녹음 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 일치하는 녹음 파일을 찾아 FileResponse 객체로 반환합니다.
-    
+
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
-    
+
     recording_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.mp3')]
 
     if not recording_file:
         raise HTTPException(status_code=404, detail="Recording file not found")
-    
+
     if len(recording_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple recording files found")
     else:
@@ -1253,15 +1253,15 @@ async def get_prosody(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 prosody 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 일치하는 prosody 파일을 찾아 JSON 파일로 반환합니다.
-    
+
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
-    
+
     prosody_file = [file for file in os.listdir(RECORDING) if file.startswith(f'{project_id}_') and file.endswith('.json')]
 
     if not prosody_file:
         raise HTTPException(status_code=404, detail="Prosody file not found")
-    
+
     if len(prosody_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple prosody files found")
     else:
@@ -1290,13 +1290,13 @@ async def save_recording(project_id: int, recording: UploadFile = File(...), tim
         timestamps = [TimestampRecord(**item) for item in timestamp_data]
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format for timestamp")
-    
+
     # JSON 문자열을 파싱하여 drawings 리스트로 변환
     try:
         drawings_data = json.loads(drawings)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format for drawings")
-    
+
     # Save real timestamp
     dic = defaultdict(list)
     for ele in timestamps:
@@ -1326,7 +1326,7 @@ async def save_recording(project_id: int, recording: UploadFile = File(...), tim
 
     with open(annnotation_path, "w") as json_file:
         json.dump(ocr_results, json_file, indent=4)
-    
+
     # save recording file
     with open(webm_path, "wb") as buffer:
         shutil.copyfileobj(recording.file, buffer)
@@ -1336,13 +1336,13 @@ async def save_recording(project_id: int, recording: UploadFile = File(...), tim
         convert_webm_to_mp3(webm_path, mp3_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro during converting webm to mp3: {e}")
-    
+
     # STT 모델 실행
     try:
         executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
-    
+
     return {"message": "Recording saved and STT processing started successfully"}
 
 @app.post('/api/save_annotated_pdf/{project_id}', status_code=200)
@@ -1351,7 +1351,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
 
     if not pdf_file:
         raise HTTPException(status_code=404, detail="PDF file not found")
-    
+
     if len(pdf_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple PDF files found")
 
@@ -1365,7 +1365,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
     annotated_pdf = fitz.open(annotated_pdf_path)
-    
+
     if len(original_pdf) != len(annotated_pdf):
         raise HTTPException(status_code=400, detail="Page count mismatch")
 
@@ -1408,7 +1408,7 @@ async def get_project(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 프로젝트 정보를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 일치하는 metadata 파일을 찾아 해당 정보를 반환합니다.
-    
+
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
 
@@ -1416,27 +1416,27 @@ async def get_project(project_id: int):
 
     if not metadata_file:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     if len(metadata_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple projects found")
     else:
         with open(os.path.join(META_DATA, metadata_file[0]), 'r') as f:
             return {"project": json.load(f)}
-        
+
 @app.get('/api/get_pdf/{project_id}', status_code=200)
 async def get_pdf(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 pdf 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 일치하는 pdf 파일을 찾아 FileResponse 객체로 반환합니다.
-    
+
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
-    
+
     pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
 
     if not pdf_file:
         raise HTTPException(status_code=404, detail="Pdf file not found")
-    
+
     if len(pdf_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple pdf files found")
     else:
@@ -1450,7 +1450,7 @@ async def get_toc(project_id: int):
 
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
-    
+
     toc_file_path = os.path.join(TOC, f"{project_id}_toc.json")
 
     if not os.path.exists(toc_file_path):
@@ -1469,15 +1469,15 @@ async def get_result(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 결과 데이터를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 일치하는 결과 파일을 찾아 해당 데이터를 반환합니다.
-    
+
     :param project_id: 조회하고자 하는 프로젝트의 ID입니다.
     """
-    
+
     result_file = [file for file in os.listdir(RESULT) if file.startswith(f'{project_id}_') and file.endswith('.json')]
 
     if not result_file:
         raise HTTPException(status_code=404, detail="Result not found")
-    
+
     if len(result_file) > 1:
         result_file = sorted(result_file, key=lambda x: int(x.split('_')[-1].split('.')[0]))
         with open(os.path.join(RESULT, result_file[-1]), 'r') as f:
@@ -1493,7 +1493,7 @@ async def delete_project(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 모든 관련 파일을 삭제하는 API 엔드포인트입니다.
     프로젝트와 관련된 모든 디렉토리에서 ID와 일치하는 파일들을 찾아 삭제합니다.
-    
+
     :param project_id: 삭제할 프로젝트의 ID입니다.
     """
 
@@ -1505,7 +1505,7 @@ async def delete_project(project_id: int):
         if os.path.isdir(project_dir):
             shutil.rmtree(project_dir)
             return
-        
+
         for file in os.listdir(directory):
             if file.startswith(f'{project_id}_'):
                 os.remove(os.path.join(directory, file))
@@ -1529,7 +1529,7 @@ async def update_result(project_id: int, result: Any = Body(...)):
     """
     특정 프로젝트 ID의 결과를 업데이트하는 API 엔드포인트입니다.
     새로운 버전의 결과 파일을 생성하고, 해당 내용을 파일에 저장합니다.
-    
+
     :param project_id: 업데이트할 프로젝트의 ID입니다.
     :param result: 업데이트할 결과 데이터입니다.
     """
@@ -1543,20 +1543,20 @@ async def update_result(project_id: int, result: Any = Body(...)):
         json.dump(result, f)
 
     return {"id": project_id, "version": version}
-    
-        
+
+
 @app.post('/api/upload_project', status_code=201)
 async def upload_project(userID: str = Form(...), insertDate: str = Form(...), updateDate: str = Form(...), userName: str = Form(...), file: UploadFile = File(...)):
     """
     새 프로젝트를 업로드하는 API 엔드포인트입니다.
-    프로젝트 metadata를 생성하고, PDF 파일을 서버에 저장합니다.     
+    프로젝트 metadata를 생성하고, PDF 파일을 서버에 저장합니다.
     :param userID, insertDate, updateDate, userName: 프로젝트 metadata 입니다.
     :param file: 업로드할 PDF 파일입니다.
     """
 
     id = issue_id()
 
-    metadata = {  
+    metadata = {
         'id': id,
         'userID': userID,
         'insertDate': insertDate,
@@ -1595,7 +1595,7 @@ async def upload_project(userID: str = Form(...), insertDate: str = Form(...), u
     toc_json_path = os.path.join(TOC, f"{id}_toc.json")
     with open(toc_json_path, 'w') as json_file:
         json.dump(toc_data, json_file, indent=4)
-    
+
     metadata['done'] = True
     with open(metadata_file_path, 'w') as f:
         json.dump(metadata, f)
@@ -1630,7 +1630,7 @@ async def create_toc(project_id: int, image_dir: str):
         "response_format": {"type": "json_object"},
         "messages": [
             {
-                "role": "system", 
+                "role": "system",
                 "content": "You are a helpful assistant designed to output JSON."
             },
             {
@@ -1650,7 +1650,7 @@ async def create_toc(project_id: int, image_dir: str):
     if 'choices' in response_data and len(response_data['choices']) > 0:
         # Parse the table of contents from the response
         toc_text = response_data['choices'][0]['message']['content']
-        
+
         # Convert the TOC text to JSON format
         try:
             toc_data = json.loads(toc_text)
@@ -1660,7 +1660,7 @@ async def create_toc(project_id: int, image_dir: str):
     else:
         print("Error: 'choices' key not found in the response")
         toc_data = {"error": "Failed to retrieve TOC"}
-    
+
     return toc_data
 
 ###### 아래는 테스트용 코드이니 무시하셔도 됩니다. ######
@@ -1682,7 +1682,7 @@ async def test_download_csv():
 
 @app.get('/test/get_json')
 async def test_get_json():
-    
+
     # return FileResponse('test_file/0707_MX_0002_TEST.json', media_type='application/json')
     # jsonify
     with open('test_file/0707_MX_0002_TEST.json') as f:

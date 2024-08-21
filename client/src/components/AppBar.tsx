@@ -66,9 +66,9 @@ function ReviewAppBar() {
 
   const icons = [
     { name: 'backward', icon: FaStepBackward, action: handleBackward },
-    (lecturePlayerState === PlayerState.PAUSED ?
-      { name: 'play', icon: FaPlay, action: handlePlay } :
-      { name: 'pause', icon: FaPause, action: handlePause }
+    (lecturePlayerState === PlayerState.PLAYING ?
+      { name: 'pause', icon: FaPause, action: handlePause } :
+      { name: 'play', icon: FaPlay, action: handlePlay }
     ),
     { name: 'forward', icon: FaStepForward, action: handleForward },
   ];
