@@ -292,16 +292,10 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.clearRect(
-          bbox[0] / pdfWidth.current * canvas.width,
-          bbox[1] / pdfHeight.current * canvas.width,
-          (bbox[2]) / pdfWidth.current * canvas.width,
-          (bbox[3]) / pdfHeight.current * canvas.height);
-        console.log(
-          bbox[0] / pdfWidth.current * canvas.width,
-          bbox[1] / pdfHeight.current * canvas.width,
-          (bbox[2]) / pdfWidth.current * canvas.width,
-          (bbox[3]) / pdfHeight.current * canvas.height
-        )
+          (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
+          (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
         setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
       }
     }
