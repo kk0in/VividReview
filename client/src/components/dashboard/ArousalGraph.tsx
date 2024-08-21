@@ -31,7 +31,7 @@ const processData = (data, positiveEmotion, negativeEmotion) => {
 };
 
 const CustomTooltip = ({ active, payload, label, onPointClick }) => {
-    onPointClick(payload[0].payload);
+    onPointClick(payload[0]?.payload);
 };
 
 const ArousalGraph = ({
@@ -55,7 +55,10 @@ const ArousalGraph = ({
         <XAxis dataKey="begin" hide />
         {/* <YAxis /> */}
         <Legend />
-        <Tooltip content={<CustomTooltip onPointClick={onPointClick}/>} trigger="click"/>
+        <Tooltip
+          content={<CustomTooltip onPointClick={onPointClick} />}
+          trigger="click"
+        />
         <Line
           type="monotone"
           dataKey="positive_score"

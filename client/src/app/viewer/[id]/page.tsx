@@ -124,14 +124,13 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage({ projectId }: { projectId: string }) {
+function ReviewPage({ projectId, audioRef }: { projectId: string, audioRef: React.RefObject<HTMLAudioElement> }) {
   const page = useRecoilValue(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
@@ -139,21 +138,6 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
-  const [prosodyData, setProsoyData] = useState<any>(null);
-  const [positiveEmotion, setpositiveEmotion] = useState([
-    "Part for taking away",
-    "Excitement",
-    "Enthusiasm",
-    "Interest",
-    "Amusement",
-    "Joy",
-  ]);
-  const [negativeEmotion, setnegativeEmotion] = useState([
-    "Part for throwing away",
-    "Calmness",
-    "Boredom",
-    "Tiredness",
-  ]);
 
   const subTabs: TabProps[] = [
     {
@@ -207,26 +191,6 @@ function ReviewPage({ projectId }: { projectId: string }) {
       enabled: false, // 수동으로 호출
     }
   );
-
-  // Prosody 정보를 가져오는 함수
-  const fetchProsody = async () => {
-    try {
-      const result = await getProsody({ queryKey: ["getProsody", projectId] });
-      setProsoyData(result);
-    } catch (error) {
-      console.error("Failed to fetch prosody:", error);
-    }
-  };
-
-  useEffect(() => {
-    console.log("fetching prosody");
-    fetchProsody();
-  }, []);
-
-  const handlePointClick = (data) => {
-    console.log("Clicked data point:", data);
-    progressRef.current!.value = data.begin;
-  };
 
   useEffect(() => {
     const fetchAudio = async () => {
@@ -398,9 +362,6 @@ function ReviewPage({ projectId }: { projectId: string }) {
         <audio ref={audioRef} />
         <progress ref={progressRef} className="w-full" />
       </div>
-      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <ArousalGraph data={prosodyData} onPointClick={handlePointClick} positiveEmotion={positiveEmotion} negativeEmotion={negativeEmotion}/>
-      </div>
     </div>
   );
 }
@@ -412,7 +373,35 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    console.log("audioRef", audioRef.current?.currentTime);
+  }, [audioRef.current?.currentTime]);
+
+  const handlePointClick = (data) => {
+    console.log("Clicked data point:", data);
+    // console.log("Clicked data point:", data, audioRef.current!.currentTime);
+    audioRef.current!.currentTime = data?.begin;
+  };
+
   const isReviewMode = useSearchParams().get("mode") === "review";
+
+  const [prosodyData, setProsodyData] = useState<any>(null);
+  const [positiveEmotion, setpositiveEmotion] = useState([
+    "Part for taking away",
+    "Excitement",
+    "Enthusiasm",
+    "Interest",
+    "Amusement",
+    "Joy",
+  ]);
+  const [negativeEmotion, setnegativeEmotion] = useState([
+    "Part for throwing away",
+    "Calmness",
+    "Boredom",
+    "Tiredness",
+  ]);
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -425,6 +414,7 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
+
 
   useEffect(() => {
     refetch();
@@ -480,6 +470,16 @@ export default function Page({ params }: { params: { id: string } }) {
     return <ul>{toc}</ul>;
   };
 
+  // Prosody 정보를 가져오는 함수
+  const fetchProsody = async () => {
+    try {
+      const result = await getProsody({ queryKey: ["getProsody", params.id] });
+      setProsodyData(result);
+    } catch (error) {
+      console.error("Failed to fetch prosody:", error);
+    }
+  };
+
   useEffect(() => {
     if (pdfData === "") {
       setIsLoaded(false);
@@ -487,6 +487,12 @@ export default function Page({ params }: { params: { id: string } }) {
       setIsLoaded(true);
     }
   }, [pdfData]);
+
+
+  useEffect(() => {
+    console.log("fetching prosody");
+    fetchProsody();
+  }, []);
 
   // const handleUndo = () => {
   //   if (history.length === 0) return;
@@ -537,8 +543,17 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} />
+            <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+              <ArousalGraph
+                data={prosodyData}
+                onPointClick={handlePointClick}
+                positiveEmotion={positiveEmotion}
+                negativeEmotion={negativeEmotion}
+              />
+            </div>
           </div>
-          {isReviewMode && <ReviewPage projectId={params.id} />}
+
+          {isReviewMode && <ReviewPage projectId={params.id} audioRef={audioRef} />}
         </div>
       )}
     </div>
