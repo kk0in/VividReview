@@ -559,14 +559,13 @@ export default function Page({ params }: { params: { id: string } }) {
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  useEffect(() => {
-    console.log("audioRef", audioRef.current?.currentTime);
-  }, [audioRef.current?.currentTime]);
-
   const handlePointClick = (data) => {
     console.log("Clicked data point:", data);
     // console.log("Clicked data point:", data, audioRef.current!.currentTime);
-    audioRef.current!.currentTime = data?.begin;
+    if (Number.isFinite(data?.begin)) {
+      console.log("Seeking to", data.begin);
+      audioRef.current!.currentTime = data.begin;
+    }
   };
 
   const [prosodyData, setProsodyData] = useState<any>(null);
@@ -674,7 +673,6 @@ export default function Page({ params }: { params: { id: string } }) {
 
 
   useEffect(() => {
-    console.log("fetching prosody");
     fetchProsody();
   }, []);
 
