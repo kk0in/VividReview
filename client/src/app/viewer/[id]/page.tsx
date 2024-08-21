@@ -216,8 +216,6 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
     audioRef.current.ontimeupdate = () => {
       if (!isMouseDown && audioRef.current) {
-        console.log(audioRef.current.currentTime);
-        console.log(bboxList[i]);
         let changeIndexFlag = false;
         for(let i=0; i<bboxList.length; i++) {
           if (audioRef.current.currentTime >= bboxList[i].start && audioRef.current.currentTime < bboxList[i].end) {
