@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -106,6 +106,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [bboxIndex, setBboxIndex] = useState(0);
+  const [bboxList, setBboxList] = useState([]);
 
   const subTabs: TabProps[] = [
     {
@@ -149,6 +150,14 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   useEffect(() => {
     fetchMatchedParagraphs();
   }, []);
+
+  useEffect(() => {
+    const getBboxes = async () => {
+      const bboxes = await getBbox({queryKey: ["", projectId, String(page)]});
+      setBboxList(bboxes.bboxes);
+    }
+    getBboxes();
+  })
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
@@ -206,8 +215,8 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
     audioRef.current.ontimeupdate = () => {
       if (!isMouseDown && audioRef.current) {
-        if (audioRef.current.currentTime >= bboxlist[bboxIndex].start) {
-          const bbox = bboxlist[bboxIndex].bbox;
+        if (audioRef.current.currentTime >= bboxList[bboxIndex].start) {
+          const bbox = bboxList[bboxIndex].bbox;
           const canvas = spotlightRef.current;
           const ctx = canvas?.getContext('2d');
           if (!canvas || !ctx) return;
@@ -216,6 +225,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.clearRect(bbox.x, bbox.y, bbox.width, bbox.height);
           setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
+          setBboxIndex(bboxIndex+1);
         }
       }
     }
