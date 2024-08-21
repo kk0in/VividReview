@@ -106,7 +106,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [bboxIndex, setBboxIndex] = useState(0);
-  const [bboxList, setBboxList] = useState([]);
+  const [bboxList, setBboxList] = useState<any[]>([]);
 
   const subTabs: TabProps[] = [
     {
