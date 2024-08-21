@@ -288,15 +288,28 @@ function ReviewPage({ projectId, spotlightRef, audioRef }: { projectId: string, 
         const canvas = spotlightRef.current;
         const ctx = canvas?.getContext('2d');
         if (!canvas || !ctx) return;
+        
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        // 중심점 계산
+        const centerX = (bbox[0] + bbox[2] / 2) / pdfWidth.current * canvas.width;
+        const centerY = (bbox[1] + bbox[3] / 2) / pdfHeight.current * canvas.height;
+        // 그라디언트 생성
+        const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
+        const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+
+        // 그라디언트 색상 단계 설정
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // 중심부 투명
+        gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)'); // 중심에서 조금 떨어진 부분
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)'); // 외곽부는 어두운 명암
+        // ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.clearRect(
-          (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
-          (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
-          (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
-          (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
-        setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
+        // ctx.clearRect(
+          // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
+          // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
+          // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
+          // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
+        setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 5000);
       }
     }
   })
