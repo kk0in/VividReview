@@ -1,51 +1,35 @@
-
-from fastapi import FastAPI, UploadFile, Form, File, HTTPException, Body
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from hume import HumeBatchClient
-from hume.models.config import LanguageConfig, ProsodyConfig
-from concurrent.futures import ThreadPoolExecutor
-from google.cloud import vision
-from pydantic import BaseModel
-from collections import defaultdict
-
-from typing import Any, List, Union, Dict
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-
-from io import BytesIO
-
-import pymupdf
-import cv2
-import numpy as np
-import zipfile
-import shutil
+import base64
 import json
 import logging
 import math
 import os
+import shutil
+import zipfile
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
+from typing import Any, List, Union
 
-import numpy as np
-import csv
-import io
-import fitz
+import clip
+import cv2
 import ffmpeg
-import logging
-import base64
-from pdf2image import convert_from_path
+import fitz
+import numpy as np
+import pandas as pd
+import pymupdf
 import requests
+import torch
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from google.cloud import vision
 from hume import HumeBatchClient
 from hume.models.config import ProsodyConfig
 from openai import OpenAI
-
-import math
-from sentence_transformers import SentenceTransformer, util
-import torch
-import clip
+from pdf2image import convert_from_path
 from PIL import Image
+from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer, util
 
 app = FastAPI()
 logging.basicConfig(filename="info.log", level=logging.DEBUG)
@@ -66,21 +50,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-PDF = './pdfs'
-TEMP = './temp'
-RESULT = './results'
-META_DATA = './metadata'
-ANNOTATIONS = './annotations'
-RECORDING = './recordings'
-SCRIPT = './scripts'
-TOC = './tocs'
-IMAGE = './images'
-SPM = './spms'
-BBOX = './bboxs'
-LASSO = './lasso'
-KEYWORD = './keywords'
-CROP = './crops'
-SIMILARITY = './similarity'
+PDF = "./pdfs"
+TEMP = "./temp"
+RESULT = "./results"
+META_DATA = "./metadata"
+ANNOTATIONS = "./annotations"
+RECORDING = "./recordings"
+SCRIPT = "./scripts"
+TOC = "./tocs"
+IMAGE = "./images"
+SPM = "./spms"
+BBOX = "./bboxs"
+LASSO = "./lasso"
+KEYWORD = "./keywords"
+CROP = "./crops"
+SIMILARITY = "./similarity"
+WINDOW_SIZE = 3
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -103,12 +88,13 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb
 confidence_threshold = 0.5
 miss_threshold = 0.5
 
+
 def detect_handwritten_text(image_path):
     # Google Cloud Vision 클라이언트 설정
     client = vision.ImageAnnotatorClient()
 
     # 이미지 파일을 읽고 Vision API에 전송
-    with open(image_path, 'rb') as image_file:
+    with open(image_path, "rb") as image_file:
         content = image_file.read()
 
     image = vision.Image(content=content)
@@ -118,12 +104,13 @@ def detect_handwritten_text(image_path):
     response = client.document_text_detection(image=image, image_context=image_context)
 
     if response.error.message:
-        raise Exception(f'{response.error.message}')
+        raise Exception(f"{response.error.message}")
 
     if response.text_annotations:
         return response.text_annotations[0].description
 
     return ""
+
 
 def remove_transparency(image_path):
     # PNG 이미지를 불러오기 (투명 배경 포함)
@@ -147,11 +134,12 @@ def remove_transparency(image_path):
     # 저장된 이미지 반환
     cv2.imwrite(image_path, image)
 
+
 def decode_base64_image(data):
     """Base64로 인코딩된 이미지를 디코딩하여 PIL Image 객체로 변환"""
     # 'data:image/png;base64,' 접두사가 있을 경우 제거
-    if data.startswith('data:image'):
-        data = data.split(',', 1)[1]
+    if data.startswith("data:image"):
+        data = data.split(",", 1)[1]
 
     try:
         image_data = base64.b64decode(data)
@@ -165,6 +153,7 @@ def decode_base64_image(data):
         # 디버깅을 위해 Base64 문자열의 일부를 출력 (보안상 전체를 출력하지 않음)
         sample_data = data[:30] + "..." + data[-30:]
         raise ValueError(f"Failed to decode image: {e}. Base64 sample: {sample_data}")
+
 
 def filter_script_data(script_data):
     allowed_keys = {"keyword", "formal"}
@@ -199,9 +188,7 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
 
     transcript1 = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file,
-        language="en"
+        model="whisper-1", file=audio_file, language="en"
     )
 
     transcript2 = client.audio.transcriptions.create(
@@ -257,6 +244,7 @@ def issue_lasso_id(project_id, page_num):
     else:
         return 1
 
+
 def issue_search_id(project_id):
     """
     지정된 프로젝트에 대해 새로운 search_id를 발급하는 함수.
@@ -270,14 +258,16 @@ def issue_search_id(project_id):
         return 1
 
     existing_search_ids = [
-        int(f.split('.')[0]) for f in os.listdir(similarity_path)
-        if f.split('.')[0].isdigit()
+        int(f.split(".")[0])
+        for f in os.listdir(similarity_path)
+        if f.split(".")[0].isdigit()
     ]
 
     if existing_search_ids:
         return max(existing_search_ids) + 1
     else:
         return 1
+
 
 def issue_version(project_id):
     """
@@ -343,7 +333,7 @@ def keyword_api_request(script_segment):
         "messages": [
             {
                 "role": "system",
-                "content": "You are a helpful assistant designed to output JSON."
+                "content": "You are a helpful assistant designed to output JSON.",
             },
             {"role": "user", "content": content},
         ],
@@ -499,7 +489,6 @@ async def create_spm(script_content, encoded_images):
             {
                 "role": "system",
                 "content": "You are a helpful assistant designed to output JSON.",
-
             },
             {"role": "user", "content": content},
         ],
@@ -561,7 +550,6 @@ async def prosodic_analysis(project_id):
         exp_scores = [math.exp(score) for score in scores]
         sum_exp_scores = sum(exp_scores)
 
-
     for item, exp_score in zip(segment["emotions"], exp_scores):
         item["relative_score"] = exp_score / sum_exp_scores
 
@@ -612,7 +600,6 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
     if "choices" in response_data and len(response_data["choices"]) > 0:
         # 요약된 스크립트 내용 파싱
         result_text = response_data["choices"][0]["message"]["content"]
-
 
         try:
             result_data = json.loads(result_text)
@@ -754,7 +741,7 @@ def match_paragraphs_2(script_content, first_sentences):
 
 def calculate_similarity(data, query):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    text_model = SentenceTransformer('all-MiniLM-L6-v2')  # Sentence Transformers 모델
+    text_model = SentenceTransformer("all-MiniLM-L6-v2")  # Sentence Transformers 모델
     clip_model, preprocess = clip.load("ViT-B/32", device=device)
 
     # Query 텍스트 임베딩 계산
@@ -767,22 +754,34 @@ def calculate_similarity(data, query):
 
         # script 유사도 계산
         if content["script"]:
-            text_embedding = text_model.encode(content["script"], convert_to_tensor=True)
-            page_result["script"] = util.pytorch_cos_sim(query_embedding, text_embedding).item()
+            text_embedding = text_model.encode(
+                content["script"], convert_to_tensor=True
+            )
+            page_result["script"] = util.pytorch_cos_sim(
+                query_embedding, text_embedding
+            ).item()
         else:
             page_result["script"] = 0.0
 
         # pdf_text 유사도 계산
         if content["pdf_text"]:
-            pdf_text_embedding = text_model.encode(content["pdf_text"], convert_to_tensor=True)
-            page_result["pdf_text"] = util.pytorch_cos_sim(query_embedding, pdf_text_embedding).item()
+            pdf_text_embedding = text_model.encode(
+                content["pdf_text"], convert_to_tensor=True
+            )
+            page_result["pdf_text"] = util.pytorch_cos_sim(
+                query_embedding, pdf_text_embedding
+            ).item()
         else:
             page_result["pdf_text"] = 0.0
 
         # annotation 유사도 계산
         if content["annotation"]:
-            annotation_embedding = text_model.encode(content["annotation"], convert_to_tensor=True)
-            page_result["annotation"] = util.pytorch_cos_sim(query_embedding, annotation_embedding).item()
+            annotation_embedding = text_model.encode(
+                content["annotation"], convert_to_tensor=True
+            )
+            page_result["annotation"] = util.pytorch_cos_sim(
+                query_embedding, annotation_embedding
+            ).item()
         else:
             page_result["annotation"] = 0.0
         # pdf_images 유사도 계산 (CLIP 사용)
@@ -824,7 +823,7 @@ def get_pdf_text_and_image(project_id, pdf_path):
 
         crop_images = []
         for image_index, img_info in enumerate(images_info):
-            xref = img_info['xref']  # 이미지의 xref 값
+            xref = img_info["xref"]  # 이미지의 xref 값
             base_image = doc.extract_image(xref)  # 이미지 데이터 추출
             image_bytes = base_image["image"]  # 이미지 바이트 데이터
             crop_path = os.path.join(image_path, f"{image_index + 1}.png")
@@ -835,8 +834,13 @@ def get_pdf_text_and_image(project_id, pdf_path):
 
         return text, crop_images
 
+
 def create_page_info(project_id, matched_paragraphs, word_timestamp):
-    pdf_file = [file for file in os.listdir(PDF) if file.startswith(f'{project_id}_') and file.endswith('.pdf')]
+    pdf_file = [
+        file
+        for file in os.listdir(PDF)
+        if file.startswith(f"{project_id}_") and file.endswith(".pdf")
+    ]
     if not pdf_file:
         raise HTTPException(status_code=404, detail="PDF file not found")
     if len(pdf_file) > 1:
@@ -865,19 +869,30 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
             "pdf_text": pdf_text,
             "pdf_image": pdf_image,
             "annotation": annotation,
-            "gpt_timestamp": {
-                "start": gpt_start_time,
-                "end": gpt_end_time
-            },
+            "gpt_timestamp": {"start": gpt_start_time, "end": gpt_end_time},
             "user_timestamp": {
                 "start": real_timestamp[para_id]["start"],
-                "end": real_timestamp[para_id]["end"]
-            }
+                "end": real_timestamp[para_id]["end"],
+            },
         }
         if para_id != "1":
             prev_page = str(int(para_id) - 1)
-            if ((output[prev_page]["user_timestamp"]["end"]-output[para_id]["gpt_timestamp"]["start"]) / (output[para_id]["gpt_timestamp"]["end"] - output[para_id]["gpt_timestamp"]["start"])) > miss_threshold:
-                missed_parts.append([output[para_id]["gpt_timestamp"]["start"], output[prev_page]["user_timestamp"]["end"]])
+            if (
+                (
+                    output[prev_page]["user_timestamp"]["end"]
+                    - output[para_id]["gpt_timestamp"]["start"]
+                )
+                / (
+                    output[para_id]["gpt_timestamp"]["end"]
+                    - output[para_id]["gpt_timestamp"]["start"]
+                )
+            ) > miss_threshold:
+                missed_parts.append(
+                    [
+                        output[para_id]["gpt_timestamp"]["start"],
+                        output[prev_page]["user_timestamp"]["end"],
+                    ]
+                )
 
         offset += len(words)
 
@@ -915,7 +930,7 @@ def timestamp_for_bbox(project_id, word_timestamp):
 def get_script_times(script_text, word_timestamp):
     # Remove punctuation from the script_text and split into words
 
-    words = re.findall(r'\b[\w\']+\b', script_text.lower())
+    words = re.findall(r"\b[\w\']+\b", script_text.lower())
 
     start_time = None
     end_time = None
@@ -984,7 +999,6 @@ async def lasso_transform(
             status_code=500, detail=f"Error during transforming lasso answer: {e}"
         )
 
-
     # 변환된 내용 JSON 파일로 저장
     version_count = len([f for f in os.listdir(result_path) if f.endswith(".json")]) + 1
     transform_json_path = os.path.join(result_path, f"{version_count}.json")
@@ -1026,17 +1040,17 @@ async def lasso_query(data: Lasso_Query_Data):
     script_content = read_script(script_path)
 
     try:
-        lasso_answer = await create_lasso_answer(prompt_text.lower(), script_content, encoded_image)
+        lasso_answer = await create_lasso_answer(
+            prompt_text.lower(), script_content, encoded_image
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during creating lasso answer: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error during creating lasso answer: {e}"
+        )
 
     if cur_lasso_id is None:
-        caption = lasso_answer.get('caption', 'untitled')
-        lasso_info = {
-            "name" : caption,
-            "bbox" : bbox,
-            "image_url" : image_url
-        }
+        caption = lasso_answer.get("caption", "untitled")
+        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url}
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
@@ -1056,7 +1070,8 @@ async def lasso_query(data: Lasso_Query_Data):
         "response": lasso_answer,
     }
 
-@app.post('/api/search_query/{project_id}', status_code=201)
+
+@app.post("/api/search_query/{project_id}", status_code=201)
 async def search_query(project_id: int, search_query: str = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
@@ -1067,25 +1082,26 @@ async def search_query(project_id: int, search_query: str = Form(...)):
     spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
     similarity_path = os.path.join(SIMILARITY, str(project_id))
 
-    with open(spm_path, 'r') as file:
+    with open(spm_path, "r") as file:
         page_info = json.load(file)
 
     result = {}
     # 유사도 계산
-    similarities = calculate_similarity(page_info['pages'], search_query)
+    similarities = calculate_similarity(page_info["pages"], search_query)
     result["query"] = search_query
     result["similarities"] = similarities
 
     search_id = issue_search_id(project_id)
     sim_json_path = os.path.join(similarity_path, f"{search_id}.json")
-    with open(sim_json_path, 'w') as file:
+    with open(sim_json_path, "w") as file:
         json.dump(result, file, indent=4)
 
     return {
         "message": "Similarity for the Query is created successfully",
         "lasso_id": search_id,
-        "response": result
+        "response": result,
     }
+
 
 @app.post("/api/activate_review/{project_id}", status_code=201)
 async def activate_review(project_id: int):
@@ -1108,8 +1124,20 @@ async def activate_review(project_id: int):
     with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
 
-    image_paths = sorted([os.path.join(image_directory, f) for f in os.listdir(image_directory) if f.lower().endswith('.png')])
-    encoded_images = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"}} for image in image_paths]
+    image_paths = sorted(
+        [
+            os.path.join(image_directory, f)
+            for f in os.listdir(image_directory)
+            if f.lower().endswith(".png")
+        ]
+    )
+    encoded_images = [
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"},
+        }
+        for image in image_paths
+    ]
 
     script_content = read_script(script_path)
 
@@ -1200,7 +1228,7 @@ async def get_lasso_answer(
     return lasso_answer_data
 
 
-@app.get('/api/get_search_result/{project_id}/{search_id}', status_code=200)
+@app.get("/api/get_search_result/{project_id}/{search_id}", status_code=200)
 async def get_search_result(project_id: int, search_id: int):
     """
     특정 프로젝트 ID와 search_id에 해당하는 검색 결과를 반환하는 API 엔드포인트입니다.
@@ -1219,11 +1247,14 @@ async def get_search_result(project_id: int, search_id: int):
         with open(similarity_path, "r") as similarity_file:
             similarity_data = json.load(similarity_file)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading similarity file: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error reading similarity file: {e}"
+        )
 
     return similarity_data
 
-@app.get('/api/get_page_info/{project_id}', status_code=200)
+
+@app.get("/api/get_page_info/{project_id}", status_code=200)
 async def get_page_info(project_id: int):
     """
     생성된 page_info 파일을 가져오는 API 엔드포인트입니다.
@@ -1239,11 +1270,14 @@ async def get_page_info(project_id: int):
         with open(page_info_path, "r") as page_info_file:
             page_info_data = json.load(page_info_file)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error reading page info file: {e}"
+        )
 
     return page_info_data
 
-@app.get('/api/get_missed_parts/{project_id}', status_code=200)
+
+@app.get("/api/get_missed_parts/{project_id}", status_code=200)
 async def get_missed_parts(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 missed parts을 반환하는 API 엔드포인트입니다.
@@ -1261,11 +1295,14 @@ async def get_missed_parts(project_id: int):
         with open(page_info_path, "r") as page_info_file:
             page_info_data = json.load(page_info_file)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading page info file: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error reading page info file: {e}"
+        )
 
-    return page_info_data['missed_parts']
+    return page_info_data["missed_parts"]
 
-@app.get('/api/get_matched_paragraphs/{project_id}', status_code=200)
+
+@app.get("/api/get_matched_paragraphs/{project_id}", status_code=200)
 async def get_matched_paragraphs(project_id: int):
     """
     생성된 matched paragraphs 파일을 가져오는 API 엔드포인트입니다.
@@ -1296,11 +1333,13 @@ async def get_bbox(project_id: int, page_num: int):
     :param project_id: 프로젝트 ID
     """
     bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
-    image_path = os.path.join(IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png")
+    image_path = os.path.join(
+        IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png"
+    )
 
     image = Image.open(image_path)
     width, height = image.size
-    
+
     if not os.path.exists(bbox_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
 
@@ -1335,7 +1374,7 @@ async def get_keyword(project_id: int, page_num: int):
     return keyword_data
 
 
-@app.get('/api/get_recording/{project_id}', status_code=200)
+@app.get("/api/get_recording/{project_id}", status_code=200)
 async def get_recording(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 녹음 파일을 반환하는 API 엔드포인트입니다.
@@ -1374,7 +1413,6 @@ async def get_prosody(project_id: int):
         if file.startswith(f"{project_id}_") and file.endswith(".json")
     ]
 
-
     if not prosody_file:
         raise HTTPException(status_code=404, detail="Prosody file not found")
 
@@ -1401,19 +1439,21 @@ async def get_prosody(project_id: int):
 
             rolling_means = df[columns_to_roll].rolling(window=WINDOW_SIZE).mean()
 
-            interval = WINDOW_SIZE 
-            result_filtered = df.iloc[WINDOW_SIZE-1::interval].copy()
+            interval = WINDOW_SIZE
+            result_filtered = df.iloc[WINDOW_SIZE - 1 :: interval].copy()
 
-
-            result_filtered['begin'] = df.iloc[0::interval]['begin'].values
-            result_filtered['end'] = df['end'].iloc[WINDOW_SIZE-1::interval].values
+            result_filtered["begin"] = df.iloc[0::interval]["begin"].values
+            result_filtered["end"] = df["end"].iloc[WINDOW_SIZE - 1 :: interval].values
 
             for col in columns_to_roll:
-                result_filtered[col] = rolling_means.iloc[WINDOW_SIZE-1::interval][col].values
+                result_filtered[col] = rolling_means.iloc[WINDOW_SIZE - 1 :: interval][
+                    col
+                ].values
 
-            json_result = result_filtered.to_dict(orient='records')
+            json_result = result_filtered.to_dict(orient="records")
 
             return json_result
+
 
 class TimestampRecord(BaseModel):
     pageNum: int
@@ -1425,7 +1465,6 @@ class TimestampRecord(BaseModel):
 async def save_recording(
     project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...)
 ):
-
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
     transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
@@ -1470,7 +1509,7 @@ async def save_recording(
 
     print("length of drawings: ", len(drawings_data))
     ocr_results = {}
-    for i in range(len(drawings_data)//2):  # 절반만 순회
+    for i in range(len(drawings_data) // 2):  # 절반만 순회
         image = decode_base64_image(drawings_data[i])
         image_path = os.path.join(drawings_dir, f"{i + 1}.png")
         image.save(image_path)
@@ -1492,7 +1531,6 @@ async def save_recording(
         raise HTTPException(
             status_code=500, detail=f"Erro during converting webm to mp3: {e}"
         )
-
 
     # STT 모델 실행
     try:
@@ -1595,7 +1633,6 @@ async def get_project(project_id: int):
 
 
 @app.get("/api/get_pdf/{project_id}", status_code=200)
-
 async def get_pdf(project_id: int):
     """
     특정 프로젝트 ID에 해당하는 pdf 파일을 반환하는 API 엔드포인트입니다.
@@ -1658,7 +1695,6 @@ async def get_result(project_id: int):
         for file in os.listdir(RESULT)
         if file.startswith(f"{project_id}_") and file.endswith(".json")
     ]
-
 
     if not result_file:
         raise HTTPException(status_code=404, detail="Result not found")
@@ -1901,7 +1937,6 @@ async def test_download_csv():
 
 @app.get("/test/get_json")
 async def test_get_json():
-
     # return FileResponse('test_file/0707_MX_0002_TEST.json', media_type='application/json')
     # jsonify
     with open("test_file/0707_MX_0002_TEST.json") as f:
