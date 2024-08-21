@@ -1585,6 +1585,36 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
 
     return {"message": "Annotated PDF saved successfully"}
 
+@app.post("/api/make_search_set/{project_id}", status_code=200)
+async def make_search_set(project_id: int, search_id: int, page_set: List[str] = Form(...)):
+    """
+    특정 프로젝트 ID에 대해 검색 결과를 저장하는 API 엔드포인트입니다.
+    프로젝트 ID와 search_id 디렉토리에 page_set을 JSON 파일로 저장합니다.
+
+    :param project_id: 프로젝트 ID
+    :param search_id: search_id
+    :param page_set: 검색 결과 페이지 번호 리스트
+    """
+
+    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+
+    if not os.path.exists(search_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(search_path, "r") as search_file:
+            search_data = json.load(search_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading search file: {e}"
+        )
+
+    search_data["page_set"] = page_set
+
+    with open(search_path, "w") as search_file:
+        json.dump(search_data, search_file, indent=4)
+
+    return {"message": "Search set saved successfully"}
 
 @app.get("/api/get_project", status_code=200)
 async def get_project():
