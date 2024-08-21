@@ -105,8 +105,8 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
-  const [bboxIndex, setBboxIndex] = useState(0);
   const [bboxList, setBboxList] = useState<any[]>([]);
+  const bboxIndex = useRef(-1);
 
   const subTabs: TabProps[] = [
     {
@@ -124,13 +124,14 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   ];
 
   let i = 0;
-  const subTabElements = subTabs.map((tab) => {
+  const subTabElements = subTabs.map((tab, idx) => {
     const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
       (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
       <div className={className}
         onClick={tab.onClick}
+        key={"subtab-" + idx}
       >
         {tab.title}
       </div>
@@ -155,7 +156,6 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     const getBboxes = async () => {
       const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
       setBboxList(bboxes.bboxes);
-      console.log(bboxes.bboxes);
     }
     getBboxes();
   }, [])
@@ -216,18 +216,28 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
     audioRef.current.ontimeupdate = () => {
       if (!isMouseDown && audioRef.current) {
-        if (audioRef.current.currentTime >= bboxList[bboxIndex].start) {
-          const bbox = bboxList[bboxIndex].bbox;
-          const canvas = spotlightRef.current;
-          const ctx = canvas?.getContext('2d');
-          if (!canvas || !ctx) return;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.clearRect(bbox.x, bbox.y, bbox.width, bbox.height);
-          setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
-          setBboxIndex(bboxIndex+1);
+        console.log(audioRef.current.currentTime);
+        console.log(bboxList[i]);
+        let changeIndexFlag = false;
+        for(let i=0; i<bboxList.length; i++) {
+          if (audioRef.current.currentTime >= bboxList[i].start && audioRef.current.currentTime < bboxList[i].end) {
+            if (i !== bboxIndex.current) {
+              bboxIndex.current = i;
+              changeIndexFlag = true;
+            }
+            break;
+          }
         }
+        if (!changeIndexFlag) return;
+        const bbox = bboxList[bboxIndex.current].bbox;
+        const canvas = spotlightRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
       }
     }
   })
@@ -489,7 +499,7 @@ export default function Page({ params }: { params: { id: string } }) {
             </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer scale={1.5} projectId={params.id}/>
+            <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
           </div>
           {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>

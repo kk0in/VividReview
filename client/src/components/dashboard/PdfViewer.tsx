@@ -23,6 +23,7 @@ type NumberOrNull = number | null;
 type PDFViewerProps = {
   scale: number;
   projectId: string;
+  spotlightRef: React.RefObject<HTMLCanvasElement>;
 };
 
 export type CanvasLayer = {
@@ -32,7 +33,7 @@ export type CanvasLayer = {
   pageNumber: number;
 }
 
-const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
+const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [clickedLasso, setClickedLasso] = useState<Lasso | null>(null);
   const [pageNumber, setPageNumber] = useRecoilState(pdfPageState);
@@ -1047,6 +1048,20 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
             height: '100%',
             zIndex: 1,
             pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
+          }}
+        />
+        <canvas
+          ref={spotlightRef}
+          width={width}
+          height={height}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 3,
+            pointerEvents: "none",
           }}
         />
         <div style={{ marginTop: '10px', textAlign: 'center', zIndex: 2, position: 'relative' }}>
