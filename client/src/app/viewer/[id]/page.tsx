@@ -6,12 +6,12 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getKeywords } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getKeywords, getPageInfo } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import { useSearchParams } from "next/navigation";
-import { audioTimeState, audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
+import { audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -98,7 +98,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
 }
 
 function ReviewPage({ projectId }: { projectId: string }) {
-  const page = useRecoilValue(pdfPageState);
+  const [page, setPage] = useRecoilState(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
@@ -108,11 +108,12 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
-  const [audioTime, setAudioTime] = useRecoilState(audioTimeState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
+  const [timeline, setTimeline] = useState<{start:number, end:number}>({start: 0, end: 0});
+  const [pageInfo, setPageInfo] = useState({});
 
   const subTabs: TabProps[] = [
     {
@@ -153,8 +154,19 @@ function ReviewPage({ projectId }: { projectId: string }) {
     }
   };
 
+  const fetchPageInfo = async () => {
+    try {
+      const pageInfo = await getPageInfo({ queryKey: ["getPageInfo", projectId] });
+      setPageInfo(pageInfo);
+      console.log(pageInfo);
+    } catch (error) {
+      console.error("Failed to fetch page information:", error);
+    }
+  }
+
   useEffect(() => {
     fetchMatchedParagraphs();
+    fetchPageInfo();
   }, []);
 
   useEffect(() => {
@@ -220,8 +232,20 @@ function ReviewPage({ projectId }: { projectId: string }) {
       if (!isMouseDown && audioRef.current) {
         progressRef.current!.value = audioRef.current.currentTime;
       }
+
+      const currentPageInfo = Object.entries<{start:number, end:number}>(pageInfo)[page - 1][1]
+      if (gridMode !== 0 &&
+          audioRef.current!.currentTime <= timeline.end &&
+          audioRef.current!.currentTime >= currentPageInfo.end) {
+        setPage((page) => page + 1);
+      }
+
+      if (audioRef.current!.currentTime >= timeline.end) {
+        console.log('Time is up');
+        setPlayerState(PlayerState.IDLE);
+      }
     };
-  }, [audioRef.current?.currentTime, isMouseDown]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -252,25 +276,84 @@ function ReviewPage({ projectId }: { projectId: string }) {
   }, [progressRef, isMouseDown]);
 
   useEffect(() => {
+    const newTimeline = {start: 0, end: 0};
+
+    switch (gridMode) {
+      case 0: {
+        const value = Object.entries<{start:number, end:number}>(pageInfo)[page - 1];
+
+        if (value) {
+          newTimeline.start = value[1].start;
+          newTimeline.end = value[1].end;
+        }
+        break;
+      }
+
+      case 1: {
+        const section = toc[tocIndex.section];
+        const startSubSection = section.subsections[0];
+        const endSubSection = section.subsections[section.subsections.length - 1];
+        const startPage = startSubSection.page[0];
+        const endPage = endSubSection.page[endSubSection.page.length - 1];
+
+        const startValue = Object.entries<{start:number, end:number}>(pageInfo)[startPage - 1];
+        const endValue = Object.entries<{start:number, end:number}>(pageInfo)[endPage - 1];
+
+        if (startValue && endValue) {
+          newTimeline.start = startValue[1].start;
+          newTimeline.end = endValue[1].end;
+        }
+        break;
+      }
+
+      case 2: {
+        const section = toc[tocIndex.section];
+        const subsection = section.subsections[tocIndex.subsection];
+        const startPage = subsection.page[0];
+        const endPage = subsection.page[subsection.page.length - 1];
+
+        const startValue = Object.entries<{start:number, end:number}>(pageInfo)[startPage - 1];
+        const endValue = Object.entries<{start:number, end:number}>(pageInfo)[endPage - 1];
+
+        if (startValue && endValue) {
+          newTimeline.start = startValue[1].start;
+          newTimeline.end = endValue[1].end;
+        }
+        break;
+      }
+    }
+
+    console.log('newTimeline', newTimeline, audioRef.current!.currentTime);
+    if (audioRef.current!.currentTime < newTimeline.start || audioRef.current!.currentTime > newTimeline.end) {
+      audioRef.current!.currentTime = newTimeline.start;
+    }
+    setTimeline(newTimeline);
+  }, [pageInfo, page, gridMode]);
+
+  useEffect(() => {
     if (audioRef.current === null || !audioSource) {
       return;
     }
 
     switch (currentPlayerState) {
-      case PlayerState.PLAYING:
-        audioRef.current.currentTime = audioTime;
+      case PlayerState.PLAYING: {
+        console.log('PLAYING', timeline, audioRef.current!.currentTime);
         audioRef.current.play();
         break;
+      }
 
-      case PlayerState.PAUSED:
-        audioRef.current.pause();
-        setAudioTime(audioRef.current.currentTime);
-        break;
-
-      case PlayerState.IDLE:
-        setAudioTime(0);
+      case PlayerState.PAUSED: {
+        console.log('PAUSED', timeline, audioRef.current!.currentTime );
         audioRef.current.pause();
         break;
+      }
+
+      case PlayerState.IDLE: {
+        console.log('IDLE');
+        audioRef.current.currentTime = timeline.start;
+        audioRef.current.pause();
+        break;
+      }
     }
   }, [currentPlayerState]);
 
