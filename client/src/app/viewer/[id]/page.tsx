@@ -106,6 +106,8 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [bboxList, setBboxList] = useState<any[]>([]);
+  const pdfWidth = useRef(0);
+  const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
 
   const subTabs: TabProps[] = [
@@ -155,10 +157,13 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   useEffect(() => { // Bbox 가져오기
     const getBboxes = async () => {
       const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
+      pdfWidth.current = bboxes.image_size.width;
+      pdfHeight.current = bboxes.image_size.height;
       setBboxList(bboxes.bboxes);
     }
+    bboxIndex.current = -1;
     getBboxes();
-  }, [])
+  }, [projectId, page])
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
@@ -216,6 +221,9 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
     audioRef.current.ontimeupdate = () => {
       if (!isMouseDown && audioRef.current) {
+        console.log(audioRef.current.currentTime);
+        console.log(bboxList[0]);
+        console.log(bboxIndex.current);
         let changeIndexFlag = false;
         for(let i=0; i<bboxList.length; i++) {
           if (audioRef.current.currentTime >= bboxList[i].start && audioRef.current.currentTime < bboxList[i].end) {
@@ -234,7 +242,17 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.clearRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        ctx.clearRect(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height);
+        console.log(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height
+        )
         setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
       }
     }
