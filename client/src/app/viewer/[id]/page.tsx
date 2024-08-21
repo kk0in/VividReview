@@ -153,11 +153,11 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
 
   useEffect(() => {
     const getBboxes = async () => {
-      const bboxes = await getBbox({queryKey: ["", projectId, String(page)]});
+      const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
       setBboxList(bboxes.bboxes);
     }
     getBboxes();
-  })
+  }, [])
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
