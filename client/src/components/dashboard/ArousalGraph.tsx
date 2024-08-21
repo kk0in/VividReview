@@ -1,5 +1,5 @@
 // ArousalGraph.tsx
-import React from "react";
+import React, { useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -9,6 +9,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Customized,
+  Rectangle,
 } from "recharts";
 
 const processData = (data, positiveEmotion, negativeEmotion) => {
@@ -31,7 +33,21 @@ const processData = (data, positiveEmotion, negativeEmotion) => {
 };
 
 const CustomTooltip = ({ active, payload, label, onPointClick }) => {
-    onPointClick(payload[0]?.payload);
+  onPointClick(payload[0]?.payload);
+};
+
+const CustomizedRectangle = ({ pageStart, pageEnd }) => {
+  console.log("props", pageStart, pageEnd);
+
+  return (
+    <Rectangle
+      x={pageStart}
+      y={0}
+      width={pageEnd - pageStart}
+      height={200} // Use 100 to fill the entire height
+      fill="rgba(0,0,0,0.3)"
+    />
+  );
 };
 
 const ArousalGraph = ({
@@ -39,22 +55,39 @@ const ArousalGraph = ({
   onPointClick,
   positiveEmotion,
   negativeEmotion,
+  page,
+  pageInfo,
 }) => {
   const validData = Array.isArray(data) ? data : [];
+  const [pageStart, setPageStart] = React.useState(0);
+  const [pageEnd, setPageEnd] = React.useState(100);
 
   const processedData = processData(
     validData,
     positiveEmotion,
     negativeEmotion
   );
+  const yValues = processedData.flatMap((data) => [
+    data.positive_score,
+    data.negative_score,
+  ]);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+
+  useEffect(() => {
+    if (pageInfo && pageInfo[page]) {
+      const { start, end } = pageInfo[page];
+      setPageStart(start);
+      setPageEnd(end);
+    }
+  }, [page]);
 
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={processedData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="begin" hide />
-        {/* <YAxis /> */}
-        <Legend />
+        <YAxis hide domain={[minY, maxY]} />
         <Tooltip
           content={<CustomTooltip onPointClick={onPointClick} />}
           trigger="click"
@@ -70,7 +103,12 @@ const ArousalGraph = ({
           dataKey="negative_score"
           stroke="#82ca9d"
           dot={false}
-        />{" "}
+        />
+        <Customized
+          component={
+            <CustomizedRectangle pageStart={pageStart} pageEnd={pageEnd} />
+          }
+        />
       </LineChart>
     </ResponsiveContainer>
   );

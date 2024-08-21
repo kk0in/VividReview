@@ -65,7 +65,7 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
-WINDOW_SIZE = 3
+WINDOW_SIZE = 1
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
