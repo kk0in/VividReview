@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
-import { useRecoilState, useRecoilValue } from "recoil";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
@@ -39,7 +39,7 @@ interface IScript {
 }
 
 function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitleProps) {
-  const [, setPdfPage] = useRecoilState(pdfPageState);
+  const setPdfPage = useSetRecoilState(pdfPageState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
 
   const handleClick = () => {
@@ -47,52 +47,43 @@ function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitlePr
     setTocIndexState({section: sectionIndex, subsection: index});
   }
 
-  let className = "ml-2 hover:font-bold";
-  if (sectionIndex === tocIndex.section && index === tocIndex.subsection) {
-    className += " font-bold";
-  }
-
+  const className = "ml-3 hover:font-bold " +
+      (sectionIndex === tocIndex.section && index === tocIndex.subsection && "font-bold");
   return (<li className={className} onClick={handleClick} >{`• ${title}`}</li>);
 }
 
 function SectionTitle({ index, title, subsections }: SectionTitleProps) {
-  let subtitles;
+  const tocIndex = useRecoilValue(tocIndexState);
+
   const [clicked, setClicked] = useState(false);
-  const [tocIndex, ] = useRecoilState(tocIndexState);
 
-  const handleSectionClick = () => {
-    setClicked(!clicked);
-  }
+  const handleSectionClick = () => setClicked(!clicked);
 
-  if (subsections) {
-    let subsectionIndex = 0;
-    subtitles = (
-      <ul>
-        {subsections.map((subsection: IToCSubsection) => {
-          const element = (<SubSectionTitle key={index} sectionIndex={index} index={subsectionIndex} title={subsection.title} page={subsection.page} />);
-          subsectionIndex++;
-          return element;
-        })}
-      </ul>
-    );
-  }
+  let subsectionIndex = 0;
+  const subTitleElements = (
+    <ul>
+      {subsections?.map((subsection: IToCSubsection) => (
+        <SubSectionTitle
+          key={`${index}-${subsectionIndex}`}
+          sectionIndex={index}
+          index={subsectionIndex++}
+          title={subsection.title}
+          page={subsection.page} />)
+      )}
+    </ul>
+  );
 
-  let className = "text-center hover:font-bold";
-  if (index === tocIndex.section) {
-    className += " font-bold";
-  }
-
+  const className = "hover:font-bold " + (index === tocIndex.section && "font-bold");
   return (
-    <li className="bg-gray-200 pl-3 pr-3 pt-2 pb-2 mb-1 rounded-2xl">
+    <li className="bg-gray-200 px-4 py-2 mb-1 rounded-2xl">
       <p className={className} onClick={handleSectionClick}>
         {`${index + 1}. ${title}`}
       </p>
-      {clicked && subsections && (
-        <>
-          <div className="mb-3" />
-          {subtitles}
-        </>
-      )}
+      {clicked && subsections &&
+        <div className="mt-3">
+          {subTitleElements}
+        </div>
+      }
     </li>
   );
 }
