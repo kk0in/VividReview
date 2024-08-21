@@ -151,10 +151,11 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     fetchMatchedParagraphs();
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { // Bbox 가져오기
     const getBboxes = async () => {
       const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
       setBboxList(bboxes.bboxes);
+      console.log(bboxes.bboxes);
     }
     getBboxes();
   }, [])
@@ -209,7 +210,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     };
   }, [audioRef.current?.currentTime, isMouseDown]);
 
-  useEffect(() => { // spotlight for 3000 ms, bboxlist needed to be connected to API
+  useEffect(() => { // spotlight for 3000 ms
     if (audioRef.current === null || !audioSource) {
       return;
     }
@@ -488,7 +489,7 @@ export default function Page({ params }: { params: { id: string } }) {
             </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
+            <PdfViewer scale={1.5} projectId={params.id}/>
           </div>
           {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>
