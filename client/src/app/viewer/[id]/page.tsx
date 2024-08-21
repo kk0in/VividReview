@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getKeywords, getPageInfo } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -88,7 +88,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage({ projectId }: { projectId: string }) {
+function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement> }) {
   const [page, setPage] = useRecoilState(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -105,6 +105,10 @@ function ReviewPage({ projectId }: { projectId: string }) {
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{start:number, end:number}>({start: 0, end: 0});
   const [pageInfo, setPageInfo] = useState({});
+  const [bboxList, setBboxList] = useState<any[]>([]);
+  const pdfWidth = useRef(0);
+  const pdfHeight = useRef(0);
+  const bboxIndex = useRef(-1);
 
   const subTabs: TabProps[] = [
     {
@@ -122,13 +126,14 @@ function ReviewPage({ projectId }: { projectId: string }) {
   ];
 
   let i = 0;
-  const subTabElements = subTabs.map((tab) => {
+  const subTabElements = subTabs.map((tab, idx) => {
     const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
       (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
       <div className={className}
         onClick={tab.onClick}
+        key={"subtab-" + idx}
       >
         {tab.title}
       </div>
@@ -175,6 +180,17 @@ function ReviewPage({ projectId }: { projectId: string }) {
 
     fetchKeywords();
   }, [paragraphs]);
+
+  useEffect(() => { // Bbox 가져오기
+    const getBboxes = async () => {
+      const bboxes = await getBbox({queryKey: ["getBbox", projectId, String(page)]});
+      pdfWidth.current = bboxes.image_size.width;
+      pdfHeight.current = bboxes.image_size.height;
+      setBboxList(bboxes.bboxes);
+    }
+    bboxIndex.current = -1;
+    getBboxes();
+  }, [projectId, page])
 
   // 음성 파일을 가져오는 함수
   const { data: recordingUrl, refetch: fetchRecording } = useQuery(
@@ -237,6 +253,49 @@ function ReviewPage({ projectId }: { projectId: string }) {
       }
     };
   }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
+
+  useEffect(() => { // spotlight for 3000 ms
+    if (audioRef.current === null || !audioSource) {
+      return;
+    }
+    audioRef.current.ontimeupdate = () => {
+      if (!isMouseDown && audioRef.current) {
+        console.log(audioRef.current.currentTime);
+        console.log(bboxList[0]);
+        console.log(bboxIndex.current);
+        let changeIndexFlag = false;
+        for(let i=0; i<bboxList.length; i++) {
+          if (audioRef.current.currentTime >= bboxList[i].start && audioRef.current.currentTime < bboxList[i].end) {
+            if (i !== bboxIndex.current) {
+              bboxIndex.current = i;
+              changeIndexFlag = true;
+            }
+            break;
+          }
+        }
+        if (!changeIndexFlag) return;
+        const bbox = bboxList[bboxIndex.current].bbox;
+        const canvas = spotlightRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height);
+        console.log(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]) / pdfWidth.current * canvas.width,
+          (bbox[3]) / pdfHeight.current * canvas.height
+        )
+        setInterval(() => {ctx.clearRect(0, 0, canvas.width, canvas.height)}, 3000);
+      }
+    }
+  })
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -486,6 +545,7 @@ export default function Page({ params }: { params: { id: string } }) {
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const isReviewMode = useSearchParams().get('mode') === 'review';
+  const spotlightRef = useRef<HTMLCanvasElement>(null);
 
   const { data, isError, isLoading, refetch } = useQuery(
     ["getProject", params.id],
@@ -602,9 +662,9 @@ export default function Page({ params }: { params: { id: string } }) {
             </ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
-            <PdfViewer scale={1.5} projectId={params.id} />
+            <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
           </div>
-          {(isReviewMode && <ReviewPage projectId={params.id} />)}
+          {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>
       )}
     </div>

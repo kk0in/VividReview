@@ -1191,13 +1191,18 @@ async def get_bbox(project_id: int, page_num: int):
     :param project_id: 프로젝트 ID
     """
     bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
+    image_path = os.path.join(IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png")
 
+    image = Image.open(image_path)
+    width, height = image.size
+    
     if not os.path.exists(bbox_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
 
     try:
         with open(bbox_path, "r") as bbox_file:
             bbox_data = json.load(bbox_file)
+            bbox_data["image_size"] = {"width": width, "height": height}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading bbox file: {e}")
 
