@@ -97,7 +97,7 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement> }) {
+function ReviewPage({ projectId, spotlightRef, audioRef }: { projectId: string, spotlightRef: React.RefObject<HTMLCanvasElement>, audioRef: React.RefObject<HTMLAudioElement> }) {
   const [page, setPage] = useRecoilState(pdfPageState);
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -736,7 +736,7 @@ export default function Page({ params }: { params: { id: string } }) {
               />
             </div>
           </div>
-          {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
+          {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} audioRef={audioRef}/>)}
         </div>
       )}
     </div>
