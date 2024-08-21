@@ -770,6 +770,15 @@ export default function Page({ params }: { params: { id: string } }) {
   //   setHistory((prev) => [...prev, nextDrawing || '']);
   // };
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [graphWidth, setGraphWidth] = useState(0);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setGraphWidth(containerRef.current.offsetWidth);
+    }
+  }, []);
+
   return (
     <div className="h-full flex flex-col">
       {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
@@ -807,7 +816,7 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
-            <div className="rounded-2xl bg-gray-200 mx-4 p-3">
+            <div className="rounded-2xl bg-gray-200" ref={containerRef}>
               <ArousalGraph
                 data={prosodyData}
                 onPointClick={handlePointClick}
@@ -815,6 +824,8 @@ export default function Page({ params }: { params: { id: string } }) {
                 negativeEmotion={negativeEmotion}
                 page={page}
                 pageInfo={pageInfo}
+                tableOfContents={tableOfContents}
+                graphWidth = {graphWidth}
               />
             </div>
           </div>
