@@ -629,7 +629,7 @@ export default function Page({ params }: { params: { id: string } }) {
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const handlePointClick = (data) => {
+  const handlePointClick = (data: any) => {
     console.log("Clicked data point:", data);
     // console.log("Clicked data point:", data, audioRef.current!.currentTime);
     if (Number.isFinite(data?.begin)) {

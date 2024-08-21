@@ -13,8 +13,12 @@ import {
   Rectangle,
 } from "recharts";
 
-const processData = (data, positiveEmotion, negativeEmotion) => {
-  return data.map((d) => {
+const processData = (
+  data: any,
+  positiveEmotion: string[],
+  negativeEmotion: string[]
+) => {
+  return data.map((d: any) => {
     const positiveSum = positiveEmotion.reduce((acc, cur) => {
       const value = d[cur];
       return acc + (isNaN(value) ? 0 : value);
@@ -32,11 +36,23 @@ const processData = (data, positiveEmotion, negativeEmotion) => {
   });
 };
 
-const CustomTooltip = ({ active, payload, label, onPointClick }) => {
+const CustomTooltip = ({
+  payload,
+  onPointClick,
+}: {
+  payload: any;
+  onPointClick: any;
+}) => {
   onPointClick(payload[0]?.payload);
 };
 
-const CustomizedRectangle = ({ pageStart, pageEnd }) => {
+const CustomizedRectangle = ({
+  pageStart,
+  pageEnd,
+}: {
+  pageStart: number;
+  pageEnd: number;
+}) => {
   console.log("props", pageStart, pageEnd);
 
   return (
@@ -57,17 +73,23 @@ const ArousalGraph = ({
   negativeEmotion,
   page,
   pageInfo,
+}: {
+  data: any;
+  onPointClick: any;
+  positiveEmotion: string[];
+  negativeEmotion: string[];
+  page: number;
+  pageInfo: any;
 }) => {
   const validData = Array.isArray(data) ? data : [];
   const [pageStart, setPageStart] = React.useState(0);
   const [pageEnd, setPageEnd] = React.useState(100);
-
   const processedData = processData(
     validData,
     positiveEmotion,
     negativeEmotion
   );
-  const yValues = processedData.flatMap((data) => [
+  const yValues = processedData.flatMap((data: any) => [
     data.positive_score,
     data.negative_score,
   ]);
