@@ -498,18 +498,13 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
               if (drawingLayer) {
                 const img = new Image();
                 img.src = drawingLayer;
-                img.onload = () => {
-                  tmpContext.drawImage(img, 0, 0);
-                  if (l === numLayers){
-                    console.log("hello!");
-                    drawings[i] = tmpCanvas.toDataURL();
-                    console.log(drawings[i]);
-                  }
+                img.decode();
+                tmpContext.drawImage(img, 0, 0);
                 }; 
               }
+              drawings[i] = tmpCanvas.toDataURL();
             }
           }
-        }
         await saveAnnotatedPdf(projectId, drawings, numPages);
         console.log("Annotated PDF saved successfully");
       } catch (error) {
@@ -535,16 +530,6 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
         mediaRecorder.ondataavailable = (event) => {
           audioChunks.push(event.data);
         };
-
-        const appendFormData = (formData: FormData, key: string, data: any) => {
-          if (data === Object(data) || Array.isArray(data)) {
-              for (var i in data) {
-                  appendFormData(formData, key + '[' + i + ']', data[i]);
-              }
-          } else {
-              formData.append(key, data);
-          }
-        }
   
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
@@ -553,7 +538,31 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
 
           // pageTimeline을 JSON 문자열로 변환하여 FormData에 추가
           formData.append('timestamp', JSON.stringify(pageTimeline.current));
-          // appendFormData(formData, 'pageTimeline', pageTimeline.current);
+          
+          const drawings: string[] = [];
+          for (let i = 1; i <= numPages; i++) {
+            const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
+            const tmpCanvas = document.createElement("canvas");
+            tmpCanvas.width = width;
+            tmpCanvas.height = height;
+            const tmpContext = tmpCanvas.getContext("2d");
+            if (tmpContext) {
+              tmpContext.imageSmoothingEnabled = false;
+              tmpContext.clearRect(0, 0, width, height);
+              for (let l = 1; l <= numLayers; l++) {
+                const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
+                if (drawingLayer) {
+                  const img = new Image();
+                  img.src = drawingLayer;
+                  await img.decode();
+                  tmpContext.drawImage(img, 0, 0);
+                }
+              }
+              drawings.push(tmpCanvas.toDataURL());
+            }
+          }
+          formData.append('drawings', JSON.stringify(drawings));
+
           try {
             await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
             console.log("Recording saved successfully");
@@ -586,7 +595,7 @@ const PdfViewer = ({ scale, projectId }: PDFViewerProps) => {
       }
       interval = setInterval(() => setRecordingTime(recordingTime + 10), 10);
     } else {
-      if (pageStart.current !== 0) {
+      if (pageTrack.current !== 0) {
         pageTimeline.current = [...pageTimeline.current, {pageNum: pageTrack.current, start: pageStart.current, end: recordingTime}];
         pageStart.current = 0;
         pageTrack.current = 0;
