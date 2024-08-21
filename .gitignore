@@ -37,3 +37,4 @@ server/.DS_Store
 server/scalers/
 server/*cache*/
 server/wandb/
+server/.venv

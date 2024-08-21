@@ -10,8 +10,16 @@ import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecordin
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
+import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import { useSearchParams } from "next/navigation";
-import { audioDurationState, playerState, PlayerState, playerRequestState, PlayerRequestType } from "@/app/recoil/LectureAudioState";
+import {
+  audioTimeState,
+  audioDurationState,
+  playerState,
+  PlayerState,
+  playerRequestState,
+  PlayerRequestType,
+} from "@/app/recoil/LectureAudioState";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -31,6 +39,7 @@ interface TabProps {
   onClick: () => void;
 }
 
+
 interface IScript {
   page: number;
   keyword: string[];
@@ -44,8 +53,8 @@ function SubSectionTitle({ sectionIndex, index, title, page }: SubSectionTitlePr
 
   const handleClick = () => {
     setPdfPage(page[0]);
-    setTocIndexState({section: sectionIndex, subsection: index});
-  }
+    setTocIndexState({ section: sectionIndex, subsection: index });
+  };
 
   const className = "ml-3 hover:font-bold " +
       (sectionIndex === tocIndex.section && index === tocIndex.subsection && "font-bold");
@@ -95,7 +104,6 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
@@ -138,11 +146,13 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
         {tab.title}
       </div>
     );
-  })
+  });
 
   const fetchMatchedParagraphs = async () => {
     try {
-      const paragraphs = await getMatchParagraphs({ queryKey: ["matchParagraphs", projectId] });
+      const paragraphs = await getMatchParagraphs({
+        queryKey: ["matchParagraphs", projectId],
+      });
       setParagraphs(paragraphs);
       console.log(paragraphs);
     } catch (error) {
@@ -303,10 +313,14 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     }
 
     const getNewProgressValue = (event: MouseEvent) => {
-      return (event.offsetX / progressRef.current!.offsetWidth) * audioRef.current!.duration;
-    }
+      return (
+        (event.offsetX / progressRef.current!.offsetWidth) *
+        audioRef.current!.duration
+      );
+    };
 
     progressRef.current.onmousedown = (event) => {
+
       event.preventDefault();
       console.log('mousedown', event.offsetX);
       progressRef.current!.value = getNewProgressValue(event);
@@ -320,6 +334,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
     };
 
     progressRef.current.onmouseup = (event) => {
+
       event.preventDefault();
       if (isMouseDown) {
         console.log('mouseup', progressRef.current!.offsetWidth, event.offsetX);
@@ -446,7 +461,7 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
       const endSubSection = section.subsections[section.subsections.length - 1];
       const startIndex = startSubSection.page[0];
       const endIndex = endSubSection.page[endSubSection.page.length - 1];
-      const length = endIndex - startIndex + 1
+      const length = endIndex - startIndex + 1;
       for (let i = 0; i < length; i++) {
         pages.push(startIndex + i);
       }
@@ -522,15 +537,13 @@ function ReviewPage({ projectId, spotlightRef }: { projectId: string, spotlightR
         Script
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row">
-          {subTabElements}
-        </div>
+        <div className="flex flex-row">{subTabElements}</div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
           {paragraph}
         </div>
       </div>
       <div className="w-full mt-4 px-4">
-        <audio ref={audioRef}/>
+        <audio ref={audioRef} />
         <progress ref={progressRef} className="w-full" />
       </div>
     </div>
@@ -544,6 +557,33 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    console.log("audioRef", audioRef.current?.currentTime);
+  }, [audioRef.current?.currentTime]);
+
+  const handlePointClick = (data) => {
+    console.log("Clicked data point:", data);
+    // console.log("Clicked data point:", data, audioRef.current!.currentTime);
+    audioRef.current!.currentTime = data?.begin;
+  };
+
+  const [prosodyData, setProsodyData] = useState<any>(null);
+  const [positiveEmotion, setpositiveEmotion] = useState([
+    "Part for taking away",
+    "Excitement",
+    "Enthusiasm",
+    "Interest",
+    "Amusement",
+    "Joy",
+  ]);
+  const [negativeEmotion, setnegativeEmotion] = useState([
+    "Part for throwing away",
+    "Calmness",
+    "Boredom",
+    "Tiredness",
+  ]);
   const isReviewMode = useSearchParams().get('mode') === 'review';
   const spotlightRef = useRef<HTMLCanvasElement>(null);
 
@@ -558,6 +598,7 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: false,
     }
   );
+
 
   useEffect(() => {
     refetch();
@@ -583,7 +624,9 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const fetchTableOfContents = async () => {
     try {
-      const tableOfContents = await getTableOfContents({ queryKey: ["tocData", params.id] });
+      const tableOfContents = await getTableOfContents({
+        queryKey: ["tocData", params.id],
+      });
       setTableOfContents(tableOfContents);
       console.log(tableOfContents);
     } catch (error) {
@@ -598,11 +641,28 @@ export default function Page({ params }: { params: { id: string } }) {
   const buildTableOfContents = (tocData: any) => {
     const toc = [];
     for (let i = 0; i < tocData.length; i++) {
-      toc.push(<SectionTitle key={i} index={i} title={tocData[i].title} subsections={tocData[i].subsections} />);
+      toc.push(
+        <SectionTitle
+          key={i}
+          index={i}
+          title={tocData[i].title}
+          subsections={tocData[i].subsections}
+        />
+      );
     }
 
-    return (<ul>{toc}</ul>);
-  }
+    return <ul>{toc}</ul>;
+  };
+
+  // Prosody 정보를 가져오는 함수
+  const fetchProsody = async () => {
+    try {
+      const result = await getProsody({ queryKey: ["getProsody", params.id] });
+      setProsodyData(result);
+    } catch (error) {
+      console.error("Failed to fetch prosody:", error);
+    }
+  };
 
   useEffect(() => {
     if (pdfData === "") {
@@ -611,6 +671,12 @@ export default function Page({ params }: { params: { id: string } }) {
       setIsLoaded(true);
     }
   }, [pdfData]);
+
+
+  useEffect(() => {
+    console.log("fetching prosody");
+    fetchProsody();
+  }, []);
 
   // const handleUndo = () => {
   //   if (history.length === 0) return;
@@ -657,12 +723,18 @@ export default function Page({ params }: { params: { id: string } }) {
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-50 p-4">
             <div className="mb-4 font-bold">Table</div>
-            <ol>
-              {buildTableOfContents(tableOfContents)}
-            </ol>
+            <ol>{buildTableOfContents(tableOfContents)}</ol>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer scale={1.5} projectId={params.id} spotlightRef = {spotlightRef}/>
+            <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+              <ArousalGraph
+                data={prosodyData}
+                onPointClick={handlePointClick}
+                positiveEmotion={positiveEmotion}
+                negativeEmotion={negativeEmotion}
+              />
+            </div>
           </div>
           {(isReviewMode && <ReviewPage projectId={params.id} spotlightRef = {spotlightRef} />)}
         </div>
