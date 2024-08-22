@@ -1106,7 +1106,7 @@ async def lasso_query(data: Lasso_Query_Data):
 
 
 @app.post("/api/search_query/{project_id}", status_code=201)
-async def search_query(project_id: int, search_query: str = Form(...)):
+async def search_query(project_id: int, search_query: str = Form(...), search_type: str = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
 
@@ -1120,13 +1120,24 @@ async def search_query(project_id: int, search_query: str = Form(...)):
         page_info = json.load(file)
 
     result = {}
-    # 유사도 계산
-    similarities = calculate_similarity(page_info["pages"], search_query)
-    result["query"] = search_query
-    result["similarities"] = similarities
-
     search_id = issue_search_id(project_id)
-    sim_json_path = os.path.join(similarity_path, f"{search_id}.json")
+    result["query"] = search_query
+
+    if search_type == "semantic":
+    # 유사도 계산
+        similarities = calculate_similarity(page_info["pages"], search_query)
+        result["similarities"] = similarities
+    elif search_type == "keyword":
+        result["source"] = defaultdict(list)
+        for page, content in page_info["pages"].items():
+            if search_query.lower() in content["script"].lower():
+                result["source"]["script"].append(page)
+            if search_query.lower() in content["pdf_text"].lower():
+                result["source"]["pdf_text"].append(page)
+            if search_query.lower() in content["annotation"].lower():
+                result["source"]["annotation"].append(page)
+
+    sim_json_path = os.path.join(similarity_path, f"{search_id}_{search_type}.json")
     with open(sim_json_path, "w") as file:
         json.dump(result, file, indent=4)
 
