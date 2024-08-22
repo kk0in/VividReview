@@ -245,11 +245,12 @@ def issue_lasso_id(project_id, page_num):
         return 1
 
 
-def issue_search_id(project_id):
+def issue_search_id(project_id, search_type):
     """
-    지정된 프로젝트에 대해 새로운 search_id를 발급하는 함수.
+    지정된 프로젝트와 검색 타입에 대해 새로운 search_id를 발급하는 함수.
 
     :param project_id: 프로젝트의 ID
+    :param search_type: 검색 타입 (semantic 또는 keyword)
     :return: 새로운 search_id
     """
     similarity_path = os.path.join(SIMILARITY, str(project_id))
@@ -258,16 +259,15 @@ def issue_search_id(project_id):
         return 1
 
     existing_search_ids = [
-        int(f.split(".")[0])
+        int(f.split("_")[0])
         for f in os.listdir(similarity_path)
-        if f.split(".")[0].isdigit()
+        if f.split("_")[0].isdigit() and f.split("_")[1].split(".")[0] == search_type
     ]
 
     if existing_search_ids:
         return max(existing_search_ids) + 1
     else:
         return 1
-
 
 def issue_version(project_id):
     """
@@ -1120,7 +1120,7 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
         page_info = json.load(file)
 
     result = {}
-    search_id = issue_search_id(project_id)
+    search_id = issue_search_id(project_id, search_type)
     result["query"] = search_query
 
     if search_type == "semantic":
@@ -1273,30 +1273,30 @@ async def get_lasso_answer(
     return lasso_answer_data
 
 
-@app.get("/api/get_search_result/{project_id}/{search_id}", status_code=200)
-async def get_search_result(project_id: int, search_id: int):
+@app.get("/api/get_semantic_search/{project_id}/{search_id}", status_code=200)
+async def get_semantic_search(project_id: int, search_id: int, search_type: str):
     """
-    특정 프로젝트 ID와 search_id에 해당하는 검색 결과를 반환하는 API 엔드포인트입니다.
+    특정 프로젝트 ID와 search_id에 해당하는 semantic 검색 결과를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
 
     :param project_id: 프로젝트 ID
     :param search_id: search_id
     """
 
-    similarity_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+    similarity_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}_{search_type}.json")
 
     if not os.path.exists(similarity_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
 
     try:
         with open(similarity_path, "r") as similarity_file:
-            similarity_data = json.load(similarity_file)
+            search_data = json.load(similarity_file)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error reading similarity file: {e}"
         )
 
-    return similarity_data
+    return search_data
 
 
 @app.get("/api/get_page_info/{project_id}", status_code=200)

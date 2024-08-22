@@ -129,7 +129,7 @@ function ReviewPage({
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
-  const searchText = useRecoilValue(searchQueryState);
+  const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
@@ -641,18 +641,17 @@ function ReviewPage({
 
   useEffect(() => {
     const fetchSearchResults = async () => {
-      if (searchText.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+      if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
 
       try {
-        await searchQuery(projectId, searchText); // API 요청만 수행
+        await searchQuery(projectId, query, type); // API 요청만 수행
       } catch (error) {
         console.error("Error during search:", error);
       }
     };
 
     fetchSearchResults();
-  }, [searchText, projectId]); // 검색어가 변경될 때마다 API 호출
-
+  }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
   return (
     <div className="flex-none w-1/5 bg-gray-50">

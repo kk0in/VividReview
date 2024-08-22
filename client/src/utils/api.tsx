@@ -18,9 +18,10 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
-export async function searchQuery(projectId: string, searchQuery: string) {
+export async function searchQuery(projectId: string, searchQuery: string, searchType: string) {
     const formData = new FormData();
     formData.append('search_query', searchQuery);
+    formData.append('search_type', searchType);
 
     const response = await axios.post(`${SERVER_ENDPOINT}api/search_query/${projectId}`, formData, {
         headers: {

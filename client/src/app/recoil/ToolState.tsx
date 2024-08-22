@@ -15,7 +15,10 @@ export const gridModeState = atom<number>({
   default: 0,
 });
 
-export const searchQueryState = atom<string>({
+export const searchQueryState = atom<{ query: string; type: string }>({
   key: 'searchQueryState',
-  default: '',
+  default: {
+    query: '', // 검색어
+    type: 'semantic', // 기본 검색 타입
+  },
 });

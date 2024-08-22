@@ -103,6 +103,7 @@ export default function AppBar() {
   const [gridMode, setGridMode] = useRecoilState(gridModeState);
   const isReviewMode = useSearchParams().get('mode') === 'review';
   const [inputText, setInputText] = useState(''); // 입력된 텍스트 상태
+  const [searchType, setSearchType] = useState('semantic'); // 검색 타입 상태 (semantic 또는 keyword)
   const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
 
   const handleGridIconClick = (tool: string) => {
@@ -175,14 +176,17 @@ export default function AppBar() {
   };
 
   const handleSearch = () => {
-    setSearchQuery(inputText); // 아이콘 클릭 시 Recoil 상태 업데이트
-    console.log("inputText:", inputText);
+    setSearchQuery({ query: inputText, type: searchType }); // 검색어와 타입을 Recoil 상태로 설정
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       handleSearch(); // Enter 키를 눌렀을 때 검색 실행
     }
+  };
+
+  const toggleSearchType = () => {
+    setSearchType((prevType) => (prevType === 'semantic' ? 'keyword' : 'semantic')); // 타입을 토글
   };
 
   const icons = [
@@ -280,6 +284,12 @@ export default function AppBar() {
                   placeholder="Search..."
                 />
                 <FaSearch className="absolute left-3 top-2.5 text-white" onClick={handleSearch} />
+                <button
+                  onClick={toggleSearchType}
+                  className="bg-gray-600 text-white p-2 rounded-l cursor-pointer outline-none"
+                >
+                  {searchType === 'semantic' ? 'Semantic' : 'Keyword'}
+                </button>
               </div>
             </div>
           )}
