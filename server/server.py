@@ -1115,7 +1115,7 @@ async def activate_review(project_id: int):
     image_directory = os.path.join(IMAGE, f"{str(project_id)}")
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
 
-    page_info_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
     keyword_dir = os.path.join(KEYWORD, str(project_id))
     os.makedirs(bbox_dir, exist_ok=True)

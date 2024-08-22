@@ -18,6 +18,19 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
+export async function searchQuery(projectId: string, searchQuery: string) {
+    const formData = new FormData();
+    formData.append('search_query', searchQuery);
+
+    const response = await axios.post(`${SERVER_ENDPOINT}api/search_query/${projectId}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+
+    return response.data;
+}
+
 export async function activateReview(projectId: string) {
     const response = await axios.post(`${SERVER_ENDPOINT}api/activate_review/${projectId}`);
 
