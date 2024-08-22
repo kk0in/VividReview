@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -128,8 +128,8 @@ function ReviewPage({
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
-  const tocIndex = useRecoilValue(tocIndexState);
-  const searchText = useRecoilValue(searchQueryState); 
+  const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
+  const searchText = useRecoilValue(searchQueryState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
@@ -174,6 +174,35 @@ function ReviewPage({
       </div>
     );
   });
+
+  const findPage = (time: number): number => {
+    if (pageInfo === null) {
+      return 0;
+    }
+
+    for (const [key, value] of Object.entries<{start:number, end:number}>(pageInfo)) {
+      if (time > value.start && time < value.end) {
+        return parseInt(key);
+      }
+    }
+
+    return 0;
+  };
+
+  const findTocIndex = (page: number) => {
+    for (let i = 0; i < toc.length; i++) {
+      const section = toc[i];
+      for (let j = 0; j < section.subsections.length; j++) {
+        const subsection = section.subsections[j];
+        if (subsection.page.includes(page)) {
+          return { section: i, subsection: j };
+        }
+      }
+    }
+
+    console.log("No ToC index found for page: ", page);
+    return null;
+  };
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -268,15 +297,19 @@ function ReviewPage({
           progressRef.current!.value = audioRef.current.currentTime;
         }
 
-        const currentPageInfo = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[page - 1][1];
-        if (
-          gridMode !== 0 &&
-          audioRef.current!.currentTime <= timeline.end &&
-          audioRef.current!.currentTime >= currentPageInfo.end
-        ) {
-          setPage((page) => page + 1);
+        if (pageInfo && page > 0) {
+          const timelineForPage = Object.entries<{ start: number; end: number }>(
+            pageInfo
+          )[page - 1][1];
+
+          if (audioRef.current!.currentTime >= timelineForPage.end) {
+            const newPage = page + 1;
+            const newTocIndex = findTocIndex(newPage);
+            console.log("Current Page update", newPage, newTocIndex);
+
+            (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+            setPage(newPage);
+          }
         }
 
         if (audioRef.current!.currentTime >= timeline.end) {
@@ -338,7 +371,7 @@ function ReviewPage({
       handleProgressBar();
       handleHighlightBox();
     };
-  }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page]);
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -369,7 +402,13 @@ function ReviewPage({
       event.preventDefault();
       if (isMouseDown) {
         console.log("mouseup", progressRef.current!.offsetWidth, event.offsetX);
-        audioRef.current!.currentTime = getNewProgressValue(event);
+        const timeValue = getNewProgressValue(event);
+        const newPage = findPage(timeValue);
+        const newTocIndex = findTocIndex(newPage);
+        (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+        (newPage > 0) && setPage(newPage);
+
+        audioRef.current!.currentTime = timeValue;
         setIsMouseDown(false);
       }
     };
@@ -468,7 +507,6 @@ function ReviewPage({
 
       case PlayerState.IDLE: {
         console.log("IDLE");
-        audioRef.current.currentTime = timeline.start;
         audioRef.current.pause();
         break;
       }
