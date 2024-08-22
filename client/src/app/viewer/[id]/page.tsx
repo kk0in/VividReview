@@ -124,16 +124,20 @@ function ReviewPage({
   audioRef,
   page,
   pageInfo,
+  pages,
   setPage,
   setPageInfo,
+  setPages,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
   audioRef: React.RefObject<HTMLAudioElement>;
   page: number;
   pageInfo: any;
+  pages: number[];
   setPage: (page: number) => void;
   setPageInfo: (pageInfo: any) => void;
+  setPages: (pages: any) => void;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -507,35 +511,41 @@ function ReviewPage({
     }
   }, [playerRequest]);
 
-  const pages: number[] = [];
-  switch (gridMode) {
-    case 0: {
-      pages.push(page);
-      break;
+
+  useEffect(() => {
+    const pages_ = [];
+    switch (gridMode) {
+      case 0: {
+        pages_.push(page);
+        break;
+      }
+
+      case 1: {
+        const section = toc[tocIndex.section];
+        const startSubSection = section.subsections[0];
+        const endSubSection =
+          section.subsections[section.subsections.length - 1];
+        const startIndex = startSubSection.page[0];
+        const endIndex = endSubSection.page[endSubSection.page.length - 1];
+        const length = endIndex - startIndex + 1;
+        for (let i = 0; i < length; i++) {
+          pages_.push(startIndex + i);
+        }
+        break;
+      }
+
+      case 2: {
+        const section = toc[tocIndex.section];
+        const subsection = section.subsections[tocIndex.subsection];
+        for (const page of subsection.page) {
+          pages_.push(page);
+        }
+        break;
+      }
     }
 
-    case 1: {
-      const section = toc[tocIndex.section];
-      const startSubSection = section.subsections[0];
-      const endSubSection = section.subsections[section.subsections.length - 1];
-      const startIndex = startSubSection.page[0];
-      const endIndex = endSubSection.page[endSubSection.page.length - 1];
-      const length = endIndex - startIndex + 1;
-      for (let i = 0; i < length; i++) {
-        pages.push(startIndex + i);
-      }
-      break;
-    }
-
-    case 2: {
-      const section = toc[tocIndex.section];
-      const subsection = section.subsections[tocIndex.subsection];
-      for (const page of subsection.page) {
-        pages.push(page);
-      }
-      break;
-    }
-  }
+    setPages(pages_);
+  }, [gridMode]);
 
   const convertWhiteSpaces = (text: string) => {
     return text.replace(/  /g, "\u00a0\u00a0");
@@ -653,6 +663,7 @@ export default function Page({ params }: { params: { id: string } }) {
     "Boredom",
     "Tiredness",
   ]);
+  const [pages, setPages] = useState([]);
   const isReviewMode = useSearchParams().get("mode") === "review";
   const spotlightRef = useRef<HTMLCanvasElement>(null);
 
@@ -824,6 +835,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 negativeEmotion={negativeEmotion}
                 page={page}
                 pageInfo={pageInfo}
+                pages={pages}
                 tableOfContents={tableOfContents}
                 graphWidth = {graphWidth}
               />
@@ -836,9 +848,11 @@ export default function Page({ params }: { params: { id: string } }) {
               audioRef={audioRef}
               page={page}
               pageInfo={pageInfo}
+              pages={pages}
               setPage={setPage}
               setPageInfo={setPageInfo}
-              />
+              setPages={setPages}
+            />
           )}
         </div>
       )}

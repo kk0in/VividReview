@@ -1,5 +1,7 @@
 // ArousalGraph.tsx
 import React, { useEffect, useState, useMemo } from "react";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
+
 import {
   LineChart,
   Line,
@@ -12,6 +14,7 @@ import {
   Customized,
   Rectangle,
 } from "recharts";
+import { gridModeState } from "@/app/recoil/ToolState";
 
 const processData = (
   data: any,
@@ -31,7 +34,7 @@ const processData = (
       return acc + (isNaN(value) ? 0 : value);
     }, 0);
     return {
-      ...d, 
+      ...d,
       begin,
       end,
       positive_score: positiveSum,
@@ -50,7 +53,9 @@ const processPageInfo = (pageInfo: any) => {
 };
 
 const processTableOfContents = (tableOfContents: any) => {
-  const pageToTitleSubtitleMap: { [key: number]: { title: string; subtitle: string } } = {};
+  const pageToTitleSubtitleMap: {
+    [key: number]: { title: string; subtitle: string };
+  } = {};
 
   tableOfContents.forEach((content: any) => {
     content.subsections.forEach((sub: any) => {
@@ -88,18 +93,17 @@ const CustomTooltip = ({
 };
 
 const CustomRectangle = ({
-  pageStart,
-  pageEnd,
+  pageStartTime,
+  pageEndTime,
 }: {
-  pageStart: number;
-  pageEnd: number;
+  pageStartTime: number;
+  pageEndTime: number;
 }) => {
-  console.log("rectangle", pageStart, pageEnd);
   return (
     <Rectangle
-      x={pageStart}
+      x={pageStartTime}
       y={0}
-      width={pageEnd - pageStart}
+      width={pageEndTime - pageStartTime}
       height={200} // Use 100 to fill the entire height
       fill="rgba(0,0,0,0.3)"
     />
@@ -128,13 +132,7 @@ const CustomXAxisTick = ({
     const { title, subtitle } = titleSubtitle;
     return (
       <g transform={`translate(${x},${y})`}>
-        <text
-          x={0}
-          y={0}
-          dy={16}
-          textAnchor="middle"
-          fill="#666"
-        >
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666">
           {`${title} - ${subtitle}`}
         </text>
       </g>
@@ -149,20 +147,24 @@ const ArousalGraph = ({
   positiveEmotion,
   negativeEmotion,
   page,
+  pages,
   pageInfo,
   tableOfContents,
-  graphWidth
+  graphWidth,
 }: {
   data: any;
   onPointClick: any;
   positiveEmotion: string[];
   negativeEmotion: string[];
   page: number;
+  pages: number[];
   pageInfo: any;
   tableOfContents: any;
   graphWidth: number;
 }) => {
   const validData = Array.isArray(data) ? data : [];
+  const gridMode = useRecoilValue(gridModeState);
+
   const processedData = processData(
     validData,
     positiveEmotion,
@@ -181,18 +183,23 @@ const ArousalGraph = ({
   const minY = Math.min(...yValues);
   const maxY = Math.max(...yValues);
 
-  const minX = Math.min(...processedData.map((data: any) => [data.begin, data.end]).flat());
-  const maxX = Math.max(...processedData.map((data: any) => [data.begin, data.end]).flat());
+  const minX = Math.min(
+    ...processedData.map((data: any) => [data.begin, data.end]).flat()
+  );
+  const maxX = Math.max(
+    ...processedData.map((data: any) => [data.begin, data.end]).flat()
+  );
 
-  const [pageStart, setPageStart] = React.useState(0);
-  const [pageEnd, setPageEnd] = React.useState(100);
+  const [pageStartTime, setpageStartTime] = React.useState(0);
+  const [pageEndTime, setpageEndTime] = React.useState(100);
   const [activeLabel, setActiveLabel] = useState(0);
 
   const [currentXTick, setCurrentXTick] = useState(0);
 
   const calculateScalingFactor = (data: any) => {
-    return graphWidth * data / maxX;
-  }
+    return (graphWidth * data) / maxX;
+  };
+  // console.log(graphWidth)
 
   useEffect(() => {
     const page = findPageNumber(timeToPagesMap, activeLabel);
@@ -212,12 +219,29 @@ const ArousalGraph = ({
   };
 
   useEffect(() => {
-    if (pageInfo && pageInfo[page]) {
-      const { start, end } = pageInfo[page];
-      setPageStart(start);
-      setPageEnd(end);
+    let start: number = 0;
+    let end: number = 0;
+    switch (gridMode) {
+      case 0:
+        if (pageInfo && pageInfo[page]) {
+          start = pageInfo[page].start;
+          end = pageInfo[page].end;
+        }
+        break;
+      default:
+        if (
+          pageInfo &&
+          pageInfo[pages[0]] &&
+          pageInfo[pages[pages.length - 1]]
+        ) {
+          start = pageInfo[pages[0]].start;
+          end = pageInfo[pages[pages.length - 1]].end;
+        }
+        break;
     }
-  }, [page]);
+    setpageStartTime(start);
+    setpageEndTime(end);
+  }, [pages, page, gridMode]);
 
   return (
     <ResponsiveContainer width="100%" height={200}>
@@ -237,7 +261,7 @@ const ArousalGraph = ({
               currentXTick={currentXTick}
               tableOfContentsMap={tableOfContentsMap}
               timeToPagesMap={timeToPagesMap}
-              />
+            />
           )}
           tickLine={false}
           domain={[minX, maxX]}
@@ -265,7 +289,10 @@ const ArousalGraph = ({
         />
         <Customized
           component={
-            <CustomRectangle pageStart={calculateScalingFactor(pageStart)} pageEnd={calculateScalingFactor(pageEnd)} />
+            <CustomRectangle
+              pageStartTime={calculateScalingFactor(pageStartTime)}
+              pageEndTime={calculateScalingFactor(pageEndTime)}
+            />
           }
         />
       </LineChart>
