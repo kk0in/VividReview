@@ -275,88 +275,83 @@ function ReviewPage({
   }, [audioSource]);
 
   useEffect(() => {
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
+    audioRef.current!.ontimeupdate = () => {
+      const handleProgressBar = () => {
+        if (!isMouseDown && audioRef.current) {
+          progressRef.current!.value = audioRef.current.currentTime;
+        }
 
-    audioRef.current.ontimeupdate = () => {
-      if (!isMouseDown && audioRef.current) {
-        progressRef.current!.value = audioRef.current.currentTime;
-      }
+        const currentPageInfo = Object.entries<{ start: number; end: number }>(
+          pageInfo
+        )[page - 1][1];
+        if (
+          gridMode !== 0 &&
+          audioRef.current!.currentTime <= timeline.end &&
+          audioRef.current!.currentTime >= currentPageInfo.end
+        ) {
+          setPage((page) => page + 1);
+        }
 
-      const currentPageInfo = Object.entries<{ start: number; end: number }>(
-        pageInfo
-      )[page - 1][1];
-      if (
-        gridMode !== 0 &&
-        audioRef.current!.currentTime <= timeline.end &&
-        audioRef.current!.currentTime >= currentPageInfo.end
-      ) {
-        setPage((page) => page + 1);
-      }
+        if (audioRef.current!.currentTime >= timeline.end) {
+          console.log("Time is up");
+          setPlayerState(PlayerState.IDLE);
+        }
+      };
 
-      if (audioRef.current!.currentTime >= timeline.end) {
-        console.log("Time is up");
-        setPlayerState(PlayerState.IDLE);
-      }
+      const handleHighlightBox = () => {
+        if (!isMouseDown && audioRef.current) {
+          // console.log(audioRef.current.currentTime);
+          // console.log(bboxList[0]);
+          // console.log(bboxIndex.current);
+          let changeIndexFlag = false;
+          for (let i = 0; i < bboxList.length; i++) {
+            if (
+              audioRef.current.currentTime >= bboxList[i].start &&
+              audioRef.current.currentTime < bboxList[i].end
+            ) {
+              if (i !== bboxIndex.current) {
+                bboxIndex.current = i;
+                changeIndexFlag = true;
+              }
+              break;
+            }
+          }
+          if (!changeIndexFlag) return;
+          const bbox = bboxList[bboxIndex.current].bbox;
+          const canvas = spotlightRef.current;
+          const ctx = canvas?.getContext("2d");
+          if (!canvas || !ctx) return;
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // 중심점 계산
+          const centerX = (bbox[0] + bbox[2] / 2) / pdfWidth.current * canvas.width;
+          const centerY = (bbox[1] + bbox[3] / 2) / pdfHeight.current * canvas.height;
+          // 그라디언트 생성
+          const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
+          const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+
+          // 그라디언트 색상 단계 설정
+          gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // 중심부 투명
+          gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)'); // 중심에서 조금 떨어진 부분
+          gradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)'); // 외곽부는 어두운 명암
+          // ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // ctx.clearRect(
+            // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
+            // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
+            // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
+            // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
+          setInterval(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+          }, 5000);
+        }
+      };
+
+      handleProgressBar();
+      handleHighlightBox();
     };
   }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
-
-  useEffect(() => {
-    // spotlight for 3000 ms
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
-    audioRef.current.ontimeupdate = () => {
-      if (!isMouseDown && audioRef.current) {
-        // console.log(audioRef.current.currentTime);
-        // console.log(bboxList[0]);
-        // console.log(bboxIndex.current);
-        let changeIndexFlag = false;
-        for (let i = 0; i < bboxList.length; i++) {
-          if (
-            audioRef.current.currentTime >= bboxList[i].start &&
-            audioRef.current.currentTime < bboxList[i].end
-          ) {
-            if (i !== bboxIndex.current) {
-              bboxIndex.current = i;
-              changeIndexFlag = true;
-            }
-            break;
-          }
-        }
-        if (!changeIndexFlag) return;
-        const bbox = bboxList[bboxIndex.current].bbox;
-        const canvas = spotlightRef.current;
-        const ctx = canvas?.getContext("2d");
-        if (!canvas || !ctx) return;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // 중심점 계산
-        const centerX = (bbox[0] + bbox[2] / 2) / pdfWidth.current * canvas.width;
-        const centerY = (bbox[1] + bbox[3] / 2) / pdfHeight.current * canvas.height;
-        // 그라디언트 생성
-        const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
-        const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
-
-        // 그라디언트 색상 단계 설정
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // 중심부 투명
-        gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)'); // 중심에서 조금 떨어진 부분
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)'); // 외곽부는 어두운 명암
-        // ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // ctx.clearRect(
-          // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
-          // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
-          // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
-          // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
-        setInterval(() => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height)
-        }, 5000);
-      }
-    };
-  });
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -620,7 +615,6 @@ function ReviewPage({
         </div>
       </div>
       <div className="w-full mt-4 px-4">
-        <audio ref={audioRef} />
         <progress ref={progressRef} className="w-full" />
       </div>
     </div>
@@ -842,17 +836,20 @@ export default function Page({ params }: { params: { id: string } }) {
             </div>
           </div>
           {isReviewMode && (
-            <ReviewPage
-              projectId={params.id}
-              spotlightRef={spotlightRef}
-              audioRef={audioRef}
-              page={page}
-              pageInfo={pageInfo}
-              pages={pages}
-              setPage={setPage}
-              setPageInfo={setPageInfo}
-              setPages={setPages}
-            />
+            <>
+              <audio ref={audioRef} />
+              <ReviewPage
+                projectId={params.id}
+                spotlightRef={spotlightRef}
+                audioRef={audioRef}
+                page={page}
+                pageInfo={pageInfo}
+                pages={pages}
+                setPage={setPage}
+                setPageInfo={setPageInfo}
+                setPages={setPages}
+              />
+            </>
           )}
         </div>
       )}
