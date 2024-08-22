@@ -576,7 +576,7 @@ function ReviewPage({
     }
 
     setPages(pages_);
-  }, [gridMode]);
+  }, [gridMode, page, tocIndex]);
 
   const convertWhiteSpaces = (text: string) => {
     return text.replace(/  /g, "\u00a0\u00a0");
