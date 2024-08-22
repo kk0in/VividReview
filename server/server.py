@@ -834,6 +834,36 @@ def get_pdf_text_and_image(project_id, pdf_path):
 
         return text, crop_images
 
+def find_important_parts(data):
+    positve_emotion = ['Excitement', 'Enthusiasm', 'Interest', 'Amusement', 'Joy']
+    negative_emotion = ['Calmness', 'Boredom', 'Tiredness']
+
+    prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
+
+    scores = []
+    positive_relative_scores = []
+    negative_relative_scores = []
+
+    for segment in prosodic_data:
+        segment_scores = [item["score"] for item in segment['emotions']]
+        scores.append(sum(segment_scores))
+        
+        positive_relative_score_sum = sum([item["relative_score"] for item in segment['emotions'] if item["name"] in positve_emotion])
+        positive_relative_scores.append(positive_relative_score_sum)
+        
+        negative_relative_score_sum = sum([item["relative_score"] for item in segment['emotions'] if item["name"] in negative_emotion])
+        negative_relative_scores.append(negative_relative_score_sum)
+
+    score_st = np.percentile(scores, 90)
+    positive_relative_score_st = np.percentile(positive_relative_scores, 90)
+    negative_relative_score_st = np.percentile(negative_relative_scores, 10)
+
+    important_parts = []
+    for segment, score_sum, positive_rel_sum, negative_rel_sum in zip(prosodic_data, scores, positive_relative_scores, negative_relative_scores):
+        if score_sum > score_st and positive_rel_sum > positive_relative_score_st and negative_rel_sum < negative_relative_score_st:
+            important_parts.append([segment['time']['begin'], segment['time']['end']])
+
+    return important_parts
 
 def create_page_info(project_id, matched_paragraphs, word_timestamp):
     pdf_file = [
@@ -848,11 +878,14 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     pdf_path = os.path.join(PDF, pdf_file[0])
     real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    prosody_file_path = f"{RECORDING}/{project_id}_prosody_predictions.json"
 
     with open(real_timestamp_path, "r") as file:
         real_timestamp = json.load(file)
     with open(annnotation_path, "r") as file:
         annotations = json.load(file)
+    with open(prosody_file_path, 'r') as file:
+        prosody_file = json.load(file)
 
     output = {}
     missed_parts = []
@@ -897,6 +930,7 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
         offset += len(words)
 
     output["missed_parts"] = missed_parts
+    output["important_parts"] = find_important_parts(prosody_file)
 
     return output
 
