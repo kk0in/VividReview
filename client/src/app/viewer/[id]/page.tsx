@@ -122,6 +122,7 @@ function ReviewPage({
   projectId,
   spotlightRef,
   audioRef,
+  progressRef,
   page,
   pageInfo,
   pages,
@@ -132,6 +133,7 @@ function ReviewPage({
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
   audioRef: React.RefObject<HTMLAudioElement>;
+  progressRef: React.RefObject<HTMLProgressElement>;
   page: number;
   pageInfo: any;
   pages: number[];
@@ -144,7 +146,6 @@ function ReviewPage({
   const tocIndex = useRecoilValue(tocIndexState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
-  const progressRef = useRef<HTMLProgressElement>(null);
   const [audioSource, setAudioSource] = useState<string>("");
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
@@ -614,9 +615,6 @@ function ReviewPage({
           {paragraph}
         </div>
       </div>
-      <div className="w-full mt-4 px-4">
-        <progress ref={progressRef} className="w-full" />
-      </div>
     </div>
   );
 }
@@ -632,6 +630,7 @@ export default function Page({ params }: { params: { id: string } }) {
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const progressRef = useRef<HTMLProgressElement>(null);
 
   const handlePointClick = (data: any) => {
     console.log("Clicked data point:", data);
@@ -821,36 +820,38 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
-            <div className="rounded-2xl bg-gray-200" ref={containerRef}>
-              <ArousalGraph
-                data={prosodyData}
-                onPointClick={handlePointClick}
-                positiveEmotion={positiveEmotion}
-                negativeEmotion={negativeEmotion}
-                page={page}
-                pageInfo={pageInfo}
-                pages={pages}
-                tableOfContents={tableOfContents}
-                graphWidth = {graphWidth}
-              />
-            </div>
+            {isReviewMode &&
+              <div className="rounded-2xl bg-gray-200 py-2" ref={containerRef}>
+                <ArousalGraph
+                  data={prosodyData}
+                  onPointClick={handlePointClick}
+                  positiveEmotion={positiveEmotion}
+                  negativeEmotion={negativeEmotion}
+                  page={page}
+                  pageInfo={pageInfo}
+                  pages={pages}
+                  tableOfContents={tableOfContents}
+                  graphWidth = {graphWidth}
+                />
+                <audio ref={audioRef} />
+                <progress ref={progressRef} className="w-full rounded-2xl" />
+              </div>
+            }
           </div>
-          {isReviewMode && (
-            <>
-              <audio ref={audioRef} />
-              <ReviewPage
-                projectId={params.id}
-                spotlightRef={spotlightRef}
-                audioRef={audioRef}
-                page={page}
-                pageInfo={pageInfo}
-                pages={pages}
-                setPage={setPage}
-                setPageInfo={setPageInfo}
-                setPages={setPages}
+          {isReviewMode &&
+            <ReviewPage
+              projectId={params.id}
+              spotlightRef={spotlightRef}
+              audioRef={audioRef}
+              progressRef={progressRef}
+              page={page}
+              pageInfo={pageInfo}
+              pages={pages}
+              setPage={setPage}
+              setPageInfo={setPageInfo}
+              setPages={setPages}
               />
-            </>
-          )}
+          }
         </div>
       )}
     </div>
