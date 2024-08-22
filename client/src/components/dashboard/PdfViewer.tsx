@@ -14,6 +14,7 @@ import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState"
 import { lassoState, Lasso, defaultPrompts, focusedLassoState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery } from "@/utils/api";
 import "./Lasso.css";
+import PreviousMap from "postcss/lib/previous-map";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -957,10 +958,12 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       const newLasso = {...clickedLasso, lassoId: response.lassoId, image: image};
-      newLasso.prompts = {...clickedLasso.prompts};
+      newLasso.prompts = [...clickedLasso.prompts];
       newLasso.prompts[idx] = {...clickedLasso.prompts[idx]};
       newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response.response.toString()];
       setFocusedLasso(newLasso);
+      setLassoRec((prev) => {return {...prev, [projectId]: {...prev[projectId], [pageNumber]: [...prev[projectId][pageNumber], newLasso]}}});
+      console.log(newLasso);
     }
 
     const handleAddPrompt = (e: React.MouseEvent) => {
