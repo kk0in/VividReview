@@ -50,7 +50,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const focusedLassoRef = useRef<HTMLCanvasElement>(null);
-  const spotlightRef = useRef<HTMLCanvasElement>(null);
   const drawingsRef = useRef<CanvasLayer[]>([]);
   const selectedTool = useRecoilValue(toolState);
   const gridMode = useRecoilValue(gridModeState);
