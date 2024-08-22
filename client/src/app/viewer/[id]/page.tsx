@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -128,8 +128,8 @@ function ReviewPage({
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
-  const tocIndex = useRecoilValue(tocIndexState);
-  const searchText = useRecoilValue(searchQueryState); 
+  const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
+  const searchText = useRecoilValue(searchQueryState);
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
@@ -174,6 +174,37 @@ function ReviewPage({
       </div>
     );
   });
+
+  const findPage = (time: number): number => {
+    if (pageInfo === null) {
+      return 0;
+    }
+
+    for (const [key, value] of Object.entries<{ start: number; end: number }>(
+      pageInfo
+    )) {
+      if (time > value.start && time < value.end) {
+        return parseInt(key);
+      }
+    }
+
+    return 0;
+  };
+
+  const findTocIndex = (page: number) => {
+    for (let i = 0; i < toc.length; i++) {
+      const section = toc[i];
+      for (let j = 0; j < section.subsections.length; j++) {
+        const subsection = section.subsections[j];
+        if (subsection.page.includes(page)) {
+          return { section: i, subsection: j };
+        }
+      }
+    }
+
+    console.log("No ToC index found for page: ", page);
+    return null;
+  };
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -268,15 +299,20 @@ function ReviewPage({
           progressRef.current!.value = audioRef.current.currentTime;
         }
 
-        const currentPageInfo = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[page - 1][1];
-        if (
-          gridMode !== 0 &&
-          audioRef.current!.currentTime <= timeline.end &&
-          audioRef.current!.currentTime >= currentPageInfo.end
-        ) {
-          setPage((page) => page + 1);
+        if (pageInfo && page > 0) {
+          const timelineForPage = Object.entries<{
+            start: number;
+            end: number;
+          }>(pageInfo)[page - 1][1];
+
+          if (audioRef.current!.currentTime >= timelineForPage.end) {
+            const newPage = page + 1;
+            const newTocIndex = findTocIndex(newPage);
+            console.log("Current Page update", newPage, newTocIndex);
+
+            newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+            setPage(newPage);
+          }
         }
 
         if (audioRef.current!.currentTime >= timeline.end) {
@@ -311,26 +347,35 @@ function ReviewPage({
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           // 중심점 계산
-          const centerX = (bbox[0] + bbox[2] / 2) / pdfWidth.current * canvas.width;
-          const centerY = (bbox[1] + bbox[3] / 2) / pdfHeight.current * canvas.height;
+          const centerX =
+            ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
+          const centerY =
+            ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
           // 그라디언트 생성
           const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
-          const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+          const gradient = ctx.createRadialGradient(
+            centerX,
+            centerY,
+            0,
+            centerX,
+            centerY,
+            maxRadius
+          );
 
           // 그라디언트 색상 단계 설정
-          gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // 중심부 투명
-          gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)'); // 중심에서 조금 떨어진 부분
-          gradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)'); // 외곽부는 어두운 명암
+          gradient.addColorStop(0, "rgba(0, 0, 0, 0)"); // 중심부 투명
+          gradient.addColorStop(0.7, "rgba(0, 0, 0, 0.3)"); // 중심에서 조금 떨어진 부분
+          gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)"); // 외곽부는 어두운 명암
           // ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           // ctx.clearRect(
-            // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
-            // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
-            // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
-            // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
+          // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
+          // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
+          // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
+          // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
           setInterval(() => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
           }, 5000);
         }
       };
@@ -338,7 +383,7 @@ function ReviewPage({
       handleProgressBar();
       handleHighlightBox();
     };
-  }, [audioRef.current?.currentTime, isMouseDown, gridMode]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page]);
 
   useEffect(() => {
     if (progressRef.current === null) {
@@ -369,7 +414,13 @@ function ReviewPage({
       event.preventDefault();
       if (isMouseDown) {
         console.log("mouseup", progressRef.current!.offsetWidth, event.offsetX);
-        audioRef.current!.currentTime = getNewProgressValue(event);
+        const timeValue = getNewProgressValue(event);
+        const newPage = findPage(timeValue);
+        const newTocIndex = findTocIndex(newPage);
+        newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+        newPage > 0 && setPage(newPage);
+
+        audioRef.current!.currentTime = timeValue;
         setIsMouseDown(false);
       }
     };
@@ -468,7 +519,6 @@ function ReviewPage({
 
       case PlayerState.IDLE: {
         console.log("IDLE");
-        audioRef.current.currentTime = timeline.start;
         audioRef.current.pause();
         break;
       }
@@ -492,7 +542,6 @@ function ReviewPage({
         break;
     }
   }, [playerRequest]);
-
 
   useEffect(() => {
     const pages_ = [];
@@ -527,7 +576,7 @@ function ReviewPage({
     }
 
     setPages(pages_);
-  }, [gridMode]);
+  }, [gridMode, page, tocIndex]);
 
   const convertWhiteSpaces = (text: string) => {
     return text.replace(/  /g, "\u00a0\u00a0");
@@ -821,7 +870,7 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
-            {isReviewMode &&
+            {isReviewMode && (
               <div className="rounded-2xl bg-gray-200 py-2" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
@@ -832,14 +881,14 @@ export default function Page({ params }: { params: { id: string } }) {
                   pageInfo={pageInfo}
                   pages={pages}
                   tableOfContents={tableOfContents}
-                  graphWidth = {graphWidth}
+                  graphWidth={graphWidth}
                 />
                 <audio ref={audioRef} />
                 <progress ref={progressRef} className="w-full rounded-2xl" />
               </div>
-            }
+            )}
           </div>
-          {isReviewMode &&
+          {isReviewMode && (
             <ReviewPage
               projectId={params.id}
               spotlightRef={spotlightRef}
@@ -851,8 +900,8 @@ export default function Page({ params }: { params: { id: string } }) {
               setPage={setPage}
               setPageInfo={setPageInfo}
               setPages={setPages}
-              />
-          }
+            />
+          )}
         </div>
       )}
     </div>
