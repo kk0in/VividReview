@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { gridModeState } from "@/app/recoil/ToolState";
+import { gridModeState, searchQueryState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -102,6 +102,7 @@ function ReviewPage({ projectId, spotlightRef, audioRef }: { projectId: string, 
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   const tocIndex = useRecoilValue(tocIndexState);
+  const searchText = useRecoilValue(searchQueryState); 
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const progressRef = useRef<HTMLProgressElement>(null);
@@ -537,6 +538,21 @@ function ReviewPage({ projectId, spotlightRef, audioRef }: { projectId: string, 
       }
     }
   }
+
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchText.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+
+      try {
+        await searchQuery(projectId, searchText); // API 요청만 수행
+      } catch (error) {
+        console.error("Error during search:", error);
+      }
+    };
+
+    fetchSearchResults();
+  }, [searchText, projectId]); // 검색어가 변경될 때마다 API 호출
+
 
   return (
     <div className="flex-none w-1/5 bg-gray-50">

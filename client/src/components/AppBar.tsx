@@ -19,7 +19,7 @@ import {
 } from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { toolState, recordingState, gridModeState } from '@/app/recoil/ToolState';
+import { toolState, recordingState, gridModeState, searchQueryState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
 import { PlayerState, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
 
@@ -102,6 +102,8 @@ export default function AppBar() {
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [gridMode, setGridMode] = useRecoilState(gridModeState);
   const isReviewMode = useSearchParams().get('mode') === 'review';
+  const [inputText, setInputText] = useState(''); // 입력된 텍스트 상태
+  const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
 
   const handleGridIconClick = (tool: string) => {
     switch (gridMode) {
@@ -123,7 +125,6 @@ export default function AppBar() {
 
   const handleIconClick = (iconName: string, tool: string) => {
     if (activeIcon === iconName) {
-      // console.log('selectedTool', selectedTool);
       setActiveIcon(null);
       setSelectedTool(null);
     } else {
@@ -140,7 +141,6 @@ export default function AppBar() {
       return newActiveIcons;
     });
     if (action) {
-      // console.log('action', action);
       action();
     }
     setTimeout(() => {
@@ -153,15 +153,12 @@ export default function AppBar() {
   };
 
   const handleMicToggle = () => {
-    // console.log('isRecording', isRecording);
     setIsRecording(!isRecording);
   };
 
   const handleUndo = () => {
-    console.log('history', history);
     if (history.length === 0) return;
     const previous = history[history.length - 2];
-    console.log(previous);
     setRedoStack((prev) => [...prev, history[history.length-1]]);
     setHistory((prev) => prev.slice(0, -1));
     const event = new CustomEvent('undoCanvas', { detail: previous });
@@ -177,6 +174,17 @@ export default function AppBar() {
     window.dispatchEvent(event);
   };
 
+  const handleSearch = () => {
+    setSearchQuery(inputText); // 아이콘 클릭 시 Recoil 상태 업데이트
+    console.log("inputText:", inputText);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      handleSearch(); // Enter 키를 눌렀을 때 검색 실행
+    }
+  };
+
   const icons = [
     { name: 'pencil', icon: FaPencilAlt, tool: 'pencil' },
     { name: 'highlighter', icon: FaHighlighter, tool: 'highlighter' },
@@ -188,7 +196,6 @@ export default function AppBar() {
   const temporaryIcons = [
     { name: 'undo', icon: FaUndo, action: handleUndo },
     { name: 'redo', icon: FaRedo, action: handleRedo },
-    { name: 'search', icon: FaSearch },
   ];
 
   return (
@@ -220,7 +227,7 @@ export default function AppBar() {
             </div>
           </div>
           {isViewerPage && (
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 items-center">
               {icons.map(({ name, icon: Icon, tool }) => {
                 if (name === 'grid') {
                   return (
@@ -263,6 +270,17 @@ export default function AppBar() {
                 )}
                 onClick={handleMicToggle}
               />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)} // 입력된 텍스트 상태 업데이트
+                  onKeyDown={handleKeyDown} // Enter 키 감지
+                  className="bg-gray-700 text-white p-2 pl-10 rounded"
+                  placeholder="Search..."
+                />
+                <FaSearch className="absolute left-3 top-2.5 text-white" onClick={handleSearch} />
+              </div>
             </div>
           )}
           {

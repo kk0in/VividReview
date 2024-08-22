@@ -14,3 +14,8 @@ export const gridModeState = atom<number>({
   key: 'gridModeState',
   default: 0,
 });
+
+export const searchQueryState = atom<string>({
+  key: 'searchQueryState',
+  default: '',
+});
