@@ -65,7 +65,7 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
-WINDOW_SIZE = 3
+WINDOW_SIZE = 1
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(TEMP, exist_ok=True)
@@ -1274,8 +1274,34 @@ async def get_page_info(project_id: int):
             status_code=500, detail=f"Error reading page info file: {e}"
         )
 
-    return page_info_data
+    return page_info_data["pages"]
 
+@app.get("/api/get_images/{project_id}", status_code=200)
+async def get_images(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 이미지 파일을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID에 해당하는 이미지 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    """
+
+    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
+
+
+    if not os.path.exists(image_directory):
+        raise HTTPException(status_code=404, detail="Image files not found")
+
+    image_paths = sorted(
+        [
+            os.path.join(image_directory, f)
+            for f in os.listdir(image_directory)
+            if f.lower().endswith(".png")
+        ]
+    )
+
+    encoded_images = [f"data:image/png;base64,{encode_image(image)}" for image in image_paths]
+
+    return encoded_images
 
 @app.get("/api/get_missed_parts/{project_id}", status_code=200)
 async def get_missed_parts(project_id: int):
