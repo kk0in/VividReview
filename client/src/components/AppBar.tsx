@@ -176,6 +176,7 @@ export default function AppBar() {
   };
 
   const handleSearch = () => {
+    console.log('??');
     setSearchQuery({ query: inputText, type: searchType }); // 검색어와 타입을 Recoil 상태로 설정
   };
 
@@ -274,7 +275,8 @@ export default function AppBar() {
                 )}
                 onClick={handleMicToggle}
               />
-              <div className="relative">
+              <div className="relative flex items-center">
+                <FaSearch className="absolute left-3 text-white" onClick={handleSearch} />
                 <input
                   type="text"
                   value={inputText}
@@ -283,10 +285,9 @@ export default function AppBar() {
                   className="bg-gray-700 text-white p-2 pl-10 rounded"
                   placeholder="Search..."
                 />
-                <FaSearch className="absolute left-3 top-2.5 text-white" onClick={handleSearch} />
                 <button
                   onClick={toggleSearchType}
-                  className="bg-gray-600 text-white p-2 rounded-l cursor-pointer outline-none"
+                  className="bg-gray-600 text-white p-2 rounded cursor-pointer outline-none"
                 >
                   {searchType === 'semantic' ? 'Semantic' : 'Keyword'}
                 </button>
