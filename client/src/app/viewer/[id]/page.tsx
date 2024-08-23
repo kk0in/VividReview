@@ -658,7 +658,7 @@ function ReviewPage({
   }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
   return (
-    <div className="flex-none w-1/5 bg-gray-50">
+    <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
         Script
       </div>
@@ -863,7 +863,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {tableOfContents && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-gray-50 p-4">
+          <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
             <div className="mb-4 font-bold">Table</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
           </div>
@@ -874,7 +874,7 @@ export default function Page({ params }: { params: { id: string } }) {
               spotlightRef={spotlightRef}
             />
             {isReviewMode && (
-              <div className="rounded-2xl bg-gray-200 py-2" ref={containerRef}>
+              <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
                   onPointClick={handlePointClick}
@@ -887,7 +887,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   graphWidth={graphWidth}
                 />
                 <audio ref={audioRef} />
-                <progress ref={progressRef} className="w-full rounded-2xl" />
+                <progress className="w-full rounded-lg" ref={progressRef} />
               </div>
             )}
           </div>

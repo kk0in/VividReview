@@ -176,7 +176,6 @@ export default function AppBar() {
   };
 
   const handleSearch = () => {
-    console.log('??');
     setSearchQuery({ query: inputText, type: searchType }); // 검색어와 타입을 Recoil 상태로 설정
   };
 
