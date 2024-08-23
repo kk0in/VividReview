@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import Any, List, Union
 
+import re
 import clip
 import cv2
 import ffmpeg
@@ -187,11 +188,15 @@ def encode_image(image_path):
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
 
-    transcript1 = client.audio.transcriptions.create(
-        model="whisper-1", file=audio_file, language="en"
+    transcript_segment = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file,
+        response_format="verbose_json",
+        language="en",
+        timestamp_granularities=["segment"],
     )
 
-    transcript2 = client.audio.transcriptions.create(
+    transcript_word = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
         response_format="verbose_json",
@@ -199,11 +204,17 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
         timestamp_granularities=["word"],
     )
 
+    script = ''
+    for segment in transcript_segment.segments:
+        script += segment['text']
+
+    script = script.strip()
+
     with open(transcription_path, "w") as output_file:
-        json.dump(transcript1.text, output_file, indent=4)
+        json.dump(script, output_file, indent=4)
 
     with open(timestamp_path, "w") as output_file:
-        json.dump(transcript2.words, output_file, indent=4)
+        json.dump(transcript_word.words, output_file, indent=4)
 
 
 def issue_id():
@@ -374,7 +385,7 @@ def bbox_api_request(script_segment, encoded_image):
             ),
         },
         # {"type": "text", "text": script_segment},
-        {"type": "image_url", "image_url": {"url": encoded_image}},
+        encoded_image
     ]
 
     payload = {
@@ -892,9 +903,8 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     offset = 0
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
-
         gpt_start_time = word_timestamp[offset]["start"]
-        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"]
+        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"] if int(para_id) < len(matched_paragraphs) else word_timestamp[-1]["end"]
         pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
         annotation = annotations[para_id]
         output["pages"][para_id] = {
@@ -946,8 +956,8 @@ def timestamp_for_bbox(project_id, word_timestamp):
         updated_bboxes = []
         for item in bboxes["bboxes"]:
             bbox = item["bbox"]
-            
-            if isinstance(bbox[0], list):
+
+            if bbox and isinstance(bbox[0], list):
                 bbox = bbox[0]    
             if not bbox or bbox[2] == 0 or bbox[3] == 0:
                 continue
@@ -964,7 +974,7 @@ def timestamp_for_bbox(project_id, word_timestamp):
             json.dump(bboxes, file, indent=4)
 
 
-def get_script_times(script_text, word_timestamp):
+def get_script_times(script_text, word_timestamp, check_words_num=3):
     # Remove punctuation from the script_text and split into words
 
     words = re.findall(r"\b[\w\']+\b", script_text.lower())
@@ -972,24 +982,41 @@ def get_script_times(script_text, word_timestamp):
     start_time = None
     end_time = None
 
-    if len(words) >= 3:
-        for i in range(len(word_timestamp) - 2):
-            if (
-                word_timestamp[i]["word"].lower() == words[0]
-                and word_timestamp[i + 1]["word"].lower() == words[1]
-                and word_timestamp[i + 2]["word"].lower() == words[2]
-            ):
+    if len(words) >= check_words_num:
+        for i in range(len(word_timestamp) - (check_words_num-1)):
+            match = True
+            for j in range(check_words_num):
+                if word_timestamp[i + j]["word"].lower() != words[j]:
+                    match = False
+                    break
+            if match:
                 # Set start time from the first word
                 start_time = word_timestamp[i]["start"]
 
                 # Find end time from the last word in words
-                for j in range(i + 2, len(word_timestamp)):
+                for j in range(i + (check_words_num-1), len(word_timestamp)):
                     if word_timestamp[j]["word"].lower() == words[-1]:
                         end_time = word_timestamp[j]["end"]
                         break
                 break
 
     return start_time, end_time
+
+def get_script_times_by_segment(script_text, segment_timestamp, start_time):
+    script_text_without_punctuation = re.sub(r'[^\w\s]', '', script_text.lower().strip())
+    print(script_text_without_punctuation)
+
+    # start_time = None
+
+    for segment in segment_timestamp:
+        segment_text = re.sub(r'[^\w\s]', '',segment["text"].lower().strip())
+        print(segment_text)
+        if segment_text in script_text_without_punctuation:
+            if segment["start"] > start_time:
+                start_time = segment["start"] 
+            break
+
+    return start_time
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
@@ -1201,7 +1228,7 @@ async def activate_review(project_id: int):
         json.dump(first_sentences, json_file, indent=4)
 
     # 단락 매칭
-    matched_paragraphs = match_paragraphs_2(script_content, first_sentences)
+    matched_paragraphs = match_paragraphs_1(script_content, first_sentences)
 
     # Phase 2: spatially match the script content to the images
     try:
