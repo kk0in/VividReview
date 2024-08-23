@@ -114,6 +114,8 @@ function ReviewPage({
   setPage,
   setPageInfo,
   setPages,
+  tocIndex,
+  setTocIndex,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
@@ -125,10 +127,12 @@ function ReviewPage({
   setPage: (page: number) => void;
   setPageInfo: (pageInfo: any) => void;
   setPages: (pages: any) => void;
+  tocIndex: any;
+  setTocIndex: (tocIndex: any) => void;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
-  const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
+  // const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
   const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
@@ -683,17 +687,16 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
+  const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
+ const toc = useRecoilValue(tocState);
 
-  const handlePointClick = (data: any) => {
-    console.log("Clicked data point:", data);
-    // console.log("Clicked data point:", data, audioRef.current!.currentTime);
+  const handleAudioRef = (data: any) => {
     if (Number.isFinite(data?.begin)) {
-      console.log("Seeking to", data.begin);
       audioRef.current!.currentTime = data.begin;
     }
   };
@@ -801,6 +804,39 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
+  const findPage = (time: number): number => {
+    console.log("findPage", time, pageInfo);
+
+    if (pageInfo === null) {
+      return 0;
+    }
+
+    for (const [key, value] of Object.entries<{ start: number; end: number }>(
+      pageInfo
+    )) {
+      if (time > value.start && time < value.end) {
+        return parseInt(key);
+      }
+    }
+
+    return 0;
+  };
+
+  const findTocIndex = (page: number) => {
+    for (let i = 0; i < toc.length; i++) {
+      const section = toc[i];
+      for (let j = 0; j < section.subsections.length; j++) {
+        const subsection = section.subsections[j];
+        if (subsection.page.includes(page)) {
+          return { section: i, subsection: j };
+        }
+      }
+    }
+
+    console.log("No ToC index found for page: ", page);
+    return null;
+  };
+
   useEffect(() => {
     fetchTableOfContents();
     fetchProsody();
@@ -881,7 +917,7 @@ export default function Page({ params }: { params: { id: string } }) {
               <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
-                  onPointClick={handlePointClick}
+                  onPointClick={handleAudioRef}
                   positiveEmotion={positiveEmotion}
                   negativeEmotion={negativeEmotion}
                   page={page}
@@ -889,6 +925,11 @@ export default function Page({ params }: { params: { id: string } }) {
                   pages={pages}
                   tableOfContents={tableOfContents}
                   graphWidth={graphWidth}
+                  findPage={findPage}
+                  findTocIndex={findTocIndex}
+                  tocIndex={tocIndex}
+                  setTocIndex={setTocIndex}
+                  setPage={setPage}
                 />
                 <audio ref={audioRef} />
                 <progress className="w-full rounded-lg" ref={progressRef} />
@@ -907,7 +948,9 @@ export default function Page({ params }: { params: { id: string } }) {
               setPage={setPage}
               setPageInfo={setPageInfo}
               setPages={setPages}
-            />
+              tocIndex={tocIndex}
+              setTocIndex={setTocIndex}
+              />
           )}
         </div>
       )}
