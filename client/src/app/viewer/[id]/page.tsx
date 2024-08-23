@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -225,7 +225,11 @@ function ReviewPage({
   useEffect(() => {
     const fetchKeywords = async () => {
       try {
-        for (let i = 1; i <= Object.keys(paragraphs!).length; i++) {
+        if (paragraphs === null) {
+          return;
+        }
+
+        for (let i = 1; i <= Object.keys(paragraphs).length; i++) {
           const keywords = await getKeywords({
             queryKey: ["getKeywords", projectId, i.toString()],
           });
@@ -626,13 +630,13 @@ function ReviewPage({
         }
 
         paragraph.push(
-          <>
+          <Fragment key={page}>
             <p className="font-bold text-lg">Page {script.page} -</p>
             <p
               className="mb-2"
               dangerouslySetInnerHTML={{ __html: processedHTML }}
             ></p>
-          </>
+          </Fragment>
         );
         break;
       }

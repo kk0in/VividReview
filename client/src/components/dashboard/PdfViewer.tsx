@@ -876,6 +876,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     case 0: {
       pageComponents.push(
         <Page
+          key={pageNumber}
           pageNumber={pageNumber}
           width={width}
           renderAnnotationLayer={false}
