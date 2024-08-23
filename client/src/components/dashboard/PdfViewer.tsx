@@ -1123,7 +1123,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         >
           Save
         </button>
-        {clickedLasso !== null && (
+        {clickedLasso !== null && selectedTool === "spinner" && (
           <PromptList/>
         )}
       </div>

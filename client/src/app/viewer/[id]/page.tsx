@@ -672,7 +672,8 @@ function ReviewPage({
                       }
                       const response = await lassoQuery(projectId, page, prompt.prompt, lassoRec[projectId][page][activePromptIndex[0]].image ?? "", boxArr(lassoRec[projectId][page][activePromptIndex[0]].boundingBox), lassoRec[projectId][page][activePromptIndex[0]].lassoId);
                       const newLasso = {...lassoRec[projectId][page][activePromptIndex[0]], lassoId: response.lassoId};
-                      newLasso.prompts = lassoRec[projectId][page][activePromptIndex[0]].prompts.slice(0);
+                      newLasso.prompts = [...lassoRec[projectId][page][activePromptIndex[0]].prompts];
+                      newLasso.prompts[activePromptIndex[1]] = {...lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]]}
                       newLasso.prompts[activePromptIndex[1]].answers = lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers.slice(0); 
                       newLasso.prompts[activePromptIndex[1]].answers.push(response.answer);
                       setFocusedLasso(newLasso);
