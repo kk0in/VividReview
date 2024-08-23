@@ -946,6 +946,9 @@ def timestamp_for_bbox(project_id, word_timestamp):
         updated_bboxes = []
         for item in bboxes["bboxes"]:
             bbox = item["bbox"]
+            
+            if isinstance(bbox[0], list):
+                bbox = bbox[0]    
             if not bbox or bbox[2] == 0 or bbox[3] == 0:
                 continue
 

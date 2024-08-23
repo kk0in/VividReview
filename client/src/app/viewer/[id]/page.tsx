@@ -350,11 +350,15 @@ function ReviewPage({
           if (!canvas || !ctx) return;
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          console.log("pdfWidth.current, pdfHeight.current: ", pdfWidth.current, pdfHeight.current); 
+          console.log("bbox: ", bbox);
+          console.log("canvas.width, canvas.height: ", canvas.width, canvas.height);  
           // 중심점 계산
           const centerX =
             ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
           const centerY =
             ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
+          console.log("centerX, centerY: ", centerX, centerY); 
           // 그라디언트 생성
           const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
           const gradient = ctx.createRadialGradient(
