@@ -205,3 +205,53 @@ export async function lassoQuery(projectId: string, pageNumber: number, prompt: 
 
   return response.data;
 }
+
+export async function lassoPrompts(projectId: string, pageNumber: number, lassoId: number | null) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/lasso_prompts/`, {
+    params: {
+      project_id: projectId,
+      page_num: pageNumber,
+      lasso_id: lassoId
+    }
+  });
+
+  return response.data;
+}
+
+export async function addLassoPrompt(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
+  const response = await axios.post(`${SERVER_ENDPOINT}api/add_lasso_prompt/`, {
+    params: {
+      project_id: projectId,
+      page_num: pageNumber,
+      lasso_id: lassoId,
+      prompt_text: prompt
+    }
+  });
+
+  return response.data;
+}
+
+export async function getLassosOnPage(projectId: string, pageNumber: number) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
+
+  return response.data;
+}
+
+export async function getLassoInfo(projectId: string, pageNumber: number, lassoId: number | null) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`);
+
+  return response.data;
+}
+
+export async function lassoTransform(projectId: string, pageNumber: number, lassoId: number | null, version: number, prompt: string, transformType: string) {
+  const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_transform/`, {
+    project_id: projectId,
+    page_num: pageNumber,
+    lasso_id: lassoId,
+    version: version,
+    prompt_text: prompt,
+    transform_type: transformType
+  });
+
+  return response.data;
+}

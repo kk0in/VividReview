@@ -11,8 +11,8 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
-import { lassoState, Lasso, defaultPrompts, focusedLassoState } from "@/app/recoil/LassoState";
-import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery } from "@/utils/api";
+import { defaultPrompts, focusedLassoState } from "@/app/recoil/LassoState";
+import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo } from "@/utils/api";
 import "./Lasso.css";
 import PreviousMap from "postcss/lib/previous-map";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
@@ -43,7 +43,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [toc, ] = useRecoilState(tocState);
   const [tocIndex, setTocIndexState] = useRecoilState(tocIndexState);
-  const [lassoRec, setLassoRec] = useRecoilState(lassoState);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [addPrompt, setAddPrompt] = useState<boolean>(false);
   const [newPrompt, setNewPrompt] = useState<string>("");
@@ -253,13 +252,20 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (focusedLasso !== null) {
+    const drawBorder = async () => {
       context.strokeStyle = "red";
-      context.strokeRect(focusedLasso.boundingBox.x, focusedLasso.boundingBox.y, focusedLasso.boundingBox.width, focusedLasso.boundingBox.height);
+      const lassoBox = await getLassoInfo(projectId, pageNumber, focusedLasso);
+      const xywh = lassoBox.bbox;
+      if (lassoBox) {
+        context.strokeRect(xywh[0], xywh[1], xywh[2], xywh[3]);
+      }
+    }
 
+    if (focusedLasso !== null) {
+      drawBorder();
       setTimeout(() => {context.clearRect(0, 0, canvas.width, canvas.height); setFocusedLasso(null);}, 3000);
     }
-  }, [focusedLasso]);
+  }, [focusedLasso, pageNumber, projectId, setFocusedLasso]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -749,17 +755,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
           if (!actuallyDragged.current) {
             // lasso exists and clicked inside lasso
-            const newLassoRec = {...lassoRec};
-
-            if (!newLassoRec[projectId]){
-              newLassoRec[projectId] = {};
-            } else newLassoRec[projectId] = {...lassoRec[projectId]};
-            if (!newLassoRec[projectId][pageNumber]){
-              newLassoRec[projectId][pageNumber] = [];
-            }
-            newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber], {boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts}];
-            setLassoRec(newLassoRec);
-
             setClickedLasso({boundingBox: boxBounds(lassoBox.current), lassoId: null, prompts: defaultPrompts});
             
             return;
@@ -868,7 +863,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         canvas.removeEventListener("mouseleave", handleMouseUp);
       };
     }
-  }, [selectedTool, projectId, pageNumber, setHistory, makeNewCanvas, lassoRec, setLassoRec]);  
+  }, [selectedTool, projectId, pageNumber, setHistory, makeNewCanvas]);  
 
 
   const isPointInPath = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}, x: number, y: number) => {
@@ -957,13 +952,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const image = clickedLasso.image ?? getImage(clickedLasso.boundingBox);
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
-      const newLasso = {...clickedLasso, lassoId: response.lassoId, image: image};
-      newLasso.prompts = [...clickedLasso.prompts];
-      newLasso.prompts[idx] = {...clickedLasso.prompts[idx]};
-      newLasso.prompts[idx].answers = [...newLasso.prompts[idx].answers, response.response.toString()];
-      setFocusedLasso(newLasso);
-      setLassoRec((prev) => {return {...prev, [projectId]: {...prev[projectId], [pageNumber]: [...prev[projectId][pageNumber], newLasso]}}});
-      console.log(newLasso);
+      console.log(response);
     }
 
     const handleAddPrompt = (e: React.MouseEvent) => {
@@ -975,11 +964,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const newLasso = {...clickedLasso};
       newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
       setClickedLasso(newLasso);
-      const newLassoRec = {...lassoRec};
-      newLassoRec[projectId] = {...lassoRec[projectId]};
-      newLassoRec[projectId][pageNumber] = [...newLassoRec[projectId][pageNumber]];
-      newLassoRec[projectId][pageNumber][newLassoRec[projectId][pageNumber].length - 1] = newLasso;
-      setLassoRec(newLassoRec);
+
+      addLassoPrompt(projectId, pageNumber, clickedLasso.lassoId, newPrompt);
+      
       setAddPrompt(false);
       setNewPrompt("");
     }

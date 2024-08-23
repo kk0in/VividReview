@@ -23,6 +23,9 @@ import {
   getKeywords,
   getPageInfo,
   getProsody,
+  lassoPrompts,
+  getLassosOnPage,
+  lassoTransform,
 } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -38,7 +41,6 @@ import {
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
 import {
-  lassoState,
   focusedLassoState
 } from "@/app/recoil/LassoState";
 
@@ -161,9 +163,11 @@ function ReviewPage({
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
-  const [lassoRec, setLassoRec] = useRecoilState(lassoState);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [mode, setMode] = useState("script");
+  const lassos = useRef<number[]>([]);
+  const prompts = useRef<string[]>([]);
+  const answers = useRef<string[]>([]);
 
   const subTabs: TabProps[] = [
     {
@@ -191,34 +195,71 @@ function ReviewPage({
     );
   })
 
-  const promptTabElements = (lassoRec && lassoRec[projectId] && lassoRec[projectId][page] && lassoRec[projectId][page].length > 0) ? lassoRec[projectId][page].map((lasso, idx) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-      (idx === activePromptIndex[0] ? "bg-gray-300/50" : "bg-gray-300");
-    
-    console.log("lasso.prompts", Array.isArray(lasso.prompts), lasso.prompts);
+  useEffect(() => {
+    const fetchLassos = async () => {
+      const response = await getLassosOnPage(projectId, page);
+      lassos.current = response;
+    }
+    fetchLassos();
+  }, [projectId, page]);
 
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      if(focusedLasso === null) return;
+      const response = await lassoPrompts(projectId, page, focusedLasso);
+      prompts.current = response;
+    }
+    fetchPrompts();
+  }, [projectId, page, focusedLasso]);
+
+  useEffect(() => {
+    const fetchAnswers = async () => {
+      if(focusedLasso === null) return;
+      const response = await lassoPrompts(projectId, page, focusedLasso);
+      if (!response[activePromptIndex[1]]) return;
+      answers.current = response[activePromptIndex[1]].answers;
+    }
+    fetchAnswers();
+  }, [projectId, page, focusedLasso, activePromptIndex]);
+
+  const promptTabElements = () => { // TODO: add prompts to lasso json in server
+    if (focusedLasso === null) return <></>;
+    
     return (
       <>
-        <div className={className}
-          onClick={() => {setActivePromptIndex([idx, 0, 0]); setFocusedLasso(lasso);}}
-        >
-          {idx}
-        </div>
-        <div className={className}>
-          {lasso.prompts && lasso.prompts.map((prompt, iidx) => {
-            return (
-              <div className={"rounded-t-2xl w-fit py-1 px-4 font-bold" + ((iidx === activePromptIndex[1]) ? "bg-gray-400/50" : "bg-gray-400")}
-                onClick={() => setActivePromptIndex([activePromptIndex[0], iidx, 0])}
-                key={"subprompt-"+iidx}
+        {lassos.current.map((lassoNum, idx) => {
+          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+            (idx === activePromptIndex[0] ? "bg-gray-300/50" : "bg-gray-300");
+          
+          return (
+            <>
+              <div className={className}
+                onClick = {() => {setActivePromptIndex([idx, 0, 0]);}}
+                key={"sublasso-"+idx}
               >
-                {prompt.prompt}
+                {lassoNum}
               </div>
-            );
-          })}
-        </div>
+            </>
+          )
+        })}
+        {prompts.current.map((prompt, idx) => {
+          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+            (idx === activePromptIndex[1] ? "bg-gray-300/50" : "bg-gray-300");
+          
+          return (
+            <>
+              <div className={className}
+                onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+                key={"subprompt-"+idx}
+              >
+                {prompt}
+              </div>
+            </>
+          )
+        })}
       </>
     );
-  }) : [];
+  };
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -634,6 +675,45 @@ function ReviewPage({
     }
   }
 
+  const promptDisplay = () => {
+    return (
+      <>
+        <div>
+          {answers.current[activePromptIndex[2]]}
+        </div>
+        <div className="control-buttons">
+          {activePromptIndex[2] > 0 && (
+            <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}>
+              Previous
+            </button>
+          )}
+          {activePromptIndex[2] < answers.current.length - 1 && (
+            <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>
+              Next
+            </button>
+          )}
+        </div>
+        <div className="change-answers">
+          {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
+            return (
+              <>
+                <button onClick={async () => {
+                  const response = await lassoTransform(projectId, page, focusedLasso, activePromptIndex[2]+1, prompts.current[activePromptIndex[1]], prompt);
+                  setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]); 
+                }}>
+                  {prompt}
+                </button>
+              </>
+            )
+          })}
+        </div>
+      </>
+    )
+  }
+
+  console.log("promptDisplay", promptDisplay);
+  console.log("activePromptIndex", activePromptIndex);
+
   const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
   const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
   const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
@@ -651,40 +731,11 @@ function ReviewPage({
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
         <div className="flex flex-row">
-          {mode === "script" ? subTabElements : promptTabElements}
+          {mode === "script" ? subTabElements : promptTabElements()}
         </div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {mode === "script" ? paragraph : (lassoRec && lassoRec[projectId] && lassoRec[projectId][page] ? lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers[activePromptIndex[2]] : <></>)}
+          {mode === "script" ? paragraph : promptDisplay()}
         </div>
-        {(mode === "script") && (
-          <div>
-            <div>
-              <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}>Previous</button>
-              <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>Next</button>
-            </div>
-            <div>
-              {
-                (lassoRec && lassoRec[projectId] && lassoRec[projectId][page] && lassoRec[projectId][page].length > 0) && lassoRec[projectId][page][activePromptIndex[0]].prompts.map((prompt, idx) => {
-                  return (
-                    <button key={"promptbutton-"+idx} onClick={async () => {
-                      const boxArr = (box: {x: number, y: number, width: number, height: number}) => {
-                        return [box.x, box.y, box.width, box.height];
-                      }
-                      const response = await lassoQuery(projectId, page, prompt.prompt, lassoRec[projectId][page][activePromptIndex[0]].image ?? "", boxArr(lassoRec[projectId][page][activePromptIndex[0]].boundingBox), lassoRec[projectId][page][activePromptIndex[0]].lassoId);
-                      const newLasso = {...lassoRec[projectId][page][activePromptIndex[0]], lassoId: response.lassoId};
-                      newLasso.prompts = [...lassoRec[projectId][page][activePromptIndex[0]].prompts];
-                      newLasso.prompts[activePromptIndex[1]] = {...lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]]}
-                      newLasso.prompts[activePromptIndex[1]].answers = lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers.slice(0); 
-                      newLasso.prompts[activePromptIndex[1]].answers.push(response.answer);
-                      setFocusedLasso(newLasso);
-                      setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], lassoRec[projectId][page][activePromptIndex[0]].prompts[activePromptIndex[1]].answers.length]);
-                    }}>{prompt.prompt}</button>
-                  )
-                })
-              }
-            </div>
-          </div>
-        )}
       </div>
       <div className="w-full mt-4 px-4">
         <audio ref={audioRef} />
