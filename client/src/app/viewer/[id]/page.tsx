@@ -874,7 +874,7 @@ export default function Page({ params }: { params: { id: string } }) {
               spotlightRef={spotlightRef}
             />
             {isReviewMode && (
-              <div className="rounded-2xl bg-gray-200 py-2" ref={containerRef}>
+              <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
                   onPointClick={handlePointClick}
@@ -887,7 +887,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   graphWidth={graphWidth}
                 />
                 <audio ref={audioRef} />
-                <progress ref={progressRef} className="w-full rounded-2xl" />
+                <progress className="w-full rounded-lg" ref={progressRef} />
               </div>
             )}
           </div>
