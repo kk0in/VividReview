@@ -109,7 +109,6 @@ const CustomRectangle = ({
     />
   );
 };
-
 const CustomXAxisTick = ({
   x,
   y,
@@ -117,6 +116,7 @@ const CustomXAxisTick = ({
   currentXTick,
   tableOfContentsMap,
   timeToPagesMap,
+  graphWidth,
 }: {
   x: number;
   y: number;
@@ -124,22 +124,37 @@ const CustomXAxisTick = ({
   currentXTick: number;
   tableOfContentsMap: any;
   timeToPagesMap: any;
+  graphWidth: number;
 }) => {
   const titleSubtitle = tableOfContentsMap[currentXTick];
   const pageNumber = findPageNumber(timeToPagesMap, payload.value);
 
   if (titleSubtitle && pageNumber === currentXTick) {
-    const { title, subtitle } = titleSubtitle;
+    const { subtitle } = titleSubtitle;
+    const text = `${subtitle}`;
+
+    const willTextOverflowRight = x + subtitle.length * 7 > graphWidth;
+    let textAnchor = willTextOverflowRight ? "end" : "start";
+
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666">
-          {`${title} - ${subtitle}`}
+        <text
+          x={0}
+          y={0}
+          dy={7}
+          textAnchor={textAnchor}
+          fill="#666"
+          fontSize={12}
+        >
+          {text}
         </text>
       </g>
     );
   }
+
   return null;
 };
+
 
 const ArousalGraph = ({
   data,
@@ -199,7 +214,6 @@ const ArousalGraph = ({
   const calculateScalingFactor = (data: any) => {
     return (graphWidth * data) / maxX;
   };
-  // console.log(graphWidth)
 
   useEffect(() => {
     const page = findPageNumber(timeToPagesMap, activeLabel);
@@ -248,7 +262,7 @@ const ArousalGraph = ({
       <LineChart
         data={processedData}
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onMouseLeave={handleMouseLeave} // down move up
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis
@@ -261,12 +275,14 @@ const ArousalGraph = ({
               currentXTick={currentXTick}
               tableOfContentsMap={tableOfContentsMap}
               timeToPagesMap={timeToPagesMap}
+              graphWidth={graphWidth}
             />
           )}
           tickLine={false}
           domain={[minX, maxX]}
           interval={0}
           onMouseMove={handleMouseMove}
+          height={15}
         />
         <YAxis hide domain={[minY, maxY]} />
         <Tooltip
