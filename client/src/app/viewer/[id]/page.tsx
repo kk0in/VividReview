@@ -863,7 +863,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {tableOfContents && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-gray-50 p-4">
+          <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
             <div className="mb-4 font-bold">Table</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
           </div>
