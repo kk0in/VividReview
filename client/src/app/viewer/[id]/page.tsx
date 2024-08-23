@@ -658,7 +658,7 @@ function ReviewPage({
   }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
   return (
-    <div className="flex-none w-1/5 bg-gray-50">
+    <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
         Script
       </div>
