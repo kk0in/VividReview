@@ -11,7 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
-import { defaultPrompts, focusedLassoState } from "@/app/recoil/LassoState";
+import { defaultPrompts, focusedLassoState, reloadFlagState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo } from "@/utils/api";
 import "./Lasso.css";
 import PreviousMap from "postcss/lib/previous-map";
@@ -56,6 +56,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -952,6 +953,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const image = clickedLasso.image ?? getImage(clickedLasso.boundingBox);
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
+      setReloadFlag((prev) => !prev);
       console.log(response);
     }
 

@@ -14,3 +14,8 @@ export const focusedLassoState = atom<number | null>({
   key: 'focusedLassoState',
   default: null,
 });
+
+export const reloadFlagState = atom<boolean>({
+  key: 'reloadFlagState',
+  default: false,
+});

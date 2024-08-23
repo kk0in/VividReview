@@ -41,7 +41,8 @@ import {
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
 import {
-  focusedLassoState
+  focusedLassoState,
+  reloadFlagState
 } from "@/app/recoil/LassoState";
 
 interface SubSectionTitleProps {
@@ -164,6 +165,7 @@ function ReviewPage({
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
+  const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   const [mode, setMode] = useState("script");
   const lassos = useRef<number[]>([]);
   const prompts = useRef<string[]>([]);
@@ -196,33 +198,42 @@ function ReviewPage({
   })
 
   useEffect(() => {
+
+    console.log("fetching lassos");
+
     const fetchLassos = async () => {
       const response = await getLassosOnPage(projectId, page);
       lassos.current = response;
     }
     fetchLassos();
-  }, [projectId, page]);
+  }, [projectId, page, reloadFlag]);
 
   useEffect(() => {
+
+    console.log("fetching prompts");
+
     const fetchPrompts = async () => {
       if(focusedLasso === null) return;
       const response = await lassoPrompts(projectId, page, focusedLasso);
       prompts.current = response;
     }
     fetchPrompts();
-  }, [projectId, page, focusedLasso]);
+  }, [projectId, page, focusedLasso, reloadFlag]);
 
   useEffect(() => {
     const fetchAnswers = async () => {
+
+      console.log("fetching answers");
+
       if(focusedLasso === null) return;
       const response = await lassoPrompts(projectId, page, focusedLasso);
       if (!response[activePromptIndex[1]]) return;
       answers.current = response[activePromptIndex[1]].answers;
     }
     fetchAnswers();
-  }, [projectId, page, focusedLasso, activePromptIndex]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
 
-  const promptTabElements = () => { // TODO: add prompts to lasso json in server
+  const promptTabElements = () => {
     if (focusedLasso === null) return <></>;
     
     return (
@@ -679,6 +690,7 @@ function ReviewPage({
     return (
       <>
         <div>
+          {answers.current.toString()}
           {answers.current[activePromptIndex[2]]}
         </div>
         <div className="control-buttons">
@@ -699,7 +711,7 @@ function ReviewPage({
               <>
                 <button onClick={async () => {
                   const response = await lassoTransform(projectId, page, focusedLasso, activePromptIndex[2]+1, prompts.current[activePromptIndex[1]], prompt);
-                  setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]); 
+                  setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
                 }}>
                   {prompt}
                 </button>
