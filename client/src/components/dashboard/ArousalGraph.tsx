@@ -1,26 +1,19 @@
-// ArousalGraph.tsx
 import React, { useEffect, useState, useMemo } from "react";
-import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
-
+import { useRecoilValue } from "recoil";
 import {
   LineChart,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
   ResponsiveContainer,
   Customized,
   Rectangle,
+  Tooltip,
 } from "recharts";
 import { gridModeState } from "@/app/recoil/ToolState";
 
-const processData = (
-  data: any,
-  positiveEmotion: string[],
-  negativeEmotion: string[]
-) => {
+const processData = (data: any, positiveEmotion: string[], negativeEmotion: string[]) => {
   return data.map((d: any) => {
     const begin = parseFloat(d.begin);
     const end = parseFloat(d.end);
@@ -78,20 +71,6 @@ const findPageNumber = (ranges: any[], value: number) => {
   return range ? range.page : null;
 };
 
-const CustomTooltip = ({
-  payload,
-  onPointClick,
-}: {
-  payload: any;
-  onPointClick: any;
-}) => {
-  if (payload && payload[0]) {
-    onPointClick(payload[0].payload);
-  }
-
-  return null; // Return a valid JSX element, such as a <div> or <span>.
-};
-
 const CustomRectangle = ({
   pageStartTime,
   pageEndTime,
@@ -109,6 +88,7 @@ const CustomRectangle = ({
     />
   );
 };
+
 const CustomXAxisTick = ({
   x,
   y,
@@ -137,13 +117,15 @@ const CustomXAxisTick = ({
     let textAnchor = willTextOverflowRight ? "end" : "start";
 
     return (
-      <g transform={`translate(${x},${y})`}>
+      <g
+        transform={`translate(${x},${y})`}
+      >
         <text
           x={0}
           y={0}
           dy={7}
           textAnchor={textAnchor}
-          fill="#666"
+          fill={"#666"}
           fontSize={12}
         >
           {text}
@@ -154,6 +136,22 @@ const CustomXAxisTick = ({
 
   return null;
 };
+
+const VerticalLine = ({
+  x,
+}: {
+  x: number;
+}) => (
+    <line
+      x1={x}
+      y1={0}
+      x2={x}
+      y2={180}
+      stroke="#008014"
+      strokeWidth={3}  // Reduced thickness
+      opacity={0.5}    // Added opacity for transparency
+    />
+);
 
 
 const ArousalGraph = ({
@@ -166,6 +164,11 @@ const ArousalGraph = ({
   pageInfo,
   tableOfContents,
   graphWidth,
+  findPage,
+  findTocIndex,
+  tocIndex,
+  setTocIndex,
+  setPage,
 }: {
   data: any;
   onPointClick: any;
@@ -176,15 +179,16 @@ const ArousalGraph = ({
   pageInfo: any;
   tableOfContents: any;
   graphWidth: number;
+  findPage: any;
+  findTocIndex: any;
+  tocIndex: any;
+  setTocIndex: any;
+  setPage: any;
 }) => {
   const validData = Array.isArray(data) ? data : [];
   const gridMode = useRecoilValue(gridModeState);
 
-  const processedData = processData(
-    validData,
-    positiveEmotion,
-    negativeEmotion
-  );
+  const processedData = processData(validData, positiveEmotion, negativeEmotion);
   const timeToPagesMap = useMemo(() => processPageInfo(pageInfo), [pageInfo]);
   const tableOfContentsMap = useMemo(
     () => processTableOfContents(tableOfContents),
@@ -205,11 +209,13 @@ const ArousalGraph = ({
     ...processedData.map((data: any) => [data.begin, data.end]).flat()
   );
 
-  const [pageStartTime, setpageStartTime] = React.useState(0);
-  const [pageEndTime, setpageEndTime] = React.useState(100);
+  const [pageStartTime, setpageStartTime] = useState(0);
+  const [pageEndTime, setpageEndTime] = useState(100);
   const [activeLabel, setActiveLabel] = useState(0);
 
   const [currentXTick, setCurrentXTick] = useState(0);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
   const calculateScalingFactor = (data: any) => {
     return (graphWidth * data) / maxX;
@@ -223,13 +229,37 @@ const ArousalGraph = ({
   }, [activeLabel]);
 
   const handleMouseMove = (e: any) => {
-    if (e && e.activeLabel) {
+    if (e && e.activeLabel && isMouseDown) {
       setActiveLabel(e.activeLabel);
+      onPointClick(e.activePayload[0].payload);
+      setHoverPosition(e.chartX);
     }
   };
 
   const handleMouseLeave = () => {
+    if(isMouseDown) {
     setActiveLabel(0);
+    setHoverPosition(null);
+    }
+  };
+
+  const handleMouseDown = (e: any) => {
+    console.log("Mouse down", e.activePayload[0].payload);
+    onPointClick(e.activePayload[0].payload);
+    setIsMouseDown(true);
+  };
+
+  const handleMouseUp = (e: any) => {
+    if (isMouseDown) {
+      const timeValue = e.activePayload[0].payload.begin;
+      const newPage = findPage(timeValue);
+      const newTocIndex = findTocIndex(newPage);
+      newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+      newPage > 0 && setPage(newPage);
+
+      onPointClick(e.activePayload[0].payload);
+      setIsMouseDown(false);
+    }
   };
 
   useEffect(() => {
@@ -262,7 +292,9 @@ const ArousalGraph = ({
       <LineChart
         data={processedData}
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave} // down move up
+        onMouseLeave={handleMouseLeave}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis
@@ -276,21 +308,15 @@ const ArousalGraph = ({
               tableOfContentsMap={tableOfContentsMap}
               timeToPagesMap={timeToPagesMap}
               graphWidth={graphWidth}
+              
             />
           )}
           tickLine={false}
           domain={[minX, maxX]}
           interval={0}
-          onMouseMove={handleMouseMove}
           height={15}
         />
         <YAxis hide domain={[minY, maxY]} />
-        <Tooltip
-          content={(props) => (
-            <CustomTooltip {...props} onPointClick={onPointClick} />
-          )}
-          trigger="click"
-        />
         <Line
           type="monotone"
           dataKey="positive_score"
@@ -311,8 +337,18 @@ const ArousalGraph = ({
             />
           }
         />
+        {hoverPosition !== null && (
+          <Customized
+            component={
+              <VerticalLine
+                x={hoverPosition}
+              />
+            }
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );
 };
+
 export default ArousalGraph;
