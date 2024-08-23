@@ -114,6 +114,8 @@ function ReviewPage({
   setPage,
   setPageInfo,
   setPages,
+  tocIndex,
+  setTocIndex,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
