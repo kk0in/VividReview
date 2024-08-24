@@ -1141,7 +1141,8 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
 
     :param project_id: 프로젝트 ID
-    :param search_text: 검색어
+    :param search_queyr: 검색어
+    :param search_type: 검색 타입 ('semantic', 'keyword')
     """
     spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
     similarity_path = os.path.join(SIMILARITY, str(project_id))
@@ -1173,7 +1174,7 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
 
     return {
         "message": "Similarity for the Query is created successfully",
-        "lasso_id": search_id,
+        "search_id": search_id,
         "response": result,
     }
 
@@ -1303,8 +1304,8 @@ async def get_lasso_answer(
     return lasso_answer_data
 
 
-@app.get("/api/get_semantic_search/{project_id}/{search_id}", status_code=200)
-async def get_semantic_search(project_id: int, search_id: int, search_type: str):
+@app.get("/api/get_search_result/{project_id}", status_code=200)
+async def get_search_result(project_id: int, search_id: int, search_type: str):
     """
     특정 프로젝트 ID와 search_id에 해당하는 semantic 검색 결과를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
@@ -1687,7 +1688,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     return {"message": "Annotated PDF saved successfully"}
 
 @app.post("/api/make_search_set/{project_id}", status_code=200)
-async def make_search_set(project_id: int, search_id: int, page_set: List[str] = Form(...)):
+async def make_search_set(project_id: int, search_id: int, search_type: str = Form(...), page_set: List[str] = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색 결과를 저장하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에 page_set을 JSON 파일로 저장합니다.
@@ -1697,7 +1698,7 @@ async def make_search_set(project_id: int, search_id: int, page_set: List[str] =
     :param page_set: 검색 결과 페이지 번호 리스트
     """
 
-    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}_{search_type}.json")
 
     if not os.path.exists(search_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")

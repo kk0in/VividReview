@@ -6,12 +6,14 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet } from "@/utils/api";
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
+import SearchModal from "@/components/dashboard/SearchModal";
+import SearchPanel from "@/components/dashboard/SearchPanel";
 import { useSearchParams } from "next/navigation";
 import {
   audioTimeState,
@@ -133,7 +135,6 @@ function ReviewPage({
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   // const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
-  const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
@@ -651,19 +652,39 @@ function ReviewPage({
     }
   }
 
-  useEffect(() => {
-    const fetchSearchResults = async () => {
-      if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+  // useEffect(() => {
+  //   const fetchResults = async () => {
+  //     if (!searchId) return;
 
-      try {
-        await searchQuery(projectId, query, type); // API 요청만 수행
-      } catch (error) {
-        console.error("Error during search:", error);
-      }
-    };
+  //     try {
+  //       const result = await getSearchResult(projectId, searchId, type);
+  //       const sortedPages = result.similarities
+  //         ? Object.entries(result.similarities).sort((a, b) => b[1] - a[1])
+  //         : [];
 
-    fetchSearchResults();
-  }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
+  //       setSearchResult(sortedPages);
+  //       setIsModalOpen(true); // 검색 결과를 불러오면 모달을 염
+  //     } catch (error) {
+  //       console.error("Error fetching search results:", error);
+  //     }
+  //   };
+
+  //   fetchResults();
+  // }, [searchId, type, projectId]);
+
+  // useEffect(() => {
+  //   const fetchSearchResults = async () => {
+  //     if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+
+  //     try {
+  //       await searchQuery(projectId, query, type); // API 요청만 수행
+  //     } catch (error) {
+  //       console.error("Error during search:", error);
+  //     }
+  //   };
+
+  //   fetchSearchResults();
+  // }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
@@ -681,6 +702,14 @@ function ReviewPage({
 }
 
 export default function Page({ params }: { params: { id: string } }) {
+  const projectId = params.id;
+  const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
+  const [searchId, setSearchId] = useState<string | null>(null);
+  const [sortedPages, setSortedPages] = useState<any[]>([]);
+  const [queryResult, setQueryResult] = useState(null);
+  const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
@@ -689,11 +718,15 @@ export default function Page({ params }: { params: { id: string } }) {
   const [pageInfo, setPageInfo] = useState({});
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
+  const [threeStarPages, setThreeStarPages] = useState<any[]>([]);
+  const [twoStarPages, setTwoStarPages] = useState<any[]>([]);
+  const [oneStarPages, setOneStarPages] = useState<any[]>([]);
+
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
- const toc = useRecoilValue(tocState);
+  const toc = useRecoilValue(tocState);
 
   const handleAudioRef = (data: any) => {
     if (Number.isFinite(data?.begin)) {
@@ -876,6 +909,102 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, []);
 
+  const { data: searchResult, refetch: fetchSearchResult } = useQuery(
+    ["getSearchResult", projectId, searchId, type],
+    getSearchResult,
+    {
+      enabled: !!searchId, // searchId가 있을 때만 실행
+      onSuccess: (data) => {
+        setQueryResult(data);
+        setIsModalOpen(true); // 검색 결과를 불러온 후 모달 열기
+      },
+      onError: (error) => {
+        console.error("Error fetching search results:", error);
+      },
+    }
+  );
+  // getImages API 호출
+  const { data: fetchedImages, refetch: fetchImages } = useQuery(
+    ["getImages", params.id],
+    () => getImages(params.id),
+    {
+      enabled: true, // 항상 호출
+      onSuccess: (data) => {
+        setImages(data);
+      },
+      onError: (error) => {
+        console.error("Error fetching images:", error);
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (queryResult && queryResult.similarities) {
+      const pageScores = Object.entries(queryResult.similarities).map(
+        ([page, scores]) => {
+          const totalScore =
+            (scores.script * 0.4) +
+            (scores.pdf_text * 0.4) +
+            (scores.annotation * 0.1) +
+            (scores.pdf_image * 0.1);
+          return { page: parseInt(page), totalScore };
+        }
+      );
+
+      // 점수를 기준으로 페이지를 내림차순 정렬
+      const sorted = pageScores.sort((a, b) => b.totalScore - a.totalScore);
+      
+      // 페이지들을 별 개수에 따라 분류
+      const threeStar = sorted.filter(({ totalScore }) => totalScore >= 0.3);
+      const twoStar = sorted.filter(({ totalScore }) => totalScore >= 0.2 && totalScore < 0.3);
+      const oneStar = sorted.filter(({ totalScore }) => totalScore >= 0.15 && totalScore < 0.2);
+
+      setThreeStarPages(threeStar);
+      setTwoStarPages(twoStar);
+      setOneStarPages(oneStar);
+      // setSortedPages(sorted);
+    }
+  }, [queryResult]);
+
+  const togglePageSelection = (page: number) => {
+    setSelectedPages((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(page)) {
+        newSelected.delete(page); // 선택 해제
+      } else {
+        newSelected.add(page); // 선택
+      }
+      return newSelected;
+    });
+  };
+
+  const handleSaveSearchSet = async () => {
+    try {
+      const selectedPageList = Array.from(selectedPages).map(String);
+      await saveSearchSet(params.id, searchId!, type, selectedPageList); // searchType 추가
+      alert("Search set saved successfully!");
+    } catch (error) {
+      console.error("Error saving search set:", error);
+      alert("Failed to save search set.");
+    }
+  };
+  
+  const handleSearch = async () => {
+    try {
+      const result = await searchQuery(projectId, query, type);
+      setSearchId(result.search_id); // 검색 ID를 저장
+    } catch (error) {
+      console.error("Error during search:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (query) {
+      handleSearch();
+    }
+  }, [query, type]);
+
+
   return (
     <div className="h-full flex flex-col">
       {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
@@ -913,6 +1042,121 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
+            <SearchModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-black">Result</h2>
+                <button
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
+                  onClick={handleSaveSearchSet}
+                >
+                  Save Selection
+                </button>
+              </div>
+              {/* 별 3개 그룹 */}
+              {threeStarPages.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center mb-4">
+                    <span className="text-yellow-500 text-2xl">★★★</span>
+                  </div>
+                  <ul className="grid grid-cols-3 gap-4">
+                    {threeStarPages.map(({ page, totalScore }, index) => (
+                      <li key={index} className="relative mb-4">
+                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                          {/* 체크 표시 영역 */}
+                          <div
+                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                            onClick={() => togglePageSelection(page)}
+                          >
+                            {selectedPages.has(page) && (
+                              <span className="text-black text-lg">✔</span>
+                            )}
+                          </div>
+                          {/* 페이지 이미지 */}
+                          <img
+                            src={images[page - 1]}
+                            alt={`Page ${page}`}
+                            className="rounded-md mb-2"
+                          />
+                          {/* 페이지 정보 */}
+                          <p className="text-center font-semibold">Page {page}</p>
+                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 별 2개 그룹 */}
+              {twoStarPages.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center mb-4">
+                    <span className="text-yellow-500 text-2xl">★★</span>
+                  </div>
+                  <ul className="grid grid-cols-3 gap-4">
+                    {twoStarPages.map(({ page, totalScore }, index) => (
+                      <li key={index} className="relative mb-4">
+                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                          {/* 체크 표시 영역 */}
+                          <div
+                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                            onClick={() => togglePageSelection(page)}
+                          >
+                            {selectedPages.has(page) && (
+                              <span className="text-black text-lg">✔</span>
+                            )}
+                          </div>
+                          {/* 페이지 이미지 */}
+                          <img
+                            src={images[page - 1]}
+                            alt={`Page ${page}`}
+                            className="rounded-md mb-2"
+                          />
+                          {/* 페이지 정보 */}
+                          <p className="text-center font-semibold">Page {page}</p>
+                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 별 1개 그룹 */}
+              {oneStarPages.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center mb-4">
+                    <span className="text-yellow-500 text-2xl">★</span>
+                  </div>
+                  <ul className="grid grid-cols-3 gap-4">
+                    {oneStarPages.map(({ page, totalScore }, index) => (
+                      <li key={index} className="relative mb-4">
+                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                          {/* 체크 표시 영역 */}
+                          <div
+                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                            onClick={() => togglePageSelection(page)}
+                          >
+                            {selectedPages.has(page) && (
+                              <span className="text-black text-lg">✔</span>
+                            )}
+                          </div>
+                          {/* 페이지 이미지 */}
+                          <img
+                            src={images[page - 1]}
+                            alt={`Page ${page}`}
+                            className="rounded-md mb-2"
+                          />
+                          {/* 페이지 정보 */}
+                          <p className="text-center font-semibold">Page {page}</p>
+                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </SearchModal>
             {isReviewMode && (
               <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph
