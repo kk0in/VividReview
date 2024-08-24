@@ -24,7 +24,7 @@ export async function saveSearchSet(projectId: string, searchId: string, searchT
     formData.append('page_set', JSON.stringify(pageSet)); // 선택된 페이지 번호 리스트
   
     const response = await axios.post(
-      `${SERVER_ENDPOINT}/api/make_search_set/${projectId}`,
+      `${SERVER_ENDPOINT}api/make_search_set/${projectId}`,
       formData,
       {
         params: {
@@ -156,6 +156,26 @@ export async function getSearchResult({queryKey}: {queryKey: string[]}) {
         params: {
             search_id: search_id,
             search_type: search_type
+        }
+    });
+    return response.data;
+}
+
+export async function getSemanticSearchSets({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
+        params: {
+            search_type: 'semantic'
+        }
+    });
+    return response.data;
+}
+
+export async function getKeywordSearchSets({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
+        params: {
+            search_type: 'keyword'
         }
     });
     return response.data;

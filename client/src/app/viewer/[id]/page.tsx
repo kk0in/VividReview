@@ -6,8 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet } from "@/utils/api";
-
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -709,6 +708,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [queryResult, setQueryResult] = useState(null);
   const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
+  const [semanticSearchSets, setSemanticSearchSets] = useState([]);
+  const [keywordSearchSets, setKeywordSearchSets] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
@@ -721,6 +722,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [threeStarPages, setThreeStarPages] = useState<any[]>([]);
   const [twoStarPages, setTwoStarPages] = useState<any[]>([]);
   const [oneStarPages, setOneStarPages] = useState<any[]>([]);
+  const [selectedSearchId, setSelectedSearchId] = useState(null); // 선택된 search_id
+  const [pageList, setPageList] = useState([]);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -923,6 +926,7 @@ export default function Page({ params }: { params: { id: string } }) {
       },
     }
   );
+
   // getImages API 호출
   const { data: fetchedImages, refetch: fetchImages } = useQuery(
     ["getImages", params.id],
@@ -981,8 +985,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const handleSaveSearchSet = async () => {
     try {
       const selectedPageList = Array.from(selectedPages).map(String);
-      await saveSearchSet(params.id, searchId!, type, selectedPageList); // searchType 추가
-      alert("Search set saved successfully!");
+      await saveSearchSet(params.id, searchId!, type, selectedPageList); 
+      setIsModalOpen(false);
     } catch (error) {
       console.error("Error saving search set:", error);
       alert("Failed to save search set.");
@@ -998,12 +1002,58 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
+  // 선택된 search_id에 해당하는 페이지 리스트를 가져오는 함수
+  const fetchPageList = async (searchId) => {
+    try {
+      const result = await getSearchResult({ queryKey: ["getSearchResult", projectId, searchId, "semantic"] });
+      const pages = result.page_set;
+      setPageList(pages);
+      setIsModalOpen(true); // 모달 열기
+    } catch (error) {
+      console.error("Error fetching page list:", error);
+    }
+  };
+
+  const handleBoxClick = (searchId) => {
+    setSelectedSearchId(searchId); // 선택된 search_id 업데이트
+    fetchPageList(searchId); // 페이지 리스트 가져오기
+  };
+
   useEffect(() => {
     if (query) {
       handleSearch();
     }
   }, [query, type]);
 
+  useEffect(() => {
+    const fetchSemanticSearchSets = async () => {
+      try {
+        const data = await getSemanticSearchSets({
+          queryKey: ["getSemanticSearchSets", projectId],
+        });
+        setSemanticSearchSets(data);
+      } catch (error) {
+        console.error("Error fetching semantic search sets:", error);
+      }
+    };
+
+    fetchSemanticSearchSets();
+  }, [projectId]);
+
+  useEffect(() => {
+    const fetchKeywordSearchSets = async () => {
+      try {
+        const data = await getKeywordSearchSets({
+          queryKey: ["getKeywordSearchSets", projectId],
+        });
+        setKeywordSearchSets(data);
+      } catch (error) {
+        console.error("Error fetching keyword search sets:", error);
+      }
+    };
+
+    fetchKeywordSearchSets();
+  }, [projectId]);
 
   return (
     <div className="h-full flex flex-col">
@@ -1033,8 +1083,32 @@ export default function Page({ params }: { params: { id: string } }) {
       {tableOfContents && (
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
-            <div className="mb-4 font-bold">Table</div>
+            <div className="mb-4 font-bold">Table of Contents</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
+            <hr className="border-2 border-gray-300 my-4" />
+            <div className="mb-4 font-bold">Semantic Search Results</div>
+            <div className="mt-4">
+              {semanticSearchSets.map(({ search_id, query }) => (
+                <div
+                  key={search_id}
+                  className={`p-2 bg-white rounded-md shadow mb-2 cursor-pointer ${
+                    selectedSearchId === search_id ? "font-bold" : ""
+                  }`}
+                  onClick={() => handleBoxClick(search_id)}
+                >
+                  {search_id}. {query}
+                </div>
+              ))}
+            </div>
+            <hr className="border-2 border-gray-300 my-4" />
+            <div className="mb-4 font-bold">Keyword Search Results</div>
+            <div className="mt-4">
+              {keywordSearchSets.map(({ search_id, query }) => (
+                <div key={search_id} className="bg-gray-200 px-4 py-2 mb-1 rounded-2xl">
+                  {search_id}. {query}
+                </div>
+              ))}
+            </div>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer
@@ -1043,117 +1117,147 @@ export default function Page({ params }: { params: { id: string } }) {
               spotlightRef={spotlightRef}
             />
             <SearchModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-black">Result</h2>
-                <button
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
-                  onClick={handleSaveSearchSet}
-                >
-                  Save Selection
-                </button>
-              </div>
-              {/* 별 3개 그룹 */}
-              {threeStarPages.length > 0 && (
-                <div className="mb-8">
-                  <div className="flex items-center mb-4">
-                    <span className="text-yellow-500 text-2xl">★★★</span>
+              {selectedSearchId ? (
+                // 박스를 클릭하여 모달을 연 경우
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold text-black">
+                      Pages for Search ID: {selectedSearchId}
+                    </h2>
                   </div>
-                  <ul className="grid grid-cols-3 gap-4">
-                    {threeStarPages.map(({ page, totalScore }, index) => (
-                      <li key={index} className="relative mb-4">
-                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
-                          {/* 체크 표시 영역 */}
-                          <div
-                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                            onClick={() => togglePageSelection(page)}
-                          >
-                            {selectedPages.has(page) && (
-                              <span className="text-black text-lg">✔</span>
-                            )}
-                          </div>
-                          {/* 페이지 이미지 */}
-                          <img
-                            src={images[page - 1]}
-                            alt={`Page ${page}`}
-                            className="rounded-md mb-2"
-                          />
-                          {/* 페이지 정보 */}
-                          <p className="text-center font-semibold">Page {page}</p>
-                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
-                        </div>
-                      </li>
+                  <div className="grid grid-cols-2 gap-4">
+                    {pageList.map((page) => (
+                      <div
+                        key={page}
+                        className="p-4 bg-gray-100 rounded-lg shadow flex justify-center items-center"
+                      >
+                        <img
+                          src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
+                          alt={`Page ${page}`}
+                          className="rounded-md"
+                        />
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
-              )}
-
-              {/* 별 2개 그룹 */}
-              {twoStarPages.length > 0 && (
-                <div className="mb-8">
-                  <div className="flex items-center mb-4">
-                    <span className="text-yellow-500 text-2xl">★★</span>
+              ) : (
+                // 검색을 통해 모달을 연 경우
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold text-black">
+                      {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{query}"
+                    </h2>
+                    <button
+                      className="px-4 py-2 bg-gray-400 text-black rounded hover:bg-gray-500"
+                      onClick={handleSaveSearchSet}
+                    >
+                      Make a Search Set
+                    </button>
                   </div>
-                  <ul className="grid grid-cols-3 gap-4">
-                    {twoStarPages.map(({ page, totalScore }, index) => (
-                      <li key={index} className="relative mb-4">
-                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
-                          {/* 체크 표시 영역 */}
-                          <div
-                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                            onClick={() => togglePageSelection(page)}
-                          >
-                            {selectedPages.has(page) && (
-                              <span className="text-black text-lg">✔</span>
-                            )}
-                          </div>
-                          {/* 페이지 이미지 */}
-                          <img
-                            src={images[page - 1]}
-                            alt={`Page ${page}`}
-                            className="rounded-md mb-2"
-                          />
-                          {/* 페이지 정보 */}
-                          <p className="text-center font-semibold">Page {page}</p>
-                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  {/* 별 3개 그룹 */}
+                  {threeStarPages.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <span className="text-yellow-500 text-2xl">★★★</span>
+                      </div>
+                      <ul className="grid grid-cols-3 gap-4">
+                        {threeStarPages.map(({ page, totalScore }, index) => (
+                          <li key={index} className="relative mb-4">
+                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                              {/* 체크 표시 영역 */}
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                                onClick={() => togglePageSelection(page)}
+                              >
+                                {selectedPages.has(page) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              {/* 페이지 이미지 */}
+                              <img
+                                src={images[page - 1]}
+                                alt={`Page ${page}`}
+                                className="rounded-md mb-2"
+                              />
+                              {/* 페이지 정보 */}
+                              <p className="text-center font-semibold">Page {page}</p>
+                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-              {/* 별 1개 그룹 */}
-              {oneStarPages.length > 0 && (
-                <div className="mb-8">
-                  <div className="flex items-center mb-4">
-                    <span className="text-yellow-500 text-2xl">★</span>
-                  </div>
-                  <ul className="grid grid-cols-3 gap-4">
-                    {oneStarPages.map(({ page, totalScore }, index) => (
-                      <li key={index} className="relative mb-4">
-                        <div className="bg-gray-100 rounded-lg shadow p-2 relative">
-                          {/* 체크 표시 영역 */}
-                          <div
-                            className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                            onClick={() => togglePageSelection(page)}
-                          >
-                            {selectedPages.has(page) && (
-                              <span className="text-black text-lg">✔</span>
-                            )}
-                          </div>
-                          {/* 페이지 이미지 */}
-                          <img
-                            src={images[page - 1]}
-                            alt={`Page ${page}`}
-                            className="rounded-md mb-2"
-                          />
-                          {/* 페이지 정보 */}
-                          <p className="text-center font-semibold">Page {page}</p>
-                          <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                  {/* 별 2개 그룹 */}
+                  {twoStarPages.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <span className="text-yellow-500 text-2xl">★★</span>
+                      </div>
+                      <ul className="grid grid-cols-3 gap-4">
+                        {twoStarPages.map(({ page, totalScore }, index) => (
+                          <li key={index} className="relative mb-4">
+                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                              {/* 체크 표시 영역 */}
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                                onClick={() => togglePageSelection(page)}
+                              >
+                                {selectedPages.has(page) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              {/* 페이지 이미지 */}
+                              <img
+                                src={images[page - 1]}
+                                alt={`Page ${page}`}
+                                className="rounded-md mb-2"
+                              />
+                              {/* 페이지 정보 */}
+                              <p className="text-center font-semibold">Page {page}</p>
+                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 별 1개 그룹 */}
+                  {oneStarPages.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <span className="text-yellow-500 text-2xl">★</span>
+                      </div>
+                      <ul className="grid grid-cols-3 gap-4">
+                        {oneStarPages.map(({ page, totalScore }, index) => (
+                          <li key={index} className="relative mb-4">
+                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                              {/* 체크 표시 영역 */}
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
+                                onClick={() => togglePageSelection(page)}
+                              >
+                                {selectedPages.has(page) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              {/* 페이지 이미지 */}
+                              <img
+                                src={images[page - 1]}
+                                alt={`Page ${page}`}
+                                className="rounded-md mb-2"
+                              />
+                              {/* 페이지 정보 */}
+                              <p className="text-center font-semibold">Page {page}</p>
+                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </SearchModal>
