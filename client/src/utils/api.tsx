@@ -265,3 +265,12 @@ export async function getLassoAnswer(projectId: string, pageNumber: number, lass
 
   return response.data;
 }
+
+export async function getLassoAnswers(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answers/${projectId}/${pageNumber}/${lassoId}`, {
+    params: {
+      prompt_text: prompt
+  }});
+
+  return response.data;
+}

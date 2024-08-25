@@ -1295,6 +1295,41 @@ async def get_lasso_answer(
 
     return lasso_answer_data
 
+@app.get("/api/get_lasso_answers/{project_id}/{page_num}/{lasso_id}", status_code=200)
+async def get_lasso_answer(
+    project_id: int, page_num: int, lasso_id: int, prompt_text: str
+):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 답변을 모두 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 prompt_text에 해당하는 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    :param prompt_text: prompt_text
+    """
+
+    lasso_answer_path = os.path.join(
+        LASSO,
+        str(project_id),
+        str(page_num),
+        str(lasso_id),
+        sanitize_filename(prompt_text),
+    )
+
+    if not os.path.exists(lasso_answer_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+    
+    answers = []
+
+    for file in os.listdir(lasso_answer_path):
+        if file.endswith(".json"):
+            with open(os.path.join(lasso_answer_path, file), "r") as lasso_answer_file:
+                lasso_answer_data = json.load(lasso_answer_file)
+                answers.append(lasso_answer_data)
+        
+    return answers
+
 @app.get("/api/get_lasso_info/{project_id}/{page_num}/{lasso_id}", status_code=200)
 async def get_lasso_info(project_id: int, page_num: int, lasso_id: int):
     """

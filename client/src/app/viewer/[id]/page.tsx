@@ -26,7 +26,7 @@ import {
   lassoPrompts,
   getLassosOnPage,
   lassoTransform,
-  getLassoAnswer,
+  getLassoAnswers,
 } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -171,7 +171,7 @@ function ReviewPage({
   const [mode, setMode] = useState("script");
   const lassos = useRef<number[]>([]);
   const prompts = useRef<string[]>([]);
-  const answers = useRef<string>("");
+  const answers = useRef<string[]>([]);
 
   const subTabs: TabProps[] = [
     {
@@ -200,44 +200,45 @@ function ReviewPage({
   })
 
   useEffect(() => {
-
-    console.log("fetching lassos");
-
     const fetchLassos = async () => {
+      console.log("fetching lassos");
       const response = await getLassosOnPage(projectId, page);
       lassos.current = response;
     }
-    fetchLassos();
-  }, [projectId, page, reloadFlag]);
-
-  useEffect(() => {
-
-    console.log("fetching prompts");
 
     const fetchPrompts = async () => {
-      if(focusedLasso === null) return;
+      fetchLassos();
+      if(focusedLasso === null){
+        console.log("focus lasso is null");
+        prompts.current = [];
+        return;
+      }
+      console.log("fetching prompts");
+
       const response = await lassoPrompts(projectId, page, focusedLasso);
       prompts.current = response;
     }
-    fetchPrompts();
-  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
 
-  useEffect(() => {
     const fetchAnswers = async () => {
-
-      console.log("fetching answers");
+      fetchPrompts();
 
       if(focusedLasso === null) {
         console.log("focus lasso is null");
-        answers.current = "";
+        answers.current = [];
         return;
       }
-      const response = await getLassoAnswer(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]], activePromptIndex[2]+1);
-      if (!response[activePromptIndex[1]]) return;
+      
+      console.log("fetching answers");
+
+      const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+      if (!response[activePromptIndex[2]]) return;
       console.log("fetched answers", response);
-      answers.current = response.result;
+      answers.current = response.map((result: {caption: string, result: string}) => result.result);
+      console.log("mapped answers", answers.current);
     }
+
     fetchAnswers();
+    
   }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
 
   const promptTabElements = () => {
@@ -697,7 +698,7 @@ function ReviewPage({
     return (
       <>
         <div>
-          {answers.current}
+          {answers.current[activePromptIndex[2]]}
         </div>
         <div className="control-buttons">
           {activePromptIndex[2] > 0 && (
