@@ -23,6 +23,10 @@ import {
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
 
+import { Pie } from 'react-chartjs-2';
+import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+Chart.register(ArcElement, Tooltip, Legend);
+
 interface SubSectionTitleProps {
   sectionIndex: number;
   index: number;
@@ -735,6 +739,11 @@ export default function Page({ params }: { params: { id: string } }) {
   const [togglePdfImage, setTogglePdfImage] = useState(true);
   const [toggleAnnotation, setToggleAnnotation] = useState(true);
 
+  const [pieChartData, setPieChartData] = useState<{ [key: number]: any }>({});
+  const [showPieChart, setShowPieChart] = useState<{ [key: number]: boolean }>({});
+  // const [pieChartData, setPieChartData] = useState<any>(null);
+  // const [showPieChart, setShowPieChart] = useState(false);
+  const [chartPosition, setChartPosition] = useState<{ top: number; left: number } | null>(null);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -1018,6 +1027,7 @@ export default function Page({ params }: { params: { id: string } }) {
       }
       return newSelected;
     });
+    // setShowPieChart(false); // 토글 버튼 클릭 시 Pie 차트 표시 방지
   };
 
   const handleSaveSearchSet = async () => {
@@ -1096,12 +1106,41 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
-  // AppBar.tsx에서 검색어가 설정될 때마다 트리거하는 대신, 검색 실행 여부를 별도로 추적
-  useEffect(() => {
-    if (searchId) {
-      fetchSearchResult(); // 검색 결과를 가져옴
+  // 페이지 클릭 시 파이 차트를 계산하는 함수
+  const handlePageClick = (event: React.MouseEvent<HTMLDivElement>, page: number) => {
+    console.log('page clicked');
+    if (queryResult && queryResult.similarities[page]) {
+      const scores = queryResult.similarities[page];
+      const activeScores = [
+        { label: 'Script', value: toggleScript ? scores.script * 0.4 : 0 },
+        { label: 'PDF Text', value: togglePdfText ? scores.pdf_text * 0.4 : 0 },
+        { label: 'PDF Image', value: togglePdfImage ? scores.pdf_image * 0.1 : 0 },
+        { label: 'Annotation', value: toggleAnnotation ? scores.annotation * 0.1 : 0 },
+      ].filter(score => score.value > 0);
+
+      const total = activeScores.reduce((sum, { value }) => sum + value, 0);
+      const pieData = {
+        labels: activeScores.map(({ label }) => label),
+        datasets: [
+          {
+            data: activeScores.map(({ value }) => (value / total) * 100),
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+            borderWidth: 1,
+            borderColor: '#ffffff',
+          },
+        ],
+      };
+
+      setPieChartData(prev => ({ ...prev, [page]: pieData }));
+      setShowPieChart(prev => ({ ...prev, [page]: true }));
     }
-  }, [searchId]);
+  };
+
+  // 이미지 클릭 이벤트
+  // const handleMouseDown = (page: number) => handlePageClick(page);
+  const handleMouseUp = (page: number) => {
+    setShowPieChart(prev => ({ ...prev, [page]: false }));
+  };
 
   useEffect(() => {
     console.log("query", query);
@@ -1211,7 +1250,7 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
-            <SearchModal isOpen={isModalOpen} onClose={handleCloseModal}>
+            <SearchModal isOpen={isModalOpen} onClose={handleCloseModal} pieChartData={pieChartData} showPieChart={showPieChart} >
               {selectedSearchId ? (
                 // 박스를 클릭하여 모달을 연 경우
                 <div>
@@ -1303,11 +1342,23 @@ export default function Page({ params }: { params: { id: string } }) {
                       <ul className="grid grid-cols-3 gap-4">
                         {threeStarPages.map(({ page, totalScore }, index) => (
                           <li key={index} className="relative mb-4">
-                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                            <div
+                              className="bg-gray-100 rounded-lg shadow p-2 relative"
+                              onMouseDown={(e) => {
+                                if (e.target.closest('.toggle-button')) return;
+                                handlePageClick(e, page);
+                              }}
+                              onMouseUp={(e) => {
+                                handleMouseUp(page);
+                              }}
+                            >
                               {/* 체크 표시 영역 */}
                               <div
-                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                                onClick={() => togglePageSelection(page)}
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                  togglePageSelection(page);
+                                }}
                               >
                                 {selectedPages.has(page) && (
                                   <span className="text-black text-lg">✔</span>
@@ -1321,7 +1372,41 @@ export default function Page({ params }: { params: { id: string } }) {
                               />
                               {/* 페이지 정보 */}
                               <p className="text-center font-semibold text-black">Page {page}</p>
-                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
+                              {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                              {/* Pie 차트 영역 (이미지 중심에 위치) */}
+                              {showPieChart[page] && pieChartData[page] && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                    <Pie
+                                      data={pieChartData[page]}
+                                      options={{
+                                        plugins: {
+                                          legend: { 
+                                            display: true,
+                                            position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                            labels: {
+                                              font: {
+                                                size: 10, // 폰트 크기 조절
+                                              },
+                                              padding: 10, // 레이블과 차트 간의 간격 조절
+                                            },
+                                          },
+                                          tooltip: { enabled: false },
+                                          datalabels: {
+                                            display: true,
+                                            color: 'black',
+                                            formatter: (value: number) => `${value.toFixed(2)}%`,
+                                            font: {
+                                              weight: 'bold',
+                                              size: 10,
+                                            },
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </li>
                         ))}
@@ -1338,11 +1423,23 @@ export default function Page({ params }: { params: { id: string } }) {
                       <ul className="grid grid-cols-3 gap-4">
                         {twoStarPages.map(({ page, totalScore }, index) => (
                           <li key={index} className="relative mb-4">
-                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                            <div
+                              className="bg-gray-100 rounded-lg shadow p-2 relative"
+                              onMouseDown={(e) => {
+                                if (e.target.closest('.toggle-button')) return;
+                                handlePageClick(e, page);
+                              }}
+                              onMouseUp={(e) => {
+                                handleMouseUp(page);
+                              }}
+                            >
                               {/* 체크 표시 영역 */}
                               <div
-                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                                onClick={() => togglePageSelection(page)}
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                  togglePageSelection(page);
+                                }}
                               >
                                 {selectedPages.has(page) && (
                                   <span className="text-black text-lg">✔</span>
@@ -1356,14 +1453,46 @@ export default function Page({ params }: { params: { id: string } }) {
                               />
                               {/* 페이지 정보 */}
                               <p className="text-center font-semibold text-black">Page {page}</p>
-                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
+                              {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                              {showPieChart[page] && pieChartData[page] && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                    <Pie
+                                      data={pieChartData[page]}
+                                      options={{
+                                        plugins: {
+                                          legend: { 
+                                            display: true,
+                                            position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                            labels: {
+                                              font: {
+                                                size: 10, // 폰트 크기 조절
+                                              },
+                                              padding: 10, // 레이블과 차트 간의 간격 조절
+                                            },
+                                          },
+                                          tooltip: { enabled: false },
+                                          datalabels: {
+                                            display: true,
+                                            color: 'black',
+                                            formatter: (value: number) => `${value.toFixed(2)}%`,
+                                            font: {
+                                              weight: 'bold',
+                                              size: 10,
+                                            },
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-
                   {/* 별 1개 그룹 */}
                   {oneStarPages.length > 0 && (
                     <div className="mb-8">
@@ -1373,11 +1502,23 @@ export default function Page({ params }: { params: { id: string } }) {
                       <ul className="grid grid-cols-3 gap-4">
                         {oneStarPages.map(({ page, totalScore }, index) => (
                           <li key={index} className="relative mb-4">
-                            <div className="bg-gray-100 rounded-lg shadow p-2 relative">
+                            <div
+                              className="bg-gray-100 rounded-lg shadow p-2 relative"
+                              onMouseDown={(e) => {
+                                if (e.target.closest('.toggle-button')) return;
+                                handlePageClick(e, page);
+                              }}
+                              onMouseUp={(e) => {
+                                handleMouseUp(page);
+                              }}
+                            >
                               {/* 체크 표시 영역 */}
                               <div
-                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center"
-                                onClick={() => togglePageSelection(page)}
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                  togglePageSelection(page);
+                                }}
                               >
                                 {selectedPages.has(page) && (
                                   <span className="text-black text-lg">✔</span>
@@ -1391,7 +1532,40 @@ export default function Page({ params }: { params: { id: string } }) {
                               />
                               {/* 페이지 정보 */}
                               <p className="text-center font-semibold text-black">Page {page}</p>
-                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
+                              {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                              {showPieChart[page] && pieChartData[page] && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                    <Pie
+                                      data={pieChartData[page]}
+                                      options={{
+                                        plugins: {
+                                          legend: { 
+                                            display: true,
+                                            position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                            labels: {
+                                              font: {
+                                                size: 10, // 폰트 크기 조절
+                                              },
+                                              padding: 10, // 레이블과 차트 간의 간격 조절
+                                            },
+                                          },
+                                          tooltip: { enabled: false },
+                                          datalabels: {
+                                            display: true,
+                                            color: 'black',
+                                            formatter: (value: number) => `${value.toFixed(2)}%`,
+                                            font: {
+                                              weight: 'bold',
+                                              size: 10,
+                                            },
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </li>
                         ))}
