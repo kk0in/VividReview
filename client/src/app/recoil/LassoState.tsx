@@ -20,6 +20,11 @@ export const reloadFlagState = atom<boolean>({
   default: false,
 });
 
+export const rerenderFlagState = atom<boolean>({
+  key: 'rerenderFlagState',
+  default: false,
+});
+
 export const activePromptState = atom<[number, number, number]>({
   key: 'activePromptState',
   default: [0, 0, 0],

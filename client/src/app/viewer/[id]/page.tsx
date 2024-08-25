@@ -44,8 +44,11 @@ import {
 import {
   focusedLassoState,
   reloadFlagState,
-  activePromptState
+  rerenderFlagState,
+  activePromptState,
+  defaultPrompts
 } from "@/app/recoil/LassoState";
+import PromptDisplay from "@/components/dashboard/PromptDisplay";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -168,9 +171,10 @@ function ReviewPage({
   const bboxIndex = useRef(-1);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const [mode, setMode] = useState("script");
   const lassos = useRef<number[]>([]);
-  const prompts = useRef<string[]>([]);
+  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
   const answers = useRef<string[]>([]);
 
   const subTabs: TabProps[] = [
@@ -230,20 +234,23 @@ function ReviewPage({
       
       console.log("fetching answers");
 
-      const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
-      if (!response[activePromptIndex[2]]) return;
-      console.log("fetched answers", response);
-      answers.current = response.map((result: {caption: string, result: string}) => result.result);
-      console.log("mapped answers", answers.current);
+      try {
+        const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        console.log("fetched answers", response);
+        answers.current = response.map((result: {caption: string, result: string}) => result.result);
+        console.log("mapped answers", answers.current);
+      } catch (e) {
+        console.error("Failed to fetch answers:", e);
+        answers.current = [];
+      }
+      setRerenderFlag((prev) => !prev);
     }
 
     fetchAnswers();
     
-  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode]);
 
-  const promptTabElements = () => {
-    if (focusedLasso === null) return <></>;
-    
+  const promptTabElements = () => {    
     return (
       <>
         {lassos.current.map((lassoNum, idx) => {
@@ -253,7 +260,7 @@ function ReviewPage({
           return (
             <>
               <div className={className}
-                onClick = {() => {setActivePromptIndex([idx, 0, 0]);}}
+                onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lassoNum)}}
                 key={"sublasso-"+idx}
               >
                 {lassoNum}
@@ -261,7 +268,7 @@ function ReviewPage({
             </>
           )
         })}
-        {prompts.current.map((prompt, idx) => {
+        {focusedLasso !== null && prompts.current.map((prompt, idx) => {
           const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
             (idx === activePromptIndex[1] ? "bg-gray-300/50" : "bg-gray-300");
           
@@ -694,42 +701,6 @@ function ReviewPage({
     }
   }
 
-  const promptDisplay = () => {
-    return (
-      <>
-        <div>
-          {answers.current[activePromptIndex[2]]}
-        </div>
-        <div className="control-buttons">
-          {activePromptIndex[2] > 0 && (
-            <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}>
-              Previous
-            </button>
-          )}
-          {activePromptIndex[2] < answers.current.length - 1 && ( // TOFIX
-            <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>
-              Next
-            </button>
-          )}
-        </div>
-        <div className="change-answers">
-          {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
-            return (
-              <>
-                <button onClick={async () => {
-                  const response = await lassoTransform(projectId, page, focusedLasso, activePromptIndex[2]+1, prompts.current[activePromptIndex[1]], prompt);
-                  setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
-                }}>
-                  {prompt}
-                </button>
-              </>
-            )
-          })}
-        </div>
-      </>
-    )
-  }
-
   const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
   const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
   const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
@@ -750,7 +721,15 @@ function ReviewPage({
           {mode === "script" ? subTabElements : promptTabElements()}
         </div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {mode === "script" ? paragraph : promptDisplay()}
+          {mode === "script" ? paragraph :
+            <PromptDisplay
+              answers={answers.current}
+              projectId={projectId}
+              page={page}
+              focusedLasso={focusedLasso!}
+              prompts={prompts.current}
+            />
+          }
         </div>
       </div>
       <div className="w-full mt-4 px-4">
@@ -768,6 +747,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -982,7 +962,8 @@ export default function Page({ params }: { params: { id: string } }) {
               pageInfo={pageInfo}
               setPage={setPage}
               setPageInfo={setPageInfo}
-              />
+              rerenderFlag={rerenderFlag}
+            />
           )}
         </div>
       )}

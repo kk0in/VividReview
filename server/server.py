@@ -959,7 +959,7 @@ def get_script_times(script_text, word_timestamp):
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
 @app.post("/api/lasso_transform/")
 async def lasso_transform(
-    project_id: int,
+    project_id: str,
     page_num: int,
     lasso_id: int,
     version: int,
@@ -979,7 +979,7 @@ async def lasso_transform(
     # Lasso answer가 저장된 경로 설정
     result_path = os.path.join(
         LASSO,
-        str(project_id),
+        project_id,
         str(page_num),
         str(lasso_id),
         sanitize_filename(prompt_text),
@@ -1313,7 +1313,7 @@ async def get_lasso_answer(
         LASSO,
         str(project_id),
         str(page_num),
-        str(lasso_id),
+        str(lasso_id), 
         sanitize_filename(prompt_text),
     )
 
