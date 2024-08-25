@@ -19,7 +19,7 @@ import {
 } from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { toolState, recordingState, gridModeState, searchQueryState } from '@/app/recoil/ToolState';
+import { toolState, recordingState, gridModeState, searchQueryState, inputTextState, searchTypeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
 import { PlayerState, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
 
@@ -102,8 +102,8 @@ export default function AppBar() {
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [gridMode, setGridMode] = useRecoilState(gridModeState);
   const isReviewMode = useSearchParams().get('mode') === 'review';
-  const [inputText, setInputText] = useState(''); // 입력된 텍스트 상태
-  const [searchType, setSearchType] = useState('semantic'); // 검색 타입 상태 (semantic 또는 keyword)
+  const [inputText, setInputText] = useRecoilState(inputTextState); // 입력된 텍스트 상태
+  const [searchType, setSearchType] = useRecoilState(searchTypeState); // 검색 타입 상태
   const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
 
   const handleGridIconClick = (tool: string) => {

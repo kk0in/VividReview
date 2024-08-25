@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Fragment } from "react
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { gridModeState, searchQueryState } from "@/app/recoil/ToolState";
+import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
@@ -724,6 +724,11 @@ export default function Page({ params }: { params: { id: string } }) {
   const [oneStarPages, setOneStarPages] = useState<any[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState(null); // 선택된 search_id
   const [pageList, setPageList] = useState([]);
+  const [hasOpenedModal, setHasOpenedModal] = useState(false); // 모달이 이미 열렸는지 확인하기 위한 상태
+  const [previousQuery, setPreviousQuery] = useState<string | null>(null);
+  const setInputText = useSetRecoilState(inputTextState);
+  const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
+  const [queryText, setQueryText] = useState("")
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -919,13 +924,28 @@ export default function Page({ params }: { params: { id: string } }) {
       enabled: !!searchId, // searchId가 있을 때만 실행
       onSuccess: (data) => {
         setQueryResult(data);
-        setIsModalOpen(true); // 검색 결과를 불러온 후 모달 열기
+        // setIsModalOpen(true);
+        console.log('query:', query)
+        console.log('previousQuery:', previousQuery)
+        if (query !== previousQuery) {
+          setIsModalOpen(true);
+          setPreviousQuery(query); // 현재 검색어를 이전 검색어로 저장
+          // setHasOpenedModal(true); // 모달이 열렸음을 기록
+        }
+
       },
       onError: (error) => {
         console.error("Error fetching search results:", error);
       },
     }
   );
+
+  // 모달이 닫힐 때 상태 초기화
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    // setHasOpenedModal(false); // 모달이 닫히면 다시 열릴 수 있도록 상태 초기화
+    setSelectedSearchId(null); // 선택된 search_id 초기화
+  };
 
   // getImages API 호출
   const { data: fetchedImages, refetch: fetchImages } = useQuery(
@@ -986,6 +1006,9 @@ export default function Page({ params }: { params: { id: string } }) {
     try {
       const selectedPageList = Array.from(selectedPages).map(String);
       await saveSearchSet(params.id, searchId!, type, selectedPageList); 
+      // 목록을 업데이트하기 위해 fetchSemanticSearchSets 호출
+      await fetchSemanticSearchSets();
+      
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error saving search set:", error);
@@ -994,9 +1017,15 @@ export default function Page({ params }: { params: { id: string } }) {
   };
   
   const handleSearch = async () => {
+    if (query.trim() === "") return;
     try {
       const result = await searchQuery(projectId, query, type);
       setSearchId(result.search_id); // 검색 ID를 저장
+      setSelectedSearchId(null); // 선택된 search_id 초기화
+      setInputText('')
+      setSearchQuery((prevState) => ({ ...prevState, query: '' }));
+      setPreviousQuery(query);
+      setQueryText(query);
     } catch (error) {
       console.error("Error during search:", error);
     }
@@ -1019,24 +1048,32 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchPageList(searchId); // 페이지 리스트 가져오기
   };
 
+  // AppBar.tsx에서 검색어가 설정될 때마다 트리거하는 대신, 검색 실행 여부를 별도로 추적
   useEffect(() => {
+    if (searchId) {
+      fetchSearchResult(); // 검색 결과를 가져옴
+    }
+  }, [searchId]);
+
+  useEffect(() => {
+    console.log("query", query);
     if (query) {
       handleSearch();
     }
   }, [query, type]);
 
-  useEffect(() => {
-    const fetchSemanticSearchSets = async () => {
-      try {
-        const data = await getSemanticSearchSets({
-          queryKey: ["getSemanticSearchSets", projectId],
-        });
-        setSemanticSearchSets(data);
-      } catch (error) {
-        console.error("Error fetching semantic search sets:", error);
-      }
-    };
+  const fetchSemanticSearchSets = async () => {
+    try {
+      const data = await getSemanticSearchSets({
+        queryKey: ["getSemanticSearchSets", projectId],
+      });
+      setSemanticSearchSets(data);
+    } catch (error) {
+      console.error("Error fetching semantic search sets:", error);
+    }
+  };
 
+  useEffect(() => {
     fetchSemanticSearchSets();
   }, [projectId]);
 
@@ -1088,26 +1125,36 @@ export default function Page({ params }: { params: { id: string } }) {
             <hr className="border-2 border-gray-300 my-4" />
             <div className="mb-4 font-bold">Semantic Search Results</div>
             <div className="mt-4">
-              {semanticSearchSets.map(({ search_id, query }) => (
-                <div
-                  key={search_id}
-                  className={`p-2 bg-white rounded-md shadow mb-2 cursor-pointer ${
-                    selectedSearchId === search_id ? "font-bold" : ""
-                  }`}
-                  onClick={() => handleBoxClick(search_id)}
-                >
-                  {search_id}. {query}
-                </div>
-              ))}
+              {semanticSearchSets
+                .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
+                .map(({ search_id, query }) => (
+                  <div
+                    key={search_id}
+                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
+                      selectedSearchId === search_id ? "font-bold" : ""
+                    }`}
+                    onClick={() => handleBoxClick(search_id)}
+                  >
+                    {search_id}. {query}
+                  </div>
+                ))}
             </div>
             <hr className="border-2 border-gray-300 my-4" />
             <div className="mb-4 font-bold">Keyword Search Results</div>
             <div className="mt-4">
-              {keywordSearchSets.map(({ search_id, query }) => (
-                <div key={search_id} className="bg-gray-200 px-4 py-2 mb-1 rounded-2xl">
-                  {search_id}. {query}
-                </div>
-              ))}
+              {keywordSearchSets
+                .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
+                .map(({ search_id, query }) => (
+                  <div
+                    key={search_id}
+                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
+                      selectedSearchId === search_id ? "font-bold" : ""
+                    }`}
+                    onClick={() => handleBoxClick(search_id)}
+                  >
+                    {search_id}. {query}
+                  </div>
+                ))}
             </div>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
@@ -1116,7 +1163,7 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
-            <SearchModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+            <SearchModal isOpen={isModalOpen} onClose={handleCloseModal}>
               {selectedSearchId ? (
                 // 박스를 클릭하여 모달을 연 경우
                 <div>
@@ -1129,13 +1176,15 @@ export default function Page({ params }: { params: { id: string } }) {
                     {pageList.map((page) => (
                       <div
                         key={page}
-                        className="p-4 bg-gray-100 rounded-lg shadow flex justify-center items-center"
+                        className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
                       >
                         <img
                           src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
                           alt={`Page ${page}`}
-                          className="rounded-md"
+                          className="rounded-md mb-2"
                         />
+                        {/* 페이지 정보 */}
+                        <p className="text-center font-semibold text-black">Page {page}</p>
                       </div>
                     ))}
                   </div>
@@ -1145,7 +1194,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-black">
-                      {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{query}"
+                      {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{queryText}"
                     </h2>
                     <button
                       className="px-4 py-2 bg-gray-400 text-black rounded hover:bg-gray-500"
@@ -1180,8 +1229,8 @@ export default function Page({ params }: { params: { id: string } }) {
                                 className="rounded-md mb-2"
                               />
                               {/* 페이지 정보 */}
-                              <p className="text-center font-semibold">Page {page}</p>
-                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
                             </div>
                           </li>
                         ))}
@@ -1215,8 +1264,8 @@ export default function Page({ params }: { params: { id: string } }) {
                                 className="rounded-md mb-2"
                               />
                               {/* 페이지 정보 */}
-                              <p className="text-center font-semibold">Page {page}</p>
-                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
                             </div>
                           </li>
                         ))}
@@ -1250,8 +1299,8 @@ export default function Page({ params }: { params: { id: string } }) {
                                 className="rounded-md mb-2"
                               />
                               {/* 페이지 정보 */}
-                              <p className="text-center font-semibold">Page {page}</p>
-                              <p className="text-center text-sm">Total Score: {totalScore.toFixed(4)}</p>
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                              <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p>
                             </div>
                           </li>
                         ))}

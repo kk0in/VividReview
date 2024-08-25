@@ -22,3 +22,13 @@ export const searchQueryState = atom<{ query: string; type: string }>({
     type: 'semantic', // 기본 검색 타입
   },
 });
+
+export const inputTextState = atom<string>({
+  key: 'inputTextState',
+  default: '', // 초기 값
+});
+
+export const searchTypeState = atom<string>({
+  key: 'searchTypeState',
+  default: 'semantic', // 초기 값
+});
