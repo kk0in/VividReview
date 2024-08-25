@@ -1141,7 +1141,8 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
 
     :param project_id: 프로젝트 ID
-    :param search_text: 검색어
+    :param search_queyr: 검색어
+    :param search_type: 검색 타입 ('semantic', 'keyword')
     """
     spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
     similarity_path = os.path.join(SIMILARITY, str(project_id))
@@ -1173,7 +1174,7 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
 
     return {
         "message": "Similarity for the Query is created successfully",
-        "lasso_id": search_id,
+        "search_id": search_id,
         "response": result,
     }
 
@@ -1303,8 +1304,8 @@ async def get_lasso_answer(
     return lasso_answer_data
 
 
-@app.get("/api/get_semantic_search/{project_id}/{search_id}", status_code=200)
-async def get_semantic_search(project_id: int, search_id: int, search_type: str):
+@app.get("/api/get_search_result/{project_id}", status_code=200)
+async def get_search_result(project_id: int, search_id: int, search_type: str):
     """
     특정 프로젝트 ID와 search_id에 해당하는 semantic 검색 결과를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
@@ -1328,6 +1329,29 @@ async def get_semantic_search(project_id: int, search_id: int, search_type: str)
 
     return search_data
 
+
+@app.get("/api/get_search_sets/{project_id}")
+async def get_search_sets(project_id: int, search_type: str):
+    search_path = os.path.join(SIMILARITY, str(project_id))
+
+    if not os.path.exists(search_path):
+        raise HTTPException(status_code=404, detail="Search files not found")
+
+    search_sets = []
+    for filename in os.listdir(search_path):
+        if filename.endswith(f"{search_type}.json"):
+            filepath = os.path.join(search_path, filename)
+            with open(filepath, "r") as file:
+                data = json.load(file)
+                # "page_set" 키가 있는 JSON 파일만 필터링
+                if "page_set" in data:
+                    search_id = filename.split("_")[0]  # 파일 이름에서 search_id 추출
+                    search_sets.append({
+                        "search_id": search_id,
+                        "query": data.get("query", ""),
+                    })
+
+    return search_sets
 
 @app.get("/api/get_page_info/{project_id}", status_code=200)
 async def get_page_info(project_id: int):
@@ -1687,7 +1711,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     return {"message": "Annotated PDF saved successfully"}
 
 @app.post("/api/make_search_set/{project_id}", status_code=200)
-async def make_search_set(project_id: int, search_id: int, page_set: List[str] = Form(...)):
+async def make_search_set(project_id: int, search_id: int, search_type: str = Form(...), page_set: str = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색 결과를 저장하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에 page_set을 JSON 파일로 저장합니다.
@@ -1697,7 +1721,7 @@ async def make_search_set(project_id: int, search_id: int, page_set: List[str] =
     :param page_set: 검색 결과 페이지 번호 리스트
     """
 
-    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}_{search_type}.json")
 
     if not os.path.exists(search_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
@@ -1709,8 +1733,14 @@ async def make_search_set(project_id: int, search_id: int, page_set: List[str] =
         raise HTTPException(
             status_code=500, detail=f"Error reading search file: {e}"
         )
+    
+    # page_set을 JSON으로 파싱하여 리스트로 변환
+    page_set_list = json.loads(page_set)
 
-    search_data["page_set"] = page_set
+    # 페이지 번호를 숫자 순서로 정렬
+    sorted_page_set = sorted(page_set_list, key=lambda x: int(x))
+
+    search_data["page_set"] = sorted_page_set
 
     with open(search_path, "w") as search_file:
         json.dump(search_data, search_file, indent=4)
