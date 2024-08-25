@@ -957,14 +957,17 @@ def get_script_times(script_text, word_timestamp):
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
-@app.post("/api/lasso_transform/")
+class LassoTransformData(BaseModel):
+    prompt_text: str
+    transform_type: str
+
+@app.post("/api/lasso_transform/{project_id}/{page_num}/{lasso_id}/{version}", status_code=200)
 async def lasso_transform(
-    project_id: str,
+    project_id: int,
     page_num: int,
     lasso_id: int,
     version: int,
-    prompt_text: str,
-    transform_type: str,
+    data: LassoTransformData
 ):
     """
     lasso_answer에 대해 다양한 버전을 생성하는 API.
@@ -979,10 +982,10 @@ async def lasso_transform(
     # Lasso answer가 저장된 경로 설정
     result_path = os.path.join(
         LASSO,
-        project_id,
+        str(project_id),
         str(page_num),
         str(lasso_id),
-        sanitize_filename(prompt_text),
+        sanitize_filename(data.prompt_text),
     )
     result_json_path = os.path.join(result_path, f"{version}.json")
 
@@ -994,7 +997,7 @@ async def lasso_transform(
 
     # 변환된 버전을 생성
     try:
-        transformed_answer = await transform_lasso_answer(lasso_answer, transform_type)
+        transformed_answer = await transform_lasso_answer(lasso_answer, data.transform_type)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error during transforming lasso answer: {e}"
@@ -1036,8 +1039,14 @@ async def lasso_prompts(project_id: int, page_num: int, lasso_id: int):
     return prompt_texts
 
 
+class AddPromptData(BaseModel):
+    project_id: int
+    page_num: int
+    lasso_id: int
+    prompt_text: str
+
 @app.post("/api/add_lasso_prompt/")
-async def add_lasso_prompt(project_id: int, page_num: int, lasso_id: int, prompt_text: str):
+async def add_lasso_prompt(data: AddPromptData):
     """
     특정 Lasso ID에 대한 프롬프트 텍스트를 추가하는 API 엔드포인트입니다.
 
@@ -1047,14 +1056,14 @@ async def add_lasso_prompt(project_id: int, page_num: int, lasso_id: int, prompt
     :param prompt_text: 추가할 프롬프트 텍스트
     """
 
-    lasso_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id))
+    lasso_path = os.path.join(LASSO, str(data.project_id), str(data.page_num), str(data.lasso_id))
     if not os.path.exists(lasso_path):
         raise HTTPException(status_code=404, detail="Lasso ID not found")
 
     info_json_path = os.path.join(lasso_path, "info.json")
     with open(info_json_path, "r") as json_file:
         lasso_info = json.load(json_file)
-        lasso_info["prompts"].append(prompt_text)
+        lasso_info["prompts"].append(data.prompt_text)
 
     with open(info_json_path, "w") as json_file:
         json.dump(lasso_info, json_file, indent=4)

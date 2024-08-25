@@ -728,6 +728,7 @@ function ReviewPage({
               page={page}
               focusedLasso={focusedLasso!}
               prompts={prompts.current}
+              rerenderFlag={rerenderFlag}
             />
           }
         </div>

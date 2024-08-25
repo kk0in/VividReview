@@ -220,12 +220,10 @@ export async function lassoPrompts(projectId: string, pageNumber: number, lassoI
 
 export async function addLassoPrompt(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
   const response = await axios.post(`${SERVER_ENDPOINT}api/add_lasso_prompt/`, {
-    params: {
-      project_id: projectId,
-      page_num: pageNumber,
-      lasso_id: lassoId,
-      prompt_text: prompt
-    }
+    project_id: projectId,
+    page_num: pageNumber,
+    lasso_id: lassoId,
+    prompt_text: prompt
   });
 
   return response.data;
@@ -244,11 +242,7 @@ export async function getLassoInfo(projectId: string, pageNumber: number, lassoI
 }
 
 export async function lassoTransform(projectId: string, pageNumber: number, lassoId: number | null, version: number, prompt: string, transformType: string) {
-  const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_transform/`, {
-    project_id: projectId,
-    page_num: pageNumber,
-    lasso_id: lassoId,
-    version: version,
+  const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_transform/${projectId}/${pageNumber}/${lassoId}/${version}`, {
     prompt_text: prompt,
     transform_type: transformType
   });
