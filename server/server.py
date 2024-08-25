@@ -52,7 +52,7 @@ app.add_middleware(
 )
 
 PDF = "./pdfs"
-TEMP = "./temp"
+ANNOTATED_PDF = "./annotated_pdfs"
 RESULT = "./results"
 META_DATA = "./metadata"
 ANNOTATIONS = "./annotations"
@@ -69,7 +69,7 @@ SIMILARITY = "./similarity"
 WINDOW_SIZE = 1
 
 os.makedirs(PDF, exist_ok=True)
-os.makedirs(TEMP, exist_ok=True)
+os.makedirs(ANNOTATED_PDF, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
 os.makedirs(ANNOTATIONS, exist_ok=True)
@@ -1376,7 +1376,7 @@ async def get_page_info(project_id: int):
     return page_info_data["pages"]
 
 @app.get("/api/get_images/{project_id}", status_code=200)
-async def get_images(project_id: int):
+async def get_images(project_id: int, image_type: str):
     """
     특정 프로젝트 ID에 해당하는 이미지 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID에 해당하는 이미지 파일을 찾아 반환합니다.
@@ -1384,8 +1384,7 @@ async def get_images(project_id: int):
     :param project_id: 프로젝트 ID
     """
 
-    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
-
+    image_directory = os.path.join(IMAGE, str(project_id), str(image_type))
 
     if not os.path.exists(image_directory):
         raise HTTPException(status_code=404, detail="Image files not found")
@@ -1459,7 +1458,7 @@ async def get_bbox(project_id: int, page_num: int):
     """
     bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
     image_path = os.path.join(
-        IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png"
+        IMAGE, str(project_id), "raw", f"page_{str(page_num).zfill(4)}.png"
     )
 
     image = Image.open(image_path)
@@ -1683,7 +1682,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     original_pdf_path = os.path.join(PDF, pdf_file[0])
 
     # Save the uploaded annotated PDF temporarily
-    annotated_pdf_path = f"{TEMP}/{project_id}_annotated_temp.pdf"
+    annotated_pdf_path = os.path.join(ANNOTATED_PDF, pdf_file[0])
     with open(annotated_pdf_path, "wb") as buffer:
         shutil.copyfileobj(annotated_pdf.file, buffer)
 
@@ -1701,6 +1700,19 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
 
         # Insert the annotated page image into the original PDF
         original_page.show_pdf_page(original_page.rect, annotated_pdf, page_num)
+
+    # Extract annotated pages as images and save
+    annotated_image_path = os.path.join(IMAGE, str(project_id), "annotated")
+    os.makedirs(annotated_image_path, exist_ok=True)
+    for page_num in range(len(annotated_pdf)):
+        annotated_page = annotated_pdf.load_page(page_num)
+        
+        # Render the annotated page to an image
+        pix = annotated_page.get_pixmap()
+        image_path = os.path.join(annotated_image_path, f"page_{page_num + 1:04}.png")
+
+        # Save the image
+        pix.save(image_path)
 
     # Save the modified original PDF
     original_pdf.saveIncr()
@@ -1969,12 +1981,12 @@ async def upload_project(
     with open(metadata_file_path, "w") as f:
         json.dump(metadata, f)
 
-    image_dir = os.path.join(IMAGE, str(id))
+    image_dir = os.path.join(IMAGE, str(id), "raw")
     os.makedirs(image_dir, exist_ok=True)
     images = convert_from_path(pdf_file_path)
 
     for i, image in enumerate(images):
-        image_path = os.path.join(IMAGE, str(id), f"page_{i + 1:04}.png")
+        image_path = os.path.join(image_dir, f"page_{i + 1:04}.png")
         image.save(image_path, "PNG")
 
     # OpenAI GPT API를 호출하여 목차 생성

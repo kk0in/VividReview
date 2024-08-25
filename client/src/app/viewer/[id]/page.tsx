@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -710,7 +710,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [searchId, setSearchId] = useState<string | null>(null);
   const [sortedPages, setSortedPages] = useState<any[]>([]);
   const [queryResult, setQueryResult] = useState(null);
-  const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
+  const [rawImages, setRawImages] = useState<string[]>([]); 
+  const [annotatedImages, setAnnotatedImages] = useState<string[]>([]); 
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
   const [semanticSearchSets, setSemanticSearchSets] = useState([]);
   const [keywordSearchSets, setKeywordSearchSets] = useState([]);
@@ -966,16 +967,30 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   // getImages API 호출
-  const { data: fetchedImages, refetch: fetchImages } = useQuery(
-    ["getImages", params.id],
-    () => getImages(params.id),
+  const { data: fetchedRawImages, refetch: fetchRawImages } = useQuery(
+    ["getRawImages", params.id],
+    () => getRawImages(params.id),
     {
       enabled: true, // 항상 호출
       onSuccess: (data) => {
-        setImages(data);
+        setRawImages(data);
       },
       onError: (error) => {
-        console.error("Error fetching images:", error);
+        console.error("Error fetching raw images:", error);
+      },
+    }
+  );
+
+  const { data: fetchedAnnotatedImages, refetch: fetchAnnotatedImages } = useQuery(
+    ["getAnnotatedImages", params.id],
+    () => getAnnotatedImages(params.id),
+    {
+      enabled: true, // 항상 호출
+      onSuccess: (data) => {
+        setAnnotatedImages(data);
+      },
+      onError: (error) => {
+        console.error("Error fetching raw images:", error);
       },
     }
   );
@@ -1278,7 +1293,7 @@ export default function Page({ params }: { params: { id: string } }) {
                         className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
                       >
                         <img
-                          src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
+                          src={rawImages[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
                           alt={`Page ${page}`}
                           className="rounded-md mb-2"
                         />
@@ -1317,7 +1332,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={rawImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1338,7 +1353,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={rawImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1359,7 +1374,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={rawImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1446,7 +1461,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={rawImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1528,7 +1543,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={rawImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1609,7 +1624,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={rawImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
