@@ -171,7 +171,7 @@ function ReviewPage({
   const [mode, setMode] = useState("script");
   const lassos = useRef<number[]>([]);
   const prompts = useRef<string[]>([]);
-  const answers = useRef<string[]>([]);
+  const answers = useRef<string>("");
 
   const subTabs: TabProps[] = [
     {
@@ -220,7 +220,7 @@ function ReviewPage({
       prompts.current = response;
     }
     fetchPrompts();
-  }, [projectId, page, focusedLasso, reloadFlag]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
 
   useEffect(() => {
     const fetchAnswers = async () => {
@@ -229,13 +229,13 @@ function ReviewPage({
 
       if(focusedLasso === null) {
         console.log("focus lasso is null");
-        answers.current = [];
+        answers.current = "";
         return;
       }
       const response = await getLassoAnswer(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]], activePromptIndex[2]+1);
       if (!response[activePromptIndex[1]]) return;
       console.log("fetched answers", response);
-      answers.current = response[activePromptIndex[1]].answers;
+      answers.current = response.result;
     }
     fetchAnswers();
   }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag]);
@@ -697,8 +697,7 @@ function ReviewPage({
     return (
       <>
         <div>
-          {answers.current.toString()}
-          {answers.current[activePromptIndex[2]]}
+          {answers.current}
         </div>
         <div className="control-buttons">
           {activePromptIndex[2] > 0 && (
@@ -706,7 +705,7 @@ function ReviewPage({
               Previous
             </button>
           )}
-          {activePromptIndex[2] < answers.current.length - 1 && (
+          {activePromptIndex[2] < answers.current.length - 1 && ( // TOFIX
             <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>
               Next
             </button>
