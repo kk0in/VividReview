@@ -730,6 +730,12 @@ export default function Page({ params }: { params: { id: string } }) {
   const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
   const [queryText, setQueryText] = useState("")
 
+  const [toggleScript, setToggleScript] = useState(true);
+  const [togglePdfText, setTogglePdfText] = useState(true);
+  const [togglePdfImage, setTogglePdfImage] = useState(true);
+  const [toggleAnnotation, setToggleAnnotation] = useState(true);
+
+
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -964,13 +970,25 @@ export default function Page({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (queryResult && queryResult.similarities) {
+      const weightScript = toggleScript ? 0.4 : 0;
+      const weightPdfText = togglePdfText ? 0.4 : 0;
+      const weightPdfImage = togglePdfImage ? 0.1 : 0;
+      const weightAnnotation = toggleAnnotation ? 0.1 : 0;
+
+      const totalWeight = weightScript + weightPdfText + weightPdfImage + weightAnnotation;
+
+      const threeStarThreshold = 0.3 * totalWeight;
+      const twoStarThreshold = 0.2 * totalWeight;
+      const oneStarThreshold = 0.15 * totalWeight;
+
+
       const pageScores = Object.entries(queryResult.similarities).map(
         ([page, scores]) => {
           const totalScore =
-            (scores.script * 0.4) +
-            (scores.pdf_text * 0.4) +
-            (scores.annotation * 0.1) +
-            (scores.pdf_image * 0.1);
+            (scores.script * weightScript) +
+            (scores.pdf_text * weightPdfText) +
+            (scores.annotation * weightAnnotation) +
+            (scores.pdf_image * weightPdfImage);
           return { page: parseInt(page), totalScore };
         }
       );
@@ -979,16 +997,16 @@ export default function Page({ params }: { params: { id: string } }) {
       const sorted = pageScores.sort((a, b) => b.totalScore - a.totalScore);
       
       // 페이지들을 별 개수에 따라 분류
-      const threeStar = sorted.filter(({ totalScore }) => totalScore >= 0.3);
-      const twoStar = sorted.filter(({ totalScore }) => totalScore >= 0.2 && totalScore < 0.3);
-      const oneStar = sorted.filter(({ totalScore }) => totalScore >= 0.15 && totalScore < 0.2);
-
+      const threeStar = sorted.filter(({ totalScore }) => totalScore >= threeStarThreshold);
+      const twoStar = sorted.filter(({ totalScore }) => totalScore >= twoStarThreshold && totalScore < threeStarThreshold);
+      const oneStar = sorted.filter(({ totalScore }) => totalScore >= oneStarThreshold && totalScore < twoStarThreshold);
+      
       setThreeStarPages(threeStar);
       setTwoStarPages(twoStar);
       setOneStarPages(oneStar);
       // setSortedPages(sorted);
     }
-  }, [queryResult]);
+  }, [queryResult, toggleScript, togglePdfText, togglePdfImage, toggleAnnotation]);
 
   const togglePageSelection = (page: number) => {
     setSelectedPages((prevSelected) => {
@@ -1046,6 +1064,36 @@ export default function Page({ params }: { params: { id: string } }) {
   const handleBoxClick = (searchId) => {
     setSelectedSearchId(searchId); // 선택된 search_id 업데이트
     fetchPageList(searchId); // 페이지 리스트 가져오기
+  };
+
+  const handleToggle = (toggleType: string) => {
+    const totalTogglesOn = [toggleScript, togglePdfText, togglePdfImage, toggleAnnotation].filter(t => t).length;
+
+    if (totalTogglesOn === 1 && (
+      (toggleType === 'script' && toggleScript) ||
+      (toggleType === 'pdfText' && togglePdfText) ||
+      (toggleType === 'pdfImage' && togglePdfImage) ||
+      (toggleType === 'annotation' && toggleAnnotation)
+    )) {
+      // 무조건 하나는 켜져 있어야 하므로 마지막 하나를 끄지 못하게 막음
+      return;
+    }
+
+    // 토글 상태 업데이트
+    switch (toggleType) {
+      case 'script':
+        setToggleScript(!toggleScript);
+        break;
+      case 'pdfText':
+        setTogglePdfText(!togglePdfText);
+        break;
+      case 'pdfImage':
+        setTogglePdfImage(!togglePdfImage);
+        break;
+      case 'annotation':
+        setToggleAnnotation(!toggleAnnotation);
+        break;
+    }
   };
 
   // AppBar.tsx에서 검색어가 설정될 때마다 트리거하는 대신, 검색 실행 여부를 별도로 추적
@@ -1202,6 +1250,49 @@ export default function Page({ params }: { params: { id: string } }) {
                     >
                       Make a Search Set
                     </button>
+                  </div>
+                   {/* 점수 항목별 토글 */}
+                   <div className="flex space-x-4 items-center mb-4">
+                    {/* Script 점수 토글 */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={toggleScript}
+                        onChange={() => handleToggle('script')}
+                        className="mr-1"
+                      />
+                      <span className="text-black ml-1">Script</span>
+                    </div>
+                    {/* PDF Text 점수 토글 */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={togglePdfText}
+                        onChange={() => handleToggle('pdfText')}
+                        className="mr-1"
+                      />
+                      <span className="text-black ml-1">PDF Text</span>
+                    </div>
+                    {/* PDF Image 점수 토글 */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={togglePdfImage}
+                        onChange={() => handleToggle('pdfImage')}
+                        className="mr-1"
+                      />
+                      <span className="text-black ml-1">PDF Image</span>
+                    </div>
+                    {/* Annotation 점수 토글 */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={toggleAnnotation}
+                        onChange={() => handleToggle('annotation')}
+                        className="mr-1"
+                      />
+                      <span className="text-black ml-1">Annotation</span>
+                    </div>
                   </div>
                   {/* 별 3개 그룹 */}
                   {threeStarPages.length > 0 && (
