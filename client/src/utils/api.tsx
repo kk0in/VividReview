@@ -255,3 +255,13 @@ export async function lassoTransform(projectId: string, pageNumber: number, lass
 
   return response.data;
 }
+
+export async function getLassoAnswer(projectId: string, pageNumber: number, lassoId: number | null, prompt: string, version: number) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answer/${projectId}/${pageNumber}/${lassoId}`, {
+    params: {
+      prompt_text: prompt,
+      version: version
+  }});
+
+  return response.data;
+}

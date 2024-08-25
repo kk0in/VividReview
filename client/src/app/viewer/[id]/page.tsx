@@ -26,6 +26,7 @@ import {
   lassoPrompts,
   getLassosOnPage,
   lassoTransform,
+  getLassoAnswer,
 } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -42,7 +43,8 @@ import {
 } from "@/app/recoil/LectureAudioState";
 import {
   focusedLassoState,
-  reloadFlagState
+  reloadFlagState,
+  activePromptState
 } from "@/app/recoil/LassoState";
 
 interface SubSectionTitleProps {
@@ -153,7 +155,7 @@ function ReviewPage({
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
-  const [activePromptIndex, setActivePromptIndex] = useState<[number, number, number]>([0, 0, 0]);
+  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
@@ -225,9 +227,14 @@ function ReviewPage({
 
       console.log("fetching answers");
 
-      if(focusedLasso === null) return;
-      const response = await lassoPrompts(projectId, page, focusedLasso);
+      if(focusedLasso === null) {
+        console.log("focus lasso is null");
+        answers.current = [];
+        return;
+      }
+      const response = await getLassoAnswer(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]], activePromptIndex[2]+1);
       if (!response[activePromptIndex[1]]) return;
+      console.log("fetched answers", response);
       answers.current = response[activePromptIndex[1]].answers;
     }
     fetchAnswers();
@@ -722,9 +729,6 @@ function ReviewPage({
       </>
     )
   }
-
-  console.log("promptDisplay", promptDisplay);
-  console.log("activePromptIndex", activePromptIndex);
 
   const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
   const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";

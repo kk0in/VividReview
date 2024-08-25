@@ -11,7 +11,7 @@ import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
-import { defaultPrompts, focusedLassoState, reloadFlagState } from "@/app/recoil/LassoState";
+import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo } from "@/utils/api";
 import "./Lasso.css";
 import PreviousMap from "postcss/lib/previous-map";
@@ -54,6 +54,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const selectedTool = useRecoilValue(toolState);
   const gridMode = useRecoilValue(gridModeState);
   const [isRecording, setIsRecording] = useRecoilState(recordingState);
+  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
@@ -264,7 +265,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     if (focusedLasso !== null) {
       drawBorder();
-      setTimeout(() => {context.clearRect(0, 0, canvas.width, canvas.height); setFocusedLasso(null);}, 3000);
+      setTimeout(() => {context.clearRect(0, 0, canvas.width, canvas.height);}, 3000);
     }
   }, [focusedLasso, pageNumber, projectId, setFocusedLasso]);
 
@@ -954,6 +955,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       setReloadFlag((prev) => !prev);
+      setFocusedLasso(response.lasso_id)
+      setActivePromptIndex([activePromptIndex[0], idx, activePromptIndex[2]]);
       console.log(response);
     }
 
