@@ -18,11 +18,11 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
   };
 
   const convertLineEscapes = (text: string) => {
-    return text.replace(/\n/g, "<br />");
+    return text.replace(/\n/g, "<br/>");
   };
 
   const convertListSymbols = (text: string) => {
-    return text.replace(/- (.*?)(\n|$)/g, "• $1\n");
+    return text.replace(/- (.*?)(\n|$)/g, "|• $1\n");
   };
 
   const highlightKeywords = (text: string, keywords: string[]) => {
@@ -37,30 +37,35 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
   };
 
   const preprocessText = (text: string, keywords: string[]) => {
+    if (!text) return [];
     let processedHTML = convertListSymbols(text);
-    processedHTML = convertLineEscapes(processedHTML);
     processedHTML = convertStrongSymbols(processedHTML);
     processedHTML = convertWhiteSpaces(processedHTML);
     processedHTML = highlightKeywords(processedHTML, keywords);
-    return processedHTML;
+    return processedHTML.split("|");
   };
 
   return (
     <>
       <div>
-        {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []) : ""}
+        {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []).map((line) => {return (<>{line}<br/></>)}) : ""}
       </div>
-      <div className="control-buttons">
+      <div className="control-buttons" style={{display: "flex"}}>
         {activePromptIndex[2] > 0 && (
           <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}
-            style={{marginRight: "auto", marginLeft: "0", display: "block"}}
+            style={{marginRight: "auto", marginLeft: "0"}}
           >
             <TriangleLeftIcon size="medium"/>
           </button>
         )}
+        {props.answers.length > 0 && (
+          <div style={{margin: "auto"}}>
+            {activePromptIndex[2]+1} / {props.answers.length}
+          </div>
+        )}
         {activePromptIndex[2] < props.answers.length - 1 && (
           <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}
-            style={{marginLeft: "auto", marginRight: "0", display: "block"}}
+            style={{marginLeft: "auto", marginRight: "0"}}
           >
             <TriangleRightIcon size="medium"/>
           </button>
@@ -72,6 +77,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
             <>
               <button onClick={async () => {
                 const response = await lassoTransform(props.projectId, props.page, props.focusedLasso, activePromptIndex[2]+1, props.prompts[activePromptIndex[1]], prompt);
+                console.log(response);
                 setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
               }}
                 style={{border: "2px solid black", margin: "5px", padding: "3px", borderRadius: "3px"}}  
