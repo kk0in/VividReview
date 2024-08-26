@@ -1068,7 +1068,7 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
-  const findPage = (time: number): number => {
+  const findPage = async (time: number): number => {
     if (pageInfo === null) {
       return 0;
     }
