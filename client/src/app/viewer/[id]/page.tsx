@@ -127,6 +127,7 @@ function ReviewPage({
   setPage: (page: number) => void;
   setPageInfo: (pageInfo: any) => void;
   setPages: (pages: any) => void;
+  setHoverState: (hoverState: any) => void;
   tocIndex: any;
   setTocIndex: (tocIndex: any) => void;
 }) {
@@ -313,14 +314,14 @@ function ReviewPage({
             end: number;
           }>(pageInfo)[page - 1][1];
 
-          if (audioRef.current!.currentTime >= timelineForPage.end) {
-            const newPage = page + 1;
-            const newTocIndex = findTocIndex(newPage);
-            console.log("Current Page update", newPage, newTocIndex);
+          // if (audioRef.current!.currentTime >= timelineForPage.end) {
+          //   const newPage = page + 1;
+          //   const newTocIndex = findTocIndex(newPage);
 
-            newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-            setPage(newPage);
-          }
+          //   newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+          //   setPage(newPage);
+          //   console.log("setPage1");
+          // }
         }
 
         if (audioRef.current!.currentTime >= timeline.end) {
@@ -410,11 +411,21 @@ function ReviewPage({
       console.log("mousedown", event.offsetX);
       progressRef.current!.value = getNewProgressValue(event);
       setIsMouseDown(true);
+      setHoverState({
+        hoverPosition: event.offsetX,
+        hoverTime: progressRef.current?.value,
+        activeLabel: progressRef.current?.value,
+      });
     };
 
     progressRef.current.onmousemove = (event) => {
       if (isMouseDown && progressRef.current) {
         progressRef.current.value = getNewProgressValue(event);
+        setHoverState({
+          hoverPosition: event.offsetX,
+          hoverTime: progressRef.current.value,
+          activeLabel: progressRef.current.value,
+        });
       }
     };
 
@@ -429,6 +440,11 @@ function ReviewPage({
         newPage > 0 && setPage(newPage);
 
         audioRef.current!.currentTime = timeValue;
+        setHoverState({
+          hoverPosition: event.offsetX,
+          hoverTime: timeValue,
+          activeLabel: timeValue,
+        });
         setIsMouseDown(false);
       }
     };
@@ -685,11 +701,21 @@ export default function Page({ params }: { params: { id: string } }) {
   const [pageInfo, setPageInfo] = useState({});
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
+  const [hoverState, setHoverState] = useState<{
+    hoverPosition: number | null;
+    hoverTime: number | null;
+    activeLabel: number | null;
+  }>({
+    hoverPosition: null,
+    hoverTime: null,
+    activeLabel: null,
+  });
+
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
- const toc = useRecoilValue(tocState);
+  const toc = useRecoilValue(tocState);
 
   const handleAudioRef = (data: any) => {
     if (Number.isFinite(data?.begin)) {
@@ -913,17 +939,20 @@ export default function Page({ params }: { params: { id: string } }) {
               <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
-                  onPointClick={handleAudioRef}
+                  handleAudioRef={handleAudioRef}
                   positiveEmotion={positiveEmotion}
                   negativeEmotion={negativeEmotion}
                   page={page}
                   pageInfo={pageInfo}
                   pages={pages}
+                  progressRef={progressRef}
                   tableOfContents={tableOfContents}
                   graphWidth={graphWidth}
                   findPage={findPage}
                   findTocIndex={findTocIndex}
                   tocIndex={tocIndex}
+                  hoverState={hoverState}
+                  setHoverState={setHoverState}
                   setTocIndex={setTocIndex}
                   setPage={setPage}
                 />
@@ -944,9 +973,10 @@ export default function Page({ params }: { params: { id: string } }) {
               setPage={setPage}
               setPageInfo={setPageInfo}
               setPages={setPages}
+              setHoverState={setHoverState}
               tocIndex={tocIndex}
               setTocIndex={setTocIndex}
-              />
+            />
           )}
         </div>
       )}
