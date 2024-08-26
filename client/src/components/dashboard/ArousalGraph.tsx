@@ -92,7 +92,7 @@ const CustomRectangle = ({
       y={0}
       width={pageEndTime - pageStartTime}
       height={GRAPH_HEIGHT - X_AXIS_HEIGHT} // Use 100 to fill the entire height
-      fill="rgba(0,0,0,0.3)"
+      fill="rgba(0,0,0,0.2)"
     />
   );
 };
@@ -267,7 +267,7 @@ const ToggleSwitch = ({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: checked ? color : "#D8D6F9",  // Updated colors
+            backgroundColor: checked ? color : "#bbb",  // Updated colors
             transition: ".4s",
             borderRadius: "12px",
           }}
@@ -420,6 +420,7 @@ const ArousalGraph = ({
     setSelectedPositives((prevState) => {
       const newState = [...prevState];
       newState[index] = !newState[index];
+      if (newState.every((v) => !v)) return prevState;
       return newState;
     });
   };
@@ -428,6 +429,7 @@ const ArousalGraph = ({
     setSelectedNegatives((prevState) => {
       const newState = [...prevState];
       newState[index] = !newState[index];
+      if (newState.every((v) => !v)) return prevState;
       return newState;
     });
   };
