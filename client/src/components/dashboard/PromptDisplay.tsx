@@ -7,10 +7,12 @@ import { TriangleLeftIcon, TriangleRightIcon } from "@primer/octicons-react";
 const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number, prompts: string[], rerenderFlag: boolean}) => {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
 
+  const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
+
   return (
     <>
       <div>
-        {props.answers.length >= activePromptIndex[2] ? props.answers[activePromptIndex[2]] : ""}
+        {showFlag ? props.answers[activePromptIndex[2]] : ""}
       </div>
       <div className="control-buttons">
         {activePromptIndex[2] > 0 && (
@@ -28,7 +30,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           </button>
         )}
       </div>
-      <div className="change-answers">
+      {showFlag && <div className="change-answers">
         {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
           return (
             <>
@@ -44,6 +46,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           )
         })}
       </div>
+      }
     </>
   )
 }

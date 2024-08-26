@@ -312,9 +312,14 @@ export async function addLassoPrompt(projectId: string, pageNumber: number, lass
 }
 
 export async function getLassosOnPage(projectId: string, pageNumber: number) {
-  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
+  try {
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
 }
 
 export async function getLassoInfo(projectId: string, pageNumber: number, lassoId: number | null) {
