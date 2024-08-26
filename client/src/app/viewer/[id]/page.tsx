@@ -959,7 +959,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [prosodyData, setProsodyData] = useState<any>(null);
   const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
-    "Part for taking away",
     "Excitement",
     "Enthusiasm",
     "Interest",
@@ -967,7 +966,6 @@ export default function Page({ params }: { params: { id: string } }) {
     "Joy",
   ]);
   const [negativeEmotion, setnegativeEmotion] = useState([
-    "Part for throwing away",
     "Calmness",
     "Boredom",
     "Tiredness",
