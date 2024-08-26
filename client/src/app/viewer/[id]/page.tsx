@@ -118,6 +118,7 @@ function ReviewPage({
   pages,
   setPage,
   setPageInfo,
+  setHoverState,
   setPages,
   tocIndex,
   setTocIndex,
