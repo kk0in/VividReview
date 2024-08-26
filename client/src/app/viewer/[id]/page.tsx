@@ -35,6 +35,10 @@ import { Pie } from 'react-chartjs-2';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
 Chart.register(ArcElement, Tooltip, Legend);
 
+import {
+  ToggleSwitch
+} from "@/components/dashboard/GraphComponent"
+
 interface SubSectionTitleProps {
   sectionIndex: number;
   index: number;
@@ -1564,43 +1568,39 @@ export default function Page({ params }: { params: { id: string } }) {
                       <div className="flex space-x-4 items-center mb-4">
                         {/* Script 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="Script"
                             checked={toggleScript}
-                            onChange={() => handleToggle('script')}
-                            className="mr-1"
+                            onChange={() => handleToggle("script")}
+                            color="#8884d8"
                           />
-                          <span className="text-black ml-1">Script</span>
                         </div>
                         {/* PDF Text 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="PDF Text"
                             checked={togglePdfText}
-                            onChange={() => handleToggle('pdfText')}
-                            className="mr-1"
+                            onChange={() => handleToggle("pdfText")}
+                            color="#8884d8"
                           />
-                          <span className="text-black ml-1">PDF Text</span>
                         </div>
                         {/* PDF Image 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="PDF Image"
                             checked={togglePdfImage}
-                            onChange={() => handleToggle('pdfImage')}
-                            className="mr-1"
+                            onChange={() => handleToggle("pdfImage")}
+                            color="#8884d8" 
                           />
-                          <span className="text-black ml-1">PDF Image</span>
                         </div>
                         {/* Annotation 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="Annotation"
                             checked={toggleAnnotation}
-                            onChange={() => handleToggle('annotation')}
-                            className="mr-1"
+                            onChange={() => handleToggle("annotation")}
+                            color="#8884d8" 
                           />
-                          <span className="text-black ml-1">Annotation</span>
                         </div>
                       </div>
                       {/* 별 3개 그룹 */}
