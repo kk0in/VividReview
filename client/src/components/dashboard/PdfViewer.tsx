@@ -520,38 +520,34 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }, [pageNumber, projectId]);
 
   const handleSave = async () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      try {
-        const drawings: Record<number, string> = {};
-        for (let i = 1; i <= numPages; i++) {
-          const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
-          console.log('numLayers', numLayers);
-          const tmpCanvas = document.createElement("canvas");
-          tmpCanvas.width = canvas.width;
-          tmpCanvas.height = canvas.height;
-          const tmpContext = tmpCanvas.getContext("2d");
-          if (tmpContext) {
-            tmpContext.imageSmoothingEnabled = false;
-            tmpContext.clearRect(0, 0, canvas.width, canvas.height);
-            for (let l = 1; l <= numLayers; l++) {
-              const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
-              if (drawingLayer) {
-                const img = new Image();
-                img.src = drawingLayer;
-                img.decode();
-                tmpContext.drawImage(img, 0, 0);
-                }; 
-              }
-              drawings[i] = tmpCanvas.toDataURL();
+    try {
+      const drawings: string[] = [];
+      for (let i = 1; i <= numPages; i++) {
+        const numLayers = Number(localStorage.getItem(`numLayers_${projectId}_${i}`));
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = width;
+        tmpCanvas.height = height;
+        const tmpContext = tmpCanvas.getContext("2d");
+        if (tmpContext) {
+          tmpContext.imageSmoothingEnabled = false;
+          tmpContext.clearRect(0, 0, width, height);
+          for (let l = 1; l <= numLayers; l++) {
+            const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
+            if (drawingLayer) {
+              const img = new Image();
+              img.src = drawingLayer;
+              await img.decode();
+              tmpContext.drawImage(img, 0, 0);
             }
           }
-        await saveAnnotatedPdf(projectId, drawings, numPages);
-        console.log("Annotated PDF saved successfully");
-      } catch (error) {
-        console.error("Failed to save annotated PDF:", error);
+          drawings.push(tmpCanvas.toDataURL());
+        }
       }
-    }
+      await saveAnnotatedPdf(projectId, drawings);
+      console.log("Annotated PDF saved successfully");
+    } catch (error) {
+      console.error("Failed to save annotated PDF:", error);
+    };
   };
 
   useEffect(() => {
