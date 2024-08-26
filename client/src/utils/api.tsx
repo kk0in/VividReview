@@ -235,6 +235,13 @@ export async function getImages(projectId: string) {
     return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
 }
 
+export async function getMissedAndImportantParts(projectId: string) {
+    const response_missed = await axios.get(`${SERVER_ENDPOINT}api/get_missed_parts/${projectId}`);
+    const response_important = await axios.get(`${SERVER_ENDPOINT}api/get_important_parts/${projectId}`);
+
+    return {missed: response_missed.data, important: response_important.data};
+}
+
 export async function updateResult({project_id, result}: {project_id: string, result: any}) {
     const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, {data: result});
     return response.data;

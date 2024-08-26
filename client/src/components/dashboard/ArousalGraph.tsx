@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Customized,
   Rectangle,
-  ReferenceDot,
+  Legend,
 } from "recharts";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { CategoricalChartFunc } from "recharts/types/chart/generateCategoricalChart";
@@ -171,7 +171,7 @@ const CustomXAxisTick = ({
   return null;
 };
 
-const VerticalLine = ({ x }: { x: number }) => (
+const CurrentPositionLine = ({ x }: { x: number }) => (
   <line
     x1={x}
     y1={0}
@@ -182,6 +182,70 @@ const VerticalLine = ({ x }: { x: number }) => (
     opacity={0.5} // Added opacity for transparency
   />
 );
+
+const HorizontalLine = ({
+  x1,
+  x2,
+  color,
+  y,
+}: {
+  x1: number;
+  x2: number;
+  color: string;
+  y: number;
+}) => {
+  return <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={3} />;
+};
+
+const CustomLegend = (props) => {
+  const FONT_COLOR = "#333";
+  const FONT_SIZE = "10px";
+  const { payload } = props;
+  return (
+    <div
+      style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}
+    >
+      {payload.map((entry, index) => (
+        <div
+          key={`item-${index}`}
+          style={{ display: "flex", alignItems: "center", marginRight: 20 }}
+        >
+          <div
+            style={{
+              width: 20,
+              height: 3,
+              backgroundColor: entry.color,
+              marginRight: 5,
+            }}
+          />
+          <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>{entry.value}</span>
+        </div>
+      ))}
+      <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
+        <div
+          style={{
+            width: 20,
+            height: 3,
+            backgroundColor: "red",
+            marginRight: 5,
+          }}
+        />
+        <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>Missed Part</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div
+          style={{
+            width: 20,
+            height: 3,
+            backgroundColor: "green",
+            marginRight: 5,
+          }}
+        />
+        <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>Important Part</span>
+      </div>
+    </div>
+  );
+};
 
 const useProcessedData = (
   data: unknown,
@@ -245,6 +309,7 @@ const ArousalGraph = ({
   setTocIndex,
   setPage,
   images,
+  missedAndImportantParts,
 }: {
   data: any;
   handleAudioRef: any;
@@ -264,6 +329,7 @@ const ArousalGraph = ({
   setTocIndex: any;
   setPage: any;
   images: any;
+  missedAndImportantParts: any;
 }) => {
   const gridMode = useRecoilValue(gridModeState);
 
@@ -428,6 +494,50 @@ const ArousalGraph = ({
           interval={0}
           height={15}
         />
+        <Customized
+          component={
+            <CustomRectangle
+              pageStartTime={calculateScalingFactor(pageStartTime)}
+              pageEndTime={calculateScalingFactor(pageEndTime)}
+            />
+          }
+        />
+        {hoverState.hoverPosition !== null && (
+          <Customized
+            component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+          />
+        )}
+        {missedAndImportantParts?.missed.map((part: any) => {
+          // horizontal line
+          return (
+            <Customized
+              component={
+                <HorizontalLine
+                  x1={calculateScalingFactor(part[0])}
+                  x2={calculateScalingFactor(part[1])}
+                  color={"red"}
+                  y={180}
+                />
+              }
+            />
+          );
+        })}
+        {missedAndImportantParts?.important.map((part: any) => {
+          // horizontal line
+          return (
+            <Customized
+              component={
+                <HorizontalLine
+                  x1={calculateScalingFactor(part[0])}
+                  x2={calculateScalingFactor(part[1])}
+                  color={"green"}
+                  y={177}
+                />
+              }
+            />
+          );
+        })}
+        <Legend verticalAlign="top" content={<CustomLegend />} />
       </LineChart>
     </ResponsiveContainer>
   );

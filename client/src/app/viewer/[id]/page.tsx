@@ -787,6 +787,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const [prosodyData, setProsodyData] = useState<any>(null);
+  const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
     "Part for taking away",
     "Excitement",
@@ -889,6 +890,17 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
+  // Missed and Important Parts 정보를 가져오는 함수
+  const fetchMissedAndImportantParts = async () => {
+    try{
+      const result = await getMissedAndImportantParts(params.id);
+      console.log("Missed and Important Parts:", result);
+      setMisssedAndImportantParts(result);
+    }catch(error){
+      console.error("Failed to fetch missed data:", error);
+    }
+  };
+
   const findPage = (time: number): number => {
     if (pageInfo === null) {
       return 0;
@@ -924,6 +936,7 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchTableOfContents();
     fetchProsody();
     fetchPageInfo();
+    fetchMissedAndImportantParts();
   }, []);
 
   useEffect(() => {
@@ -1707,6 +1720,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   setTocIndex={setTocIndex}
                   setPage={setPage}
                   images={images}
+                  missedAndImportantParts={missedAndImportantParts}
                 />
                 <audio ref={audioRef} />
                 <progress className="w-full rounded-lg" ref={progressRef} />
