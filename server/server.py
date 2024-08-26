@@ -1148,8 +1148,16 @@ async def get_lassos_on_page(project_id: int, page_num: int):
     if not os.path.exists(lasso_path):
         raise HTTPException(status_code=404, detail="Page not found")
 
-    lasso_ids = [f for f in os.listdir(lasso_path) if os.path.isdir(os.path.join(lasso_path, f))]
-    return lasso_ids
+    lasso_pairs = []
+    for f in os.listdir(lasso_path):
+        if os.path.isdir(os.path.join(lasso_path, f)):
+            info_json_path = os.path.join(lasso_path, f, "info.json")
+            if not os.path.exists(info_json_path):
+                continue
+            with open(info_json_path, "r") as json_file:
+                lasso_info = json.load(json_file)
+                lasso_pairs.append({"lasso_id": f, "name": lasso_info["name"]})
+    return lasso_pairs
 
 class Lasso_Query_Data(BaseModel):
     project_id: int

@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -174,7 +174,7 @@ function ReviewPage({
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const [mode, setMode] = useState("script");
-  const lassos = useRef<number[]>([]);
+  const lassos = useRef<{lasso_id: number, name: string}[]>([]);
   const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
   const answers = useRef<string[]>([]);
 
@@ -207,8 +207,8 @@ function ReviewPage({
   useEffect(() => {
     const fetchLassos = async () => {
       console.log("fetching lassos");
-      const response: number[] = await getLassosOnPage(projectId, page);
-      lassos.current = response.sort((a, b) => b - a);
+      const response: {lasso_id: number, name: string}[] = await getLassosOnPage(projectId, page);
+      lassos.current = response.sort((a, b) => b.lasso_id - a.lasso_id);
     }
 
     const fetchPrompts = async () => {
@@ -250,22 +250,22 @@ function ReviewPage({
 
     fetchAnswers();
     
-  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode, setRerenderFlag]);
 
   const lassoTabElements = () => {    
     return (
       <>
-        {lassos.current.map((lassoNum, idx) => {
+        {lassos.current.map((lasso, idx) => {
           const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
             (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-400/50");  
            
           return (
             <>
               <div className={className}
-                onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lassoNum)}}
+                onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lasso.lasso_id)}}
                 key={"sublasso-"+idx}
               >
-                {lassoNum}
+                {idx === activePromptIndex[0] ? lasso.name : lasso.name.slice(0, 5) + "..."}
               </div>
             </>
           )

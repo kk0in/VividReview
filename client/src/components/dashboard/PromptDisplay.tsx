@@ -9,10 +9,46 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
 
   const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
 
+  const convertWhiteSpaces = (text: string) => {
+    return text.replace(/  /g, "\u00a0\u00a0");
+  };
+
+  const convertStrongSymbols = (text: string) => {
+    return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  };
+
+  const convertLineEscapes = (text: string) => {
+    return text.replace(/\n/g, "<br />");
+  };
+
+  const convertListSymbols = (text: string) => {
+    return text.replace(/- (.*?)(\n|$)/g, "• $1\n");
+  };
+
+  const highlightKeywords = (text: string, keywords: string[]) => {
+    let result = text;
+    for (const keyword of keywords) {
+      result = result.replace(
+        new RegExp(keyword, "gi"),
+        (text) => `<span class="text-red-600 font-bold">${text}</span>`
+      );
+    }
+    return result;
+  };
+
+  const preprocessText = (text: string, keywords: string[]) => {
+    let processedHTML = convertListSymbols(text);
+    processedHTML = convertLineEscapes(processedHTML);
+    processedHTML = convertStrongSymbols(processedHTML);
+    processedHTML = convertWhiteSpaces(processedHTML);
+    processedHTML = highlightKeywords(processedHTML, keywords);
+    return processedHTML;
+  };
+
   return (
     <>
       <div>
-        {showFlag ? props.answers[activePromptIndex[2]] : ""}
+        {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []) : ""}
       </div>
       <div className="control-buttons">
         {activePromptIndex[2] > 0 && (
