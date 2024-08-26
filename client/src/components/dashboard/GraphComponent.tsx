@@ -72,7 +72,7 @@ export const ToggleSwitch = ({
           }}
         />
       </div>
-      <span style={{ marginLeft: 8, color: "#333", fontSize: "12px" }}>
+      <span style={{ marginLeft: 8, color: "#333", fontSize: "14px" }}>
         {label}
       </span>
     </label>
