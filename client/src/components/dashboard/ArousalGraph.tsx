@@ -13,7 +13,11 @@ import {
 } from "recharts";
 import { gridModeState } from "@/app/recoil/ToolState";
 
-const processData = (data: any, positiveEmotion: string[], negativeEmotion: string[]) => {
+const processData = (
+  data: any,
+  positiveEmotion: string[],
+  negativeEmotion: string[]
+) => {
   return data.map((d: any) => {
     const begin = parseFloat(d.begin);
     const end = parseFloat(d.end);
@@ -37,11 +41,13 @@ const processData = (data: any, positiveEmotion: string[], negativeEmotion: stri
 };
 
 const processPageInfo = (pageInfo: any) => {
-  const timeToPagesMap = Object.keys(pageInfo).map((page: any) => ({
-    start: parseFloat(pageInfo[page].start),
-    end: parseFloat(pageInfo[page].end),
-    page: parseInt(page, 10),
-  }));
+  const timeToPagesMap = pageInfo
+    ? Object.keys(pageInfo).map((page: any) => ({
+        start: parseFloat(pageInfo[page].start),
+        end: parseFloat(pageInfo[page].end),
+        page: parseInt(page, 10),
+      }))
+    : [];
   return timeToPagesMap;
 };
 
@@ -64,13 +70,6 @@ const processTableOfContents = (tableOfContents: any) => {
   return pageToTitleSubtitleMap;
 };
 
-const findPageNumber = (ranges: any[], value: number) => {
-  const range = ranges.find(
-    (range: any) => range.start <= value && range.end > value
-  );
-  return range ? range.page : null;
-};
-
 const CustomRectangle = ({
   pageStartTime,
   pageEndTime,
@@ -89,25 +88,50 @@ const CustomRectangle = ({
   );
 };
 
+const calculateStartAndEnd = (
+  pageKey: number | string,
+  gridMode: number,
+  pageInfo: any,
+  pages: any[]
+) => {
+  let start: number = 0;
+  let end: number = 0;
+  switch (gridMode) {
+    case 0:
+      if (pageInfo && pageInfo[pageKey]) {
+        start = pageInfo[pageKey].start;
+        end = pageInfo[pageKey].end;
+      }
+      break;
+    default:
+      if (pageInfo && pageInfo[pages[0]] && pageInfo[pages[pages.length - 1]]) {
+        start = pageInfo[pages[0]].start;
+        end = pageInfo[pages[pages.length - 1]].end;
+      }
+      break;
+  }
+  return { start, end };
+};
+
 const CustomXAxisTick = ({
   x,
   y,
   payload,
   currentXTick,
   tableOfContentsMap,
-  timeToPagesMap,
   graphWidth,
+  findPage,
 }: {
   x: number;
   y: number;
   payload: any;
   currentXTick: number;
   tableOfContentsMap: any;
-  timeToPagesMap: any;
   graphWidth: number;
+  findPage: any;
 }) => {
   const titleSubtitle = tableOfContentsMap[currentXTick];
-  const pageNumber = findPageNumber(timeToPagesMap, payload.value);
+  const pageNumber = findPage(payload.value);
 
   if (titleSubtitle && pageNumber === currentXTick) {
     const { subtitle } = titleSubtitle;
@@ -117,9 +141,7 @@ const CustomXAxisTick = ({
     let textAnchor = willTextOverflowRight ? "end" : "start";
 
     return (
-      <g
-        transform={`translate(${x},${y})`}
-      >
+      <g transform={`translate(${x},${y})`}>
         <text
           x={0}
           y={0}
@@ -137,64 +159,71 @@ const CustomXAxisTick = ({
   return null;
 };
 
-const VerticalLine = ({
-  x,
-}: {
-  x: number;
-}) => (
-    <line
-      x1={x}
-      y1={0}
-      x2={x}
-      y2={180}
-      stroke="#008014"
-      strokeWidth={3}  // Reduced thickness
-      opacity={0.5}    // Added opacity for transparency
-    />
+const VerticalLine = ({ x }: { x: number }) => (
+  <line
+    x1={x}
+    y1={0}
+    x2={x}
+    y2={180}
+    stroke="#008014"
+    strokeWidth={3} // Reduced thickness
+    opacity={0.5} // Added opacity for transparency
+  />
 );
-
 
 const ArousalGraph = ({
   data,
-  onPointClick,
+  handleAudioRef,
   positiveEmotion,
   negativeEmotion,
   page,
   pages,
   pageInfo,
+  progressRef,
   tableOfContents,
   graphWidth,
   findPage,
   findTocIndex,
   tocIndex,
+  hoverState,
+  setHoverState,
   setTocIndex,
   setPage,
 }: {
   data: any;
-  onPointClick: any;
+  handleAudioRef: any;
   positiveEmotion: string[];
   negativeEmotion: string[];
   page: number;
   pages: number[];
   pageInfo: any;
+  progressRef: any;
   tableOfContents: any;
   graphWidth: number;
   findPage: any;
   findTocIndex: any;
   tocIndex: any;
+  hoverState: any;
+  setHoverState: any;
   setTocIndex: any;
   setPage: any;
 }) => {
   const validData = Array.isArray(data) ? data : [];
   const gridMode = useRecoilValue(gridModeState);
 
-  const processedData = processData(validData, positiveEmotion, negativeEmotion);
-  const timeToPagesMap = useMemo(() => processPageInfo(pageInfo), [pageInfo]);
+  const processedData = processData(
+    validData,
+    positiveEmotion,
+    negativeEmotion
+  );
+  const ticks_ = useMemo(
+    () => processPageInfo(pageInfo).map((page: any) => page.start),
+    [pageInfo]
+  );
   const tableOfContentsMap = useMemo(
     () => processTableOfContents(tableOfContents),
     [tableOfContents]
   );
-  const ticks_ = timeToPagesMap.map((page: any) => page.start);
   const yValues = processedData.flatMap((data: any) => [
     data.positive_score,
     data.negative_score,
@@ -211,42 +240,39 @@ const ArousalGraph = ({
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
-  const [activeLabel, setActiveLabel] = useState(0);
-
   const [currentXTick, setCurrentXTick] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
-  const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
   const calculateScalingFactor = (data: any) => {
     return (graphWidth * data) / maxX;
   };
 
   useEffect(() => {
-    const page = findPageNumber(timeToPagesMap, activeLabel);
+    const page = findPage(hoverState.activeLabel);
     if (page) {
       setCurrentXTick(page);
     }
-  }, [activeLabel]);
+  }, [hoverState.activeLabel]);
+
+  const handleMouseDown = (e: any) => {
+    handleAudioRef(e.activePayload[0].payload);
+    setHoverState({
+      hoverPosition: e.chartX,
+      hoverTime: e.activePayload[0].payload.begin,
+      activeLabel: e.activeLabel,
+    });
+    setIsMouseDown(true);
+  };
 
   const handleMouseMove = (e: any) => {
     if (e && e.activeLabel && isMouseDown) {
-      setActiveLabel(e.activeLabel);
-      onPointClick(e.activePayload[0].payload);
-      setHoverPosition(e.chartX);
+      setHoverState({
+        hoverPosition: e.chartX,
+        hoverTime: e.activePayload[0].payload.begin,
+        activeLabel: e.activeLabel,
+      });
+      handleAudioRef(e.activePayload[0].payload);
     }
-  };
-
-  const handleMouseLeave = () => {
-    if(isMouseDown) {
-    setActiveLabel(0);
-    setHoverPosition(null);
-    }
-  };
-
-  const handleMouseDown = (e: any) => {
-    console.log("Mouse down", e.activePayload[0].payload);
-    onPointClick(e.activePayload[0].payload);
-    setIsMouseDown(true);
   };
 
   const handleMouseUp = (e: any) => {
@@ -257,42 +283,38 @@ const ArousalGraph = ({
       newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
       newPage > 0 && setPage(newPage);
 
-      onPointClick(e.activePayload[0].payload);
+      handleAudioRef(e.activePayload[0].payload);
       setIsMouseDown(false);
     }
   };
-
   useEffect(() => {
-    let start: number = 0;
-    let end: number = 0;
-    switch (gridMode) {
-      case 0:
-        if (pageInfo && pageInfo[page]) {
-          start = pageInfo[page].start;
-          end = pageInfo[page].end;
-        }
-        break;
-      default:
-        if (
-          pageInfo &&
-          pageInfo[pages[0]] &&
-          pageInfo[pages[pages.length - 1]]
-        ) {
-          start = pageInfo[pages[0]].start;
-          end = pageInfo[pages[pages.length - 1]].end;
-        }
-        break;
-    }
+    const { start, end } = calculateStartAndEnd(
+      page,
+      gridMode,
+      pageInfo,
+      pages
+    );
     setpageStartTime(start);
     setpageEndTime(end);
   }, [pages, page, gridMode]);
+
+  useEffect(() => {
+    const page_ = findPage(hoverState.hoverTime || 0);
+    const { start, end } = calculateStartAndEnd(
+      page_,
+      gridMode,
+      pageInfo,
+      pages
+    );
+    setpageStartTime(start);
+    setpageEndTime(end);
+  }, [hoverState.hoverTime]);
 
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart
         data={processedData}
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
       >
@@ -306,9 +328,8 @@ const ArousalGraph = ({
               {...props}
               currentXTick={currentXTick}
               tableOfContentsMap={tableOfContentsMap}
-              timeToPagesMap={timeToPagesMap}
               graphWidth={graphWidth}
-              
+              findPage={findPage}
             />
           )}
           tickLine={false}
@@ -337,13 +358,9 @@ const ArousalGraph = ({
             />
           }
         />
-        {hoverPosition !== null && (
+        {hoverState.hoverPosition !== null && (
           <Customized
-            component={
-              <VerticalLine
-                x={hoverPosition}
-              />
-            }
+            component={<VerticalLine x={hoverState.hoverPosition} />}
           />
         )}
       </LineChart>
