@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
@@ -22,6 +22,14 @@ import {
   playerRequestState,
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
+import {
+  focusedLassoState,
+  reloadFlagState,
+  rerenderFlagState,
+  activePromptState,
+  defaultPrompts
+} from "@/app/recoil/LassoState";
+import PromptDisplay from "@/components/dashboard/PromptDisplay";
 
 import { Pie } from 'react-chartjs-2';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -146,6 +154,7 @@ function ReviewPage({
   const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
@@ -157,6 +166,13 @@ function ReviewPage({
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
+  const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
+  const [mode, setMode] = useState("script");
+  const lassos = useRef<number[]>([]);
+  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
+  const answers = useRef<string[]>([]);
 
   const subTabs: TabProps[] = [
     {
@@ -173,18 +189,101 @@ function ReviewPage({
     },
   ];
 
-  let i = 0;
   const subTabElements = subTabs.map((tab, idx) => {
-    const className =
-      "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-      (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (idx === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
 
     return (
       <div className={className} onClick={tab.onClick} key={"subtab-" + idx}>
         {tab.title}
       </div>
     );
-  });
+  })
+
+  useEffect(() => {
+    const fetchLassos = async () => {
+      console.log("fetching lassos");
+      const response: number[] = await getLassosOnPage(projectId, page);
+      lassos.current = response.sort((a, b) => b - a);
+    }
+
+    const fetchPrompts = async () => {
+      fetchLassos();
+      if(focusedLasso === null){
+        console.log("focus lasso is null");
+        prompts.current = defaultPrompts.map((prompt) => prompt.prompt);
+        return;
+      }
+      console.log("fetching prompts");
+
+      const response = await lassoPrompts(projectId, page, focusedLasso);
+      prompts.current = response;
+    }
+
+    const fetchAnswers = async () => {
+      fetchPrompts();
+
+      if(focusedLasso === null) {
+        console.log("focus lasso is null");
+        answers.current = [];
+        return;
+      }
+      
+      console.log("fetching answers");
+
+      try {
+        console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
+        const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        console.log("fetched answers", response);
+        answers.current = response.map((result: {caption: string, result: string}) => result.result);
+        console.log("mapped answers", answers.current);
+      } catch (e) {
+        console.log("Failed to fetch answers:", e);
+        answers.current = [];
+      }
+      setRerenderFlag((prev) => !prev);
+    }
+
+    fetchAnswers();
+    
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode]);
+
+  const promptTabElements = () => {    
+    return (
+      <>
+        {lassos.current.map((lassoNum, idx) => {
+          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+            (idx === activePromptIndex[0] ? "bg-gray-300/50" : "bg-gray-300");
+          
+          return (
+            <>
+              <div className={className}
+                onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lassoNum)}}
+                key={"sublasso-"+idx}
+              >
+                {lassoNum}
+              </div>
+            </>
+          )
+        })}
+        {focusedLasso !== null && prompts.current.map((prompt, idx) => {
+          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+            (idx === activePromptIndex[1] ? "bg-gray-300/50" : "bg-gray-300");
+          
+          return (
+            <>
+              <div className={className}
+                onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+                key={"subprompt-"+idx}
+              >
+                {prompt}
+              </div>
+            </>
+          )
+        })}
+      </>
+    );
+  };
 
   const findPage = (time: number): number => {
     if (pageInfo === null) {
@@ -738,15 +837,36 @@ function ReviewPage({
   //   fetchSearchResults();
   // }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
+  const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
+  const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
+  const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
+  const unfocusedPrompts = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 py-1 px-4 font-bold";
+
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
-      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
-        Script
+      <div className="flex">
+        <div className={mode === "script" ? focusedScript : unfocusedScript} onClick={() => setMode("script")}>
+          Script
+        </div>
+        <div className={mode === "prompts" ? focusedPrompts : unfocusedPrompts} onClick={() => setMode("prompts")}>
+          Prompts
+        </div>
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row">{subTabElements}</div>
+        <div className="flex flex-row">
+          {mode === "script" ? subTabElements : promptTabElements()}
+        </div>
         <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {paragraph}
+          {mode === "script" ? paragraph :
+            <PromptDisplay
+              answers={answers.current}
+              projectId={projectId}
+              page={page}
+              focusedLasso={focusedLasso!}
+              prompts={prompts.current}
+              rerenderFlag={rerenderFlag}
+            />
+          }
         </div>
       </div>
     </div>
@@ -770,6 +890,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
   const [hoverState, setHoverState] = useState<{

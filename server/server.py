@@ -5,6 +5,7 @@ import math
 import os
 import shutil
 import zipfile
+import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
@@ -1020,14 +1021,17 @@ def get_script_times_by_segment(script_text, segment_timestamp, start_time):
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
-@app.post("/api/lasso_transform/")
+class LassoTransformData(BaseModel):
+    prompt_text: str
+    transform_type: str
+
+@app.post("/api/lasso_transform/{project_id}/{page_num}/{lasso_id}/{version}", status_code=200)
 async def lasso_transform(
     project_id: int,
     page_num: int,
     lasso_id: int,
     version: int,
-    prompt_text: str,
-    transform_type: str,
+    data: LassoTransformData
 ):
     """
     lasso_answer에 대해 다양한 버전을 생성하는 API.
@@ -1045,7 +1049,7 @@ async def lasso_transform(
         str(project_id),
         str(page_num),
         str(lasso_id),
-        sanitize_filename(prompt_text),
+        sanitize_filename(data.prompt_text),
     )
     result_json_path = os.path.join(result_path, f"{version}.json")
 
@@ -1057,7 +1061,7 @@ async def lasso_transform(
 
     # 변환된 버전을 생성
     try:
-        transformed_answer = await transform_lasso_answer(lasso_answer, transform_type)
+        transformed_answer = await transform_lasso_answer(lasso_answer, data.transform_type)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error during transforming lasso answer: {e}"
@@ -1070,9 +1074,82 @@ async def lasso_transform(
         json.dump(transformed_answer, json_file, indent=4)
 
     return {
-        "message": f"Lasso answer transformed successfully. Version: {version_count}"
+        "message": f"Lasso answer transformed successfully. Version: {version_count}",
+        "version": version_count
     }
 
+
+@app.get("/api/lasso_prompts/")
+async def lasso_prompts(project_id: int, page_num: int, lasso_id: int):
+    """
+    특정 Lasso ID에 대한 모든 프롬프트 텍스트를 반환하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    """
+
+    lasso_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Lasso ID not found")
+    
+    prompt_texts = []
+
+    info_json_path = os.path.join(lasso_path, "info.json")
+    with open(info_json_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        prompt_texts = lasso_info["prompts"]
+    
+    return prompt_texts
+
+
+class AddPromptData(BaseModel):
+    project_id: int
+    page_num: int
+    lasso_id: int
+    prompt_text: str
+
+@app.post("/api/add_lasso_prompt/")
+async def add_lasso_prompt(data: AddPromptData):
+    """
+    특정 Lasso ID에 대한 프롬프트 텍스트를 추가하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    :param prompt_text: 추가할 프롬프트 텍스트
+    """
+
+    lasso_path = os.path.join(LASSO, str(data.project_id), str(data.page_num), str(data.lasso_id))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Lasso ID not found")
+
+    info_json_path = os.path.join(lasso_path, "info.json")
+    with open(info_json_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        lasso_info["prompts"].append(data.prompt_text)
+
+    with open(info_json_path, "w") as json_file:
+        json.dump(lasso_info, json_file, indent=4)
+
+    return {"message": "Prompt text added successfully"}
+
+
+@app.get("/api/get_lassos_on_page/{project_id}/{page_num}")
+async def get_lassos_on_page(project_id: int, page_num: int):
+    """
+    특정 페이지에 대한 모든 Lasso ID를 반환하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    """
+
+    lasso_path = os.path.join(LASSO, str(project_id), str(page_num))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    lasso_ids = [f for f in os.listdir(lasso_path) if os.path.isdir(os.path.join(lasso_path, f))]
+    return lasso_ids
 
 class Lasso_Query_Data(BaseModel):
     project_id: int
@@ -1114,7 +1191,7 @@ async def lasso_query(data: Lasso_Query_Data):
 
     if cur_lasso_id is None:
         caption = lasso_answer.get("caption", "untitled")
-        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url}
+        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url, "prompts": ["summarize", "translate to korean"]}
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
@@ -1302,6 +1379,67 @@ async def get_lasso_answer(
         )
 
     return lasso_answer_data
+
+@app.get("/api/get_lasso_answers/{project_id}/{page_num}/{lasso_id}", status_code=200)
+async def get_lasso_answer(
+    project_id: int, page_num: int, lasso_id: int, prompt_text: str
+):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 답변을 모두 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 prompt_text에 해당하는 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    :param prompt_text: prompt_text
+    """
+
+    lasso_answer_path = os.path.join(
+        LASSO,
+        str(project_id),
+        str(page_num),
+        str(lasso_id), 
+        sanitize_filename(prompt_text),
+    )
+
+    if not os.path.exists(lasso_answer_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+    
+    answers = []
+
+    for file in os.listdir(lasso_answer_path):
+        if file.endswith(".json"):
+            with open(os.path.join(lasso_answer_path, file), "r") as lasso_answer_file:
+                lasso_answer_data = json.load(lasso_answer_file)
+                answers.append(lasso_answer_data)
+        
+    return answers
+
+@app.get("/api/get_lasso_info/{project_id}/{page_num}/{lasso_id}", status_code=200)
+async def get_lasso_info(project_id: int, page_num: int, lasso_id: int):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 정보를 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 info.json 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    """
+
+    lasso_info_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id), "info.json")
+
+    if not os.path.exists(lasso_info_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(lasso_info_path, "r") as lasso_info_file:
+            lasso_info_data = json.load(lasso_info_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading lasso info file: {e}"
+        )
+
+    return lasso_info_data
 
 
 @app.get("/api/get_search_result/{project_id}", status_code=200)
