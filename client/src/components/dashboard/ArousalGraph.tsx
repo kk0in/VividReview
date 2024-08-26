@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Customized,
   Rectangle,
-  ReferenceDot,
+  Legend,
 } from "recharts";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { CategoricalChartFunc } from "recharts/types/chart/generateCategoricalChart";
@@ -196,9 +196,30 @@ const HorizontalLine = ({
   return <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={3} />;
 };
 
-const CustomLegend = () => {
+const CustomLegend = (props) => {
+  const FONT_COLOR = "#333";
+  const FONT_SIZE = "10px";
+  const { payload } = props;
   return (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+    <div
+      style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}
+    >
+      {payload.map((entry, index) => (
+        <div
+          key={`item-${index}`}
+          style={{ display: "flex", alignItems: "center", marginRight: 20 }}
+        >
+          <div
+            style={{
+              width: 20,
+              height: 3,
+              backgroundColor: entry.color,
+              marginRight: 5,
+            }}
+          />
+          <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>{entry.value}</span>
+        </div>
+      ))}
       <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
         <div
           style={{
@@ -208,7 +229,7 @@ const CustomLegend = () => {
             marginRight: 5,
           }}
         />
-        <span>Missed Part</span>
+        <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>Missed Part</span>
       </div>
       <div style={{ display: "flex", alignItems: "center" }}>
         <div
@@ -219,7 +240,7 @@ const CustomLegend = () => {
             marginRight: 5,
           }}
         />
-        <span>Important Part</span>
+        <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>Important Part</span>
       </div>
     </div>
   );
@@ -477,7 +498,12 @@ const ArousalGraph = ({
           return (
             <Customized
               component={
-                <HorizontalLine x1={calculateScalingFactor(part[0])} x2={calculateScalingFactor(part[1])} color={"red"} y={180} />
+                <HorizontalLine
+                  x1={calculateScalingFactor(part[0])}
+                  x2={calculateScalingFactor(part[1])}
+                  color={"red"}
+                  y={180}
+                />
               }
             />
           );
@@ -487,11 +513,17 @@ const ArousalGraph = ({
           return (
             <Customized
               component={
-                <HorizontalLine x1={calculateScalingFactor(part[0])} x2={calculateScalingFactor(part[1])} color={"green"} y={177} />
+                <HorizontalLine
+                  x1={calculateScalingFactor(part[0])}
+                  x2={calculateScalingFactor(part[1])}
+                  color={"green"}
+                  y={177}
+                />
               }
             />
           );
         })}
+        <Legend verticalAlign="top" content={<CustomLegend />} />
       </LineChart>
     </ResponsiveContainer>
   );
