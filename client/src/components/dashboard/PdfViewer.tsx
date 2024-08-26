@@ -234,7 +234,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     const startXRef = { current: null as number | null };
 
     const viewer = viewerRef.current;
-    if (viewer) {
+    if (viewer && (selectedTool !== "eraser" && selectedTool !== "pencil" && selectedTool !== "highlighter")) {
       viewer.addEventListener("touchstart", handleTouchStart);
       viewer.addEventListener("touchmove", handleTouchMove);
     }
@@ -245,7 +245,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         viewer.removeEventListener("touchmove", handleTouchMove);
       }
     };
-  }, [goToNextPage, goToPreviousPage, numPages]);
+  }, [goToNextPage, goToPreviousPage, numPages, selectedTool]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -262,7 +262,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     let startY = 0;
     // let highlightColor = "rgba(255, 255, 0, 0.1)";
 
-    const startDrawing = (event: MouseEvent) => {
+    const startDrawing = (event: MouseEvent | TouchEvent) => {
       if (selectedTool === "pencil" || selectedTool === "highlighter") {
         const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
         const layerContext = layerCanvas.getContext("2d");
@@ -271,8 +271,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           const rect = layerCanvas.getBoundingClientRect();
           const scaleX = layerCanvas.width / rect.width;
           const scaleY = layerCanvas.height / rect.height;
-          const x = (event.clientX - rect.left) * scaleX;
-          const y = (event.clientY - rect.top) * scaleY;
+          const x = ((event instanceof MouseEvent ? event.clientX : event.changedTouches[0].clientX) - rect.left) * scaleX;
+          const y = ((event instanceof MouseEvent ? event.clientY : event.changedTouches[0].clientY) - rect.top) * scaleY;
           layerContext.beginPath();
           layerContext.moveTo(x, y);
           if (selectedTool === "highlighter") {
@@ -301,15 +301,16 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
     };
     
-    const draw = (event: MouseEvent) => {
+    const draw = (event: MouseEvent | TouchEvent) => {
       const topCanvas = drawingsRef.current.find((layer) => layer.id === topLayer)?.canvas;
       const topContext = topCanvas?.getContext("2d");
       if (!topCanvas || !topContext || !drawing) return;
       const rect = topCanvas.getBoundingClientRect();
       const scaleX = topCanvas.width / rect.width;
       const scaleY = topCanvas.height / rect.height;
-      const x = (event.clientX - rect.left) * scaleX;
-      const y = (event.clientY - rect.top) * scaleY;
+      
+      const x = ((event instanceof MouseEvent ? event.clientX : event.changedTouches[0].clientX) - rect.left) * scaleX;
+      const y = ((event instanceof MouseEvent ? event.clientY : event.changedTouches[0].clientY) - rect.top) * scaleY;
       topContext.lineTo(x, y);
       topContext.stroke();
     };
@@ -336,13 +337,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       setHistory((prev) => [...prev, drawingsRef.current]);
     };
     
-    const erase = (event: MouseEvent) => {
+    const erase = (event: MouseEvent | TouchEvent) => {
       if ((selectedTool !== "eraser") || !erasing) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const x = (event.clientX - rect.left) * scaleX;
-      const y = (event.clientY - rect.top) * scaleY;
+      const x = ((event instanceof MouseEvent ? event.clientX : event.changedTouches[0].clientX) - rect.left) * scaleX;
+      const y = ((event instanceof MouseEvent ? event.clientY : event.changedTouches[0].clientY) - rect.top) * scaleY;
       for(const layer of drawingsRef.current) {
         const layerContext = layer.canvas.getContext("2d");
         if(layerContext){
@@ -351,7 +352,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
     };
     
-    const handleMouseMove = (event: MouseEvent) => {
+    const handleMouseMove = (event: MouseEvent | TouchEvent) => {
       if (selectedTool === "eraser") {
         erase(event);
       } else {
@@ -359,16 +360,28 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
     };
     
+    // For mouse events
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseout", stopDrawing);
+
+    // For touch events
+    canvas.addEventListener("touchstart", startDrawing);
+    canvas.addEventListener("touchmove", handleMouseMove);
+    canvas.addEventListener("touchend", stopDrawing);
     
     return () => {
+      // For mouse events
       canvas.removeEventListener("mousedown", startDrawing);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseup", stopDrawing);
       canvas.removeEventListener("mouseout", stopDrawing);
+
+      // For touch events
+      canvas.removeEventListener("touchstart", startDrawing);
+      canvas.removeEventListener("touchmove", handleMouseMove);
+      canvas.removeEventListener("touchend", stopDrawing);
     };
   }, [selectedTool, pageNumber, projectId, makeNewCanvas, setHistory]);
 

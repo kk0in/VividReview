@@ -152,6 +152,7 @@ function ReviewPage({
     start: 0,
     end: 0,
   });
+  const [lastOffsetX, setLastOffsetX] = useState(0);
   const [bboxList, setBboxList] = useState<any[]>([]);
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
@@ -404,64 +405,95 @@ function ReviewPage({
   }, [audioRef.current?.currentTime, isMouseDown, gridMode, page]);
 
   useEffect(() => {
-    if (progressRef.current === null) {
+    if (progressRef.current === null || audioRef.current === null) {
       return;
     }
 
-    const getNewProgressValue = (event: MouseEvent) => {
-      return (
-        (event.offsetX / progressRef.current!.offsetWidth) *
-        audioRef.current!.duration
-      );
+    const progress = progressRef.current;
+    const audio = audioRef.current;
+
+    const getOffsetX = (event: MouseEvent | TouchEvent) => {
+      const offsetX = event instanceof MouseEvent ? event.offsetX : event.targetTouches[0].clientX - progressRef.current!.offsetLeft;
+      setLastOffsetX(offsetX);
+      return offsetX;
+    }
+
+    const getNewProgressValue = (offsetX : number) => {
+      return offsetX / progress.offsetWidth * audio.duration;
     };
 
-    progressRef.current.onmousedown = (event) => {
+    const handleMouseDown = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
-      console.log("mousedown", event.offsetX);
-      progressRef.current!.value = getNewProgressValue(event);
+      const offsetX = getOffsetX(event);
+      console.log("mousedown", offsetX);
+      progress.value = getNewProgressValue(offsetX);
       setIsMouseDown(true);
       setHoverState({
-        hoverPosition: event.offsetX,
-        hoverTime: progressRef.current?.value,
-        activeLabel: progressRef.current?.value,
+        hoverPosition: offsetX,
+        hoverTime: progress.value,
+        activeLabel: progress.value,
       });
     };
 
-    progressRef.current.onmousemove = (event) => {
-      if (isMouseDown && progressRef.current) {
-        progressRef.current.value = getNewProgressValue(event);
+    const handleMouseMove = (event: MouseEvent | TouchEvent) => {
+      if (isMouseDown && progress) {
+        const offsetX = getOffsetX(event);
+        progress.value = getNewProgressValue(offsetX);
         setHoverState({
-          hoverPosition: event.offsetX,
-          hoverTime: progressRef.current.value,
-          activeLabel: progressRef.current.value,
+          hoverPosition: offsetX,
+          hoverTime: progress.value,
+          activeLabel: progress.value,
         });
       }
-    };
+    }
 
-    progressRef.current.onmouseup = (event) => {
+    const handleMouseUp = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
       if (isMouseDown) {
-        console.log("mouseup", progressRef.current!.offsetWidth, event.offsetX);
-        const timeValue = getNewProgressValue(event);
+        const offsetX = lastOffsetX;
+        console.log("mouseup", progress!.offsetWidth, offsetX);
+        const timeValue = getNewProgressValue(offsetX);
         const newPage = findPage(timeValue);
         const newTocIndex = findTocIndex(newPage);
         newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
         newPage > 0 && setPage(newPage);
 
-        audioRef.current!.currentTime = timeValue;
+        audio.currentTime = timeValue;
         setHoverState({
-          hoverPosition: event.offsetX,
+          hoverPosition: offsetX,
           hoverTime: timeValue,
           activeLabel: timeValue,
         });
         setIsMouseDown(false);
       }
-    };
+    }
+
+    // For mouse events
+    progress.addEventListener("mousedown", handleMouseDown);
+    progress.addEventListener("mousemove", handleMouseMove);
+    progress.addEventListener("mouseup", handleMouseUp);
+
+    // For touch events
+    progress.addEventListener("touchstart", handleMouseDown);
+    progress.addEventListener("touchmove", handleMouseMove);
+    progress.addEventListener("touchend", handleMouseUp);
 
     window.onmouseup = () => {
       setIsMouseDown(false);
     };
-  }, [progressRef, isMouseDown]);
+
+    return () => {
+      // For mouse events
+      progress.removeEventListener("mousedown", handleMouseDown);
+      progress.removeEventListener("mousemove", handleMouseMove);
+      progress.removeEventListener("mouseup", handleMouseUp);
+
+      // For touch events
+      progress.removeEventListener("touchstart", handleMouseDown);
+      progress.removeEventListener("touchmove", handleMouseMove);
+      progress.removeEventListener("touchend", handleMouseUp);
+    }
+  }, [isMouseDown, lastOffsetX]);
 
   useEffect(() => {
     const newTimeline = { start: 0, end: 0 };
