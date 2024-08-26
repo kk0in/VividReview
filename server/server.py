@@ -1522,7 +1522,7 @@ async def get_page_info(project_id: int):
     return page_info_data["pages"]
 
 @app.get("/api/get_images/{project_id}", status_code=200)
-async def get_images(project_id: int):
+async def get_images(project_id: int, image_type: str):
     """
     특정 프로젝트 ID에 해당하는 이미지 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID에 해당하는 이미지 파일을 찾아 반환합니다.
@@ -1530,9 +1530,7 @@ async def get_images(project_id: int):
     :param project_id: 프로젝트 ID
     """
 
-    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
-
-
+    image_directory = os.path.join(IMAGE, str(project_id), str(image_type))
     if not os.path.exists(image_directory):
         raise HTTPException(status_code=404, detail="Image files not found")
 
@@ -1628,7 +1626,7 @@ async def get_bbox(project_id: int, page_num: int):
     """
     bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
     image_path = os.path.join(
-        IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png"
+        IMAGE, str(project_id), "raw", f"page_{str(page_num).zfill(4)}.png"
     )
 
     image = Image.open(image_path)
@@ -2153,12 +2151,12 @@ async def upload_project(
     with open(metadata_file_path, "w") as f:
         json.dump(metadata, f)
 
-    image_dir = os.path.join(IMAGE, str(id))
+    image_dir = os.path.join(IMAGE, str(id), "raw")
     os.makedirs(image_dir, exist_ok=True)
     images = convert_from_path(pdf_file_path)
 
     for i, image in enumerate(images):
-        image_path = os.path.join(IMAGE, str(id), f"page_{i + 1:04}.png")
+        image_path = os.path.join(image_dir, f"page_{i + 1:04}.png")
         image.save(image_path, "PNG")
 
     # OpenAI GPT API를 호출하여 목차 생성

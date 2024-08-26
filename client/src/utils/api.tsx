@@ -212,8 +212,21 @@ export async function getProsody({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
-export async function getImages(projectId: string) {
-    const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`);
+export async function getRawImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'raw'
+      }
+  });
+  return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
+}
+
+export async function getAnnotatedImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'annotated'
+      }
+  });
     return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
 }
 
