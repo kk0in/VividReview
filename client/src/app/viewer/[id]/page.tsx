@@ -1689,7 +1689,7 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
+              <div className="flex flex-col bg-gray-200" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
                   handleAudioRef={handleAudioRef}
