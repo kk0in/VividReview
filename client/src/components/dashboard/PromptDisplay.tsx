@@ -2,6 +2,7 @@ import React from "react";
 import { lassoTransform } from "@/utils/api";
 import { useRecoilState } from "recoil";
 import { activePromptState } from "@/app/recoil/LassoState";
+import { TriangleLeftIcon, TriangleRightIcon } from "@primer/octicons-react";
 
 const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number, prompts: string[], rerenderFlag: boolean}) => {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
@@ -13,13 +14,17 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       </div>
       <div className="control-buttons">
         {activePromptIndex[2] > 0 && (
-          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}>
-            Previous
+          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}
+            style={{marginRight: "auto", marginLeft: "0", display: "block"}}
+          >
+            <TriangleLeftIcon size="medium"/>
           </button>
         )}
-        {activePromptIndex[2] < props.answers.length - 1 && ( // TOFIX
-          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}>
-            Next
+        {activePromptIndex[2] < props.answers.length - 1 && (
+          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}
+            style={{marginLeft: "auto", marginRight: "0", display: "block"}}
+          >
+            <TriangleRightIcon size="medium"/>
           </button>
         )}
       </div>
