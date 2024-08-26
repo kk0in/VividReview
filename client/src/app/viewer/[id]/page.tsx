@@ -1708,6 +1708,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   setHoverState={setHoverState}
                   setTocIndex={setTocIndex}
                   setPage={setPage}
+                  images={images}
                 />
                 <audio ref={audioRef} />
                 <progress className="w-full rounded-lg" ref={progressRef} />
