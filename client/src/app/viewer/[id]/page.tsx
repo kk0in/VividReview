@@ -960,7 +960,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
     "Excitement",
-    "Enthusiasm",
     "Interest",
     "Amusement",
     "Joy",
