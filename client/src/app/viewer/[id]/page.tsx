@@ -1326,7 +1326,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   // 페이지 클릭 시 파이 차트를 계산하는 함수
-  const handlePageClick = (event: React.MouseEvent<HTMLDivElement>, page: number) => {
+  const handlePageClick = (event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, page: number) => {
     console.log('page clicked');
     if (queryResult && queryResult.similarities[page]) {
       const scores = queryResult.similarities[page];
@@ -1634,6 +1634,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                 onMouseUp={(e) => {
                                   handleMouseUp(page);
                                 }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
+                                  handleMouseUp(page);
+                                }}
                               >
                                 {/* 체크 표시 영역 */}
                                 <div
@@ -1716,6 +1725,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                 onMouseUp={(e) => {
                                   handleMouseUp(page);
                                 }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
+                                  handleMouseUp(page);
+                                }}
                               >
                                 {/* 체크 표시 영역 */}
                                 <div
@@ -1795,6 +1813,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                   handlePageClick(e, page);
                                 }}
                                 onMouseUp={(e) => {
+                                  handleMouseUp(page);
+                                }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
                                   handleMouseUp(page);
                                 }}
                               >
