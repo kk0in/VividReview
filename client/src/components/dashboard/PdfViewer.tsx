@@ -259,8 +259,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     const drawBorder = async () => {
       context.strokeStyle = "red";
       const lassoBox = await getLassoInfo(projectId, pageNumber, focusedLasso);
-      const xywh = lassoBox.bbox;
       if (lassoBox) {
+        const xywh = lassoBox.bbox;
         context.strokeRect(xywh[0], xywh[1], xywh[2], xywh[3]);
       }
     }

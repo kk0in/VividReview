@@ -210,7 +210,7 @@ function ReviewPage({
       fetchLassos();
       if(focusedLasso === null){
         console.log("focus lasso is null");
-        prompts.current = [];
+        prompts.current = defaultPrompts.map((prompt) => prompt.prompt);
         return;
       }
       console.log("fetching prompts");
@@ -231,12 +231,13 @@ function ReviewPage({
       console.log("fetching answers");
 
       try {
+        console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
         const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
         console.log("fetched answers", response);
         answers.current = response.map((result: {caption: string, result: string}) => result.result);
         console.log("mapped answers", answers.current);
       } catch (e) {
-        console.error("Failed to fetch answers:", e);
+        console.log("Failed to fetch answers:", e);
         answers.current = [];
       }
       setRerenderFlag((prev) => !prev);

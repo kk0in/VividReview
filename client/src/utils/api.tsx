@@ -1,6 +1,8 @@
 import axios from 'axios';
 import jsPDF from "jspdf";
 
+import {defaultPrompts} from "@/app/recoil/LassoState";
+
 const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 
 // export async function saveAnnotations(projectId: string, annotations: any[]) {
@@ -275,15 +277,20 @@ export async function lassoQuery(projectId: string, pageNumber: number, prompt: 
 }
 
 export async function lassoPrompts(projectId: string, pageNumber: number, lassoId: number | null) {
+  try {
   const response = await axios.get(`${SERVER_ENDPOINT}api/lasso_prompts/`, {
-    params: {
-      project_id: projectId,
-      page_num: pageNumber,
-      lasso_id: lassoId
-    }
-  });
+      params: {
+        project_id: projectId,
+        page_num: pageNumber,
+        lasso_id: lassoId
+      }
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return defaultPrompts.map((prompt) => prompt.prompt);
+  }
 }
 
 export async function addLassoPrompt(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
