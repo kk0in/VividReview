@@ -18,6 +18,38 @@ const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 //     return response.data;
 // }
 
+export async function saveSearchSet(projectId: string, searchId: string, searchType: string, pageSet: string[]) {
+    const formData = new FormData();
+    formData.append('search_type', searchType); // 추가된 search_type 파라미터
+    formData.append('page_set', JSON.stringify(pageSet)); // 선택된 페이지 번호 리스트
+  
+    const response = await axios.post(
+      `${SERVER_ENDPOINT}api/make_search_set/${projectId}`,
+      formData,
+      {
+        params: {
+          search_id: searchId,
+        },
+      }
+    );
+  
+    return response.data;
+  }
+
+export async function searchQuery(projectId: string, searchQuery: string, searchType: string) {
+    const formData = new FormData();
+    formData.append('search_query', searchQuery);
+    formData.append('search_type', searchType);
+
+    const response = await axios.post(`${SERVER_ENDPOINT}api/search_query/${projectId}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+
+    return response.data;
+}
+
 export async function activateReview(projectId: string) {
     const response = await axios.post(`${SERVER_ENDPOINT}api/activate_review/${projectId}`);
 
@@ -118,6 +150,37 @@ export async function getKeywords({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getSearchResult({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id, search_id, search_type] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_search_result/${project_id}`, {
+        params: {
+            search_id: search_id,
+            search_type: search_type
+        }
+    });
+    return response.data;
+}
+
+export async function getSemanticSearchSets({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
+        params: {
+            search_type: 'semantic'
+        }
+    });
+    return response.data;
+}
+
+export async function getKeywordSearchSets({queryKey}: {queryKey: string[]}) {
+    const [_key, project_id] = queryKey;
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
+        params: {
+            search_type: 'keyword'
+        }
+    });
+    return response.data;
+}
+
 export async function getBbox({queryKey}: {queryKey: string[]}) {
     const [_key, project_id, page_num] = queryKey;
     const response = await axios.get(`${SERVER_ENDPOINT}api/get_bbox/${project_id}`, {
@@ -165,6 +228,11 @@ export async function getProsody({queryKey}: {queryKey: string[]}) {
     const response = await axios.get(SERVER_ENDPOINT+`api/get_prosody/${project_id}`);
     console.log(response.data);
     return response.data;
+}
+
+export async function getImages(projectId: string) {
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`);
+    return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
 }
 
 export async function updateResult({project_id, result}: {project_id: string, result: any}) {

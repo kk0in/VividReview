@@ -14,7 +14,7 @@ import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState"
 import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo } from "@/utils/api";
 import "./Lasso.css";
-import PreviousMap from "postcss/lib/previous-map";
+import { useSearchParams } from "next/navigation";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -72,6 +72,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
   const width = 700;
   const height = 600;
+
+  const isReviewMode = useSearchParams().get("mode") === "review";
 
   const isCanvasBlank = (canvas: HTMLCanvasElement, range?: {x: number, y: number, width: number, height: number} | null) => {
     const context = canvas.getContext('2d');
@@ -890,6 +892,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     case 0: {
       pageComponents.push(
         <Page
+          key={pageNumber}
           pageNumber={pageNumber}
           width={width}
           renderAnnotationLayer={false}
@@ -1037,10 +1040,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ maxWidth: '90%', marginRight: '25px', position: 'relative' }} ref={viewerRef}>
+    <div className="flex justify-items-center">
+      <div className="relative flex flex-col w-full items-center" ref={viewerRef}>
         <Document
-          className="grid grid-cols-2"
+          className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}
           file={pdfUrl}
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentError}
@@ -1090,8 +1093,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             pointerEvents:'none',
           }}
         />
-        <div style={{ marginTop: '10px', textAlign: 'center', zIndex: 2, position: 'relative' }}>
-          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} style={{ marginRight: '10px' }}>
+        <div className="flex w-full items-center h-10 z-[2]">
+          <button className="w-1/2 mr-5 text-right" onClick={goToPreviousPage} disabled={pageNumber <= 1} >
             Previous
           </button>
           <button
@@ -1103,19 +1106,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             }>
             Next
           </button>
+          <button className="grow text-right mr-5" onClick={handleSave} >
+            Save
+          </button>
         </div>
-        <button
-          onClick={handleSave}
-          style={{
-            position: 'absolute',
-            bottom: '2px',
-            right: '-25px',
-            zIndex: 2,
-          }}
-        >
-          Save
-        </button>
-        {clickedLasso !== null && selectedTool === "spinner" && (
+        {clickedLasso !== null && (
           <PromptList/>
         )}
       </div>
