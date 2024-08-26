@@ -10,7 +10,6 @@ import {
   Customized,
   Rectangle,
   ReferenceDot,
-  
 } from "recharts";
 import { gridModeState } from "@/app/recoil/ToolState";
 import { CategoricalChartFunc } from "recharts/types/chart/generateCategoricalChart";
@@ -147,6 +146,13 @@ const CustomXAxisTick = ({
 
     return (
       <g transform={`translate(${x},${y})`}>
+        <image
+          x={0}
+          y={-100}
+          width={100}
+          height={100}
+          href={images[currentXTick]} // `href` 속성을 사용하여 이미지 삽입
+        />
         <text
           x={0}
           y={0}
@@ -176,34 +182,44 @@ const VerticalLine = ({ x }: { x: number }) => (
   />
 );
 
-const useProcessedData = (data: unknown, positiveEmotion: string[], negativeEmotion: string[]): any[] =>
-  useMemo(() => processData(data, positiveEmotion, negativeEmotion), [
-    data,
-    positiveEmotion,
-    negativeEmotion,
-  ]);
+const useProcessedData = (
+  data: unknown,
+  positiveEmotion: string[],
+  negativeEmotion: string[]
+): any[] =>
+  useMemo(
+    () => processData(data, positiveEmotion, negativeEmotion),
+    [data, positiveEmotion, negativeEmotion]
+  );
 
 const useProcessedPageInfo = (pageInfo: unknown) =>
-  useMemo(() => processPageInfo(pageInfo).map((page) => page.start), [
-    pageInfo,
-  ]);
+  useMemo(
+    () => processPageInfo(pageInfo).map((page) => page.start),
+    [pageInfo]
+  );
 
 const useTableOfContentsMap = (tableOfContents: unknown) =>
   useMemo(() => processTableOfContents(tableOfContents), [tableOfContents]);
 
 const useMinMaxValues = (processedData: any[]) => {
-  const yValues = processedData.flatMap((data: { positive_score: any; negative_score: any; }) => [
-    data.positive_score,
-    data.negative_score,
-  ]);
+  const yValues = processedData.flatMap(
+    (data: { positive_score: any; negative_score: any }) => [
+      data.positive_score,
+      data.negative_score,
+    ]
+  );
   const minY = Math.min(...yValues);
   const maxY = Math.max(...yValues);
 
   const minX = Math.min(
-    ...processedData.map((data: { begin: any; end: any; }) => [data.begin, data.end]).flat()
+    ...processedData
+      .map((data: { begin: any; end: any }) => [data.begin, data.end])
+      .flat()
   );
   const maxX = Math.max(
-    ...processedData.map((data: { begin: any; end: any; }) => [data.begin, data.end]).flat()
+    ...processedData
+      .map((data: { begin: any; end: any }) => [data.begin, data.end])
+      .flat()
   );
 
   return { minY, maxY, minX, maxX };
@@ -250,7 +266,11 @@ const ArousalGraph = ({
 }) => {
   const gridMode = useRecoilValue(gridModeState);
 
-  const processedData = useProcessedData(data, positiveEmotion, negativeEmotion);
+  const processedData = useProcessedData(
+    data,
+    positiveEmotion,
+    negativeEmotion
+  );
   const ticks_ = useProcessedPageInfo(pageInfo);
   const tableOfContentsMap = useTableOfContentsMap(tableOfContents);
   const { minY, maxY, minX, maxX } = useMinMaxValues(processedData);
@@ -312,23 +332,41 @@ const ArousalGraph = ({
         const newTocIndex = findTocIndex(newPage);
         newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
         newPage > 0 && setPage(newPage);
-  
+
         handleAudioRef(e.activePayload[0].payload);
         setIsMouseDown(false);
       }
     },
-    [isMouseDown, findPage, findTocIndex, tocIndex, setTocIndex, setPage, handleAudioRef]
+    [
+      isMouseDown,
+      findPage,
+      findTocIndex,
+      tocIndex,
+      setTocIndex,
+      setPage,
+      handleAudioRef,
+    ]
   );
 
   useEffect(() => {
-    const { start, end } = calculateStartAndEnd(page, gridMode, pageInfo, pages);
+    const { start, end } = calculateStartAndEnd(
+      page,
+      gridMode,
+      pageInfo,
+      pages
+    );
     setpageStartTime(start);
     setpageEndTime(end);
   }, [pages, page, gridMode, pageInfo]);
 
   useEffect(() => {
     const page_ = findPage(hoverState.hoverTime || 0);
-    const { start, end } = calculateStartAndEnd(page_, gridMode, pageInfo, pages);
+    const { start, end } = calculateStartAndEnd(
+      page_,
+      gridMode,
+      pageInfo,
+      pages
+    );
     setpageStartTime(start);
     setpageEndTime(end);
   }, [hoverState.hoverTime, gridMode, pageInfo, findPage]);
@@ -342,6 +380,21 @@ const ArousalGraph = ({
         onMouseUp={handleMouseUp}
       >
         <CartesianGrid strokeDasharray="3 3" />
+        <YAxis hide domain={[minY, maxY]} />
+        <Line
+          type="monotone"
+          dataKey="positive_score"
+          stroke="#8884d8"
+          dot={false}
+          isAnimationActive={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="negative_score"
+          stroke="#82ca9d"
+          dot={false}
+          isAnimationActive={false}
+        />
         <XAxis
           dataKey="begin"
           ticks={ticks_}
@@ -360,21 +413,6 @@ const ArousalGraph = ({
           domain={[minX, maxX]}
           interval={0}
           height={15}
-        />
-        <YAxis hide domain={[minY, maxY]} />
-        <Line
-          type="monotone"
-          dataKey="positive_score"
-          stroke="#8884d8"
-          dot={false}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="negative_score"
-          stroke="#82ca9d"
-          dot={false}
-          isAnimationActive={false}
         />
         <Customized
           component={
