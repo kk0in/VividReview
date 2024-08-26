@@ -311,9 +311,14 @@ export async function getLassosOnPage(projectId: string, pageNumber: number) {
 }
 
 export async function getLassoInfo(projectId: string, pageNumber: number, lassoId: number | null) {
-  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`);
+  try {
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`);
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
 }
 
 export async function lassoTransform(projectId: string, pageNumber: number, lassoId: number | null, version: number, prompt: string, transformType: string) {

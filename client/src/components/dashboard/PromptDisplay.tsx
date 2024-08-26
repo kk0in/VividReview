@@ -30,7 +30,9 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
               <button onClick={async () => {
                 const response = await lassoTransform(props.projectId, props.page, props.focusedLasso, activePromptIndex[2]+1, props.prompts[activePromptIndex[1]], prompt);
                 setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
-              }}>
+              }}
+                style={{border: "2px solid black", margin: "5px", padding: "3px", borderRadius: "3px"}}  
+              >
                 {prompt}
               </button>
             </>

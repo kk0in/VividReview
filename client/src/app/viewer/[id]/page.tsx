@@ -202,8 +202,8 @@ function ReviewPage({
   useEffect(() => {
     const fetchLassos = async () => {
       console.log("fetching lassos");
-      const response = await getLassosOnPage(projectId, page);
-      lassos.current = response;
+      const response: number[] = await getLassosOnPage(projectId, page);
+      lassos.current = response.sort((a, b) => b - a);
     }
 
     const fetchPrompts = async () => {
