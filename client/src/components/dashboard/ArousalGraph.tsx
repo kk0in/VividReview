@@ -472,7 +472,7 @@ const ArousalGraph = ({
         />
         {hoverState.hoverPosition !== null && (
           <Customized
-            component={<VerticalLine x={hoverState.hoverPosition} />}
+            component={<CurrentPositionLine x={hoverState.hoverPosition} />}
           />
         )}
         <XAxis
