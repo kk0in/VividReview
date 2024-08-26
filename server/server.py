@@ -1835,8 +1835,11 @@ async def save_recording(
     return {"message": "Recording saved and STT processing started successfully"}
 
 
+class AnnotationData(BaseModel):
+    annotations: List[str]
+
 @app.post("/api/save_annotated_pdf/{project_id}", status_code=200)
-async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(...)):
+async def save_annotated_pdf(project_id: int, data: AnnotationData):
     pdf_file = [
         file
         for file in os.listdir(PDF)
@@ -1851,31 +1854,26 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
 
     original_pdf_path = os.path.join(PDF, pdf_file[0])
 
-    # Save the uploaded annotated PDF temporarily
-    annotated_pdf_path = f"{TEMP}/{project_id}_annotated_temp.pdf"
-    with open(annotated_pdf_path, "wb") as buffer:
-        shutil.copyfileobj(annotated_pdf.file, buffer)
-
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
-    annotated_pdf = fitz.open(annotated_pdf_path)
 
-    if len(original_pdf) != len(annotated_pdf):
+    if len(original_pdf) != len(data.annotations):
         raise HTTPException(status_code=400, detail="Page count mismatch")
 
     # Add annotations from the annotated PDF to the original PDF
     for page_num in range(len(original_pdf)):
         original_page = original_pdf.load_page(page_num)
-        annotated_page = annotated_pdf.load_page(page_num)
+        annotation_image = decode_base64_image(data.annotations[page_num])
+        
+        img_bytes = BytesIO()
+        annotation_image.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
 
         # Insert the annotated page image into the original PDF
-        original_page.show_pdf_page(original_page.rect, annotated_pdf, page_num)
+        original_page.insert_image(original_page.rect, stream=img_bytes)
 
     # Save the modified original PDF
     original_pdf.saveIncr()
-
-    # Clean up the temporary annotated PDF file
-    os.remove(annotated_pdf_path)
 
     return {"message": "Annotated PDF saved successfully"}
 
