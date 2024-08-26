@@ -53,7 +53,7 @@ app.add_middleware(
 )
 
 PDF = "./pdfs"
-TEMP = "./temp"
+ANNOTATED_PDF = "./annotated_pdfs"
 RESULT = "./results"
 META_DATA = "./metadata"
 ANNOTATIONS = "./annotations"
@@ -67,10 +67,10 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
-WINDOW_SIZE = 1
+WINDOW_SIZE = 3
 
 os.makedirs(PDF, exist_ok=True)
-os.makedirs(TEMP, exist_ok=True)
+os.makedirs(ANNOTATED_PDF, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
 os.makedirs(ANNOTATIONS, exist_ok=True)
@@ -1859,22 +1859,39 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
 
     if len(original_pdf) != len(data.annotations):
         raise HTTPException(status_code=400, detail="Page count mismatch")
+    
+    annotated_pdf_path = os.path.join(ANNOTATED_PDF, pdf_file[0])
+    annotated_pdf = fitz.open(original_pdf_path)
 
     # Add annotations from the annotated PDF to the original PDF
-    for page_num in range(len(original_pdf)):
-        original_page = original_pdf.load_page(page_num)
+    annotated_image_path = os.path.join(IMAGE, str(project_id), "annotated")
+    os.makedirs(annotated_image_path, exist_ok=True)
+    for page_num in range(len(annotated_pdf)):
+        annotated_page = annotated_pdf.load_page(page_num)
         annotation_image = decode_base64_image(data.annotations[page_num])
+
+        # PDF 페이지를 이미지로 변환
+        pdf_image = annotated_page.get_pixmap()  # 페이지를 이미지로 변환
+        pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
+        annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
+
+        combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
+
+        image_path = os.path.join(annotated_image_path, f"page_{page_num + 1:04}.png")
+        combined_image.save(image_path, format="PNG")
         
         img_bytes = BytesIO()
-        annotation_image.save(img_bytes, format="PNG")
+        annotation_image_resized.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
         # Insert the annotated page image into the original PDF
-        original_page.insert_image(original_page.rect, stream=img_bytes)
+        annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
-    # Save the modified original PDF
-    original_pdf.saveIncr()
+    annotated_pdf.save(annotated_pdf_path)
 
+    original_pdf.close()
+    annotated_pdf.close()
+    
     return {"message": "Annotated PDF saved successfully"}
 
 @app.post("/api/make_search_set/{project_id}", status_code=200)
