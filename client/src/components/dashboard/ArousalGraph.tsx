@@ -151,7 +151,8 @@ const CustomXAxisTick = ({
           y={-100}
           width={100}
           height={100}
-          href={images[currentXTick]} // `href` 속성을 사용하여 이미지 삽입
+          href={images[currentXTick-1]} // `href` 속성을 사용하여 이미지 삽입
+          opacity={0.5}
         />
         <text
           x={0}

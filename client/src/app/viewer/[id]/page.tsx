@@ -890,8 +890,6 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const findPage = (time: number): number => {
-    console.log("findPage", time, pageInfo);
-
     if (pageInfo === null) {
       return 0;
     }
