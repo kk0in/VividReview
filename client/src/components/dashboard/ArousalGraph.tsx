@@ -395,6 +395,19 @@ const ArousalGraph = ({
           dot={false}
           isAnimationActive={false}
         />
+        <Customized
+          component={
+            <CustomRectangle
+              pageStartTime={calculateScalingFactor(pageStartTime)}
+              pageEndTime={calculateScalingFactor(pageEndTime)}
+            />
+          }
+        />
+        {hoverState.hoverPosition !== null && (
+          <Customized
+            component={<VerticalLine x={hoverState.hoverPosition} />}
+          />
+        )}
         <XAxis
           dataKey="begin"
           ticks={ticks_}
@@ -414,19 +427,6 @@ const ArousalGraph = ({
           interval={0}
           height={15}
         />
-        <Customized
-          component={
-            <CustomRectangle
-              pageStartTime={calculateScalingFactor(pageStartTime)}
-              pageEndTime={calculateScalingFactor(pageEndTime)}
-            />
-          }
-        />
-        {hoverState.hoverPosition !== null && (
-          <Customized
-            component={<VerticalLine x={hoverState.hoverPosition} />}
-          />
-        )}
       </LineChart>
     </ResponsiveContainer>
   );
