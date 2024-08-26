@@ -247,13 +247,13 @@ function ReviewPage({
     
   }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode]);
 
-  const promptTabElements = () => {    
+  const lassoTabElements = () => {    
     return (
       <>
         {lassos.current.map((lassoNum, idx) => {
           const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-            (idx === activePromptIndex[0] ? "bg-gray-300/50" : "bg-gray-300");
-          
+            (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-400/50");  
+           
           return (
             <>
               <div className={className}
@@ -265,9 +265,17 @@ function ReviewPage({
             </>
           )
         })}
+      </>
+    );
+  };
+
+  const promptTabElements = () => {
+    if (lassos.current.length === 0) return <></>;
+    return (
+      <>
         {focusedLasso !== null && prompts.current.map((prompt, idx) => {
           const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-            (idx === activePromptIndex[1] ? "bg-gray-300/50" : "bg-gray-300");
+            (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
           
           return (
             <>
@@ -281,8 +289,8 @@ function ReviewPage({
           )
         })}
       </>
-    );
-  };
+    )
+  }
 
   const findPage = (time: number): number => {
     if (pageInfo === null) {
@@ -821,20 +829,25 @@ function ReviewPage({
         </div>
       </div>
       <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row">
-          {mode === "script" ? subTabElements : promptTabElements()}
+        <div className="flex flex-row overflow-y-auto">
+          {mode === "script" ? subTabElements : lassoTabElements()}
         </div>
-        <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {mode === "script" ? paragraph :
-            <PromptDisplay
-              answers={answers.current}
-              projectId={projectId}
-              page={page}
-              focusedLasso={focusedLasso!}
-              prompts={prompts.current}
-              rerenderFlag={rerenderFlag}
-            />
-          }
+        <div className="rounded-b-2xl bg-gray-300 p-3">
+          <div className="flex flex-row mt-1 overflow-y-auto">
+            {mode === "script" ? <></> : promptTabElements()}
+          </div>
+          <div className="rounded-b-2xl rounded-tr-2xl bg-gray-400/50 p-3">
+            {mode === "script" ? paragraph :
+              <PromptDisplay
+                answers={answers.current}
+                projectId={projectId}
+                page={page}
+                focusedLasso={focusedLasso!}
+                prompts={prompts.current}
+                rerenderFlag={rerenderFlag}
+              />
+            }
+          </div>
         </div>
       </div>
     </div>
