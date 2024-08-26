@@ -4,14 +4,15 @@ import React, { useState, useEffect, useRef, useCallback, Fragment } from "react
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { gridModeState, searchQueryState } from "@/app/recoil/ToolState";
+import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery } from "@/utils/api";
-
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import AppBar from "@/components/AppBar";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
+import SearchModal from "@/components/dashboard/SearchModal";
+import SearchPanel from "@/components/dashboard/SearchPanel";
 import { useSearchParams } from "next/navigation";
 import {
   audioTimeState,
@@ -21,6 +22,10 @@ import {
   playerRequestState,
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
+
+import { Pie } from 'react-chartjs-2';
+import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+Chart.register(ArcElement, Tooltip, Legend);
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -134,7 +139,6 @@ function ReviewPage({
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
   // const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
-  const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
@@ -355,11 +359,15 @@ function ReviewPage({
           if (!canvas || !ctx) return;
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          console.log("pdfWidth.current, pdfHeight.current: ", pdfWidth.current, pdfHeight.current); 
+          console.log("bbox: ", bbox);
+          console.log("canvas.width, canvas.height: ", canvas.width, canvas.height);  
           // 중심점 계산
           const centerX =
             ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
           const centerY =
             ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
+          console.log("centerX, centerY: ", centerX, centerY); 
           // 그라디언트 생성
           const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
           const gradient = ctx.createRadialGradient(
@@ -663,19 +671,39 @@ function ReviewPage({
     }
   }
 
-  useEffect(() => {
-    const fetchSearchResults = async () => {
-      if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+  // useEffect(() => {
+  //   const fetchResults = async () => {
+  //     if (!searchId) return;
 
-      try {
-        await searchQuery(projectId, query, type); // API 요청만 수행
-      } catch (error) {
-        console.error("Error during search:", error);
-      }
-    };
+  //     try {
+  //       const result = await getSearchResult(projectId, searchId, type);
+  //       const sortedPages = result.similarities
+  //         ? Object.entries(result.similarities).sort((a, b) => b[1] - a[1])
+  //         : [];
 
-    fetchSearchResults();
-  }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
+  //       setSearchResult(sortedPages);
+  //       setIsModalOpen(true); // 검색 결과를 불러오면 모달을 염
+  //     } catch (error) {
+  //       console.error("Error fetching search results:", error);
+  //     }
+  //   };
+
+  //   fetchResults();
+  // }, [searchId, type, projectId]);
+
+  // useEffect(() => {
+  //   const fetchSearchResults = async () => {
+  //     if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
+
+  //     try {
+  //       await searchQuery(projectId, query, type); // API 요청만 수행
+  //     } catch (error) {
+  //       console.error("Error during search:", error);
+  //     }
+  //   };
+
+  //   fetchSearchResults();
+  // }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
 
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
@@ -693,6 +721,16 @@ function ReviewPage({
 }
 
 export default function Page({ params }: { params: { id: string } }) {
+  const projectId = params.id;
+  const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
+  const [searchId, setSearchId] = useState<string | null>(null);
+  const [sortedPages, setSortedPages] = useState<any[]>([]);
+  const [queryResult, setQueryResult] = useState(null);
+  const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
+  const [semanticSearchSets, setSemanticSearchSets] = useState([]);
+  const [keywordSearchSets, setKeywordSearchSets] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
@@ -710,6 +748,30 @@ export default function Page({ params }: { params: { id: string } }) {
     hoverTime: null,
     activeLabel: null,
   });
+  const [threeStarPages, setThreeStarPages] = useState<any[]>([]);
+  const [twoStarPages, setTwoStarPages] = useState<any[]>([]);
+  const [oneStarPages, setOneStarPages] = useState<any[]>([]);
+  const [selectedSearchId, setSelectedSearchId] = useState(null); // 선택된 search_id
+  const [selectedSearchType, setSelectedSearchType] = useState<string>(''); 
+  const [seletedSearchQuery, setSelectedSearchQuery] = useState<string>(''); 
+  const [pageList, setPageList] = useState([]);
+  const [hasOpenedModal, setHasOpenedModal] = useState(false); // 모달이 이미 열렸는지 확인하기 위한 상태
+  const [previousQuery, setPreviousQuery] = useState<string | null>(null);
+  const setInputText = useSetRecoilState(inputTextState);
+  const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
+  const [queryText, setQueryText] = useState("")
+
+  const [toggleScript, setToggleScript] = useState(true);
+  const [togglePdfText, setTogglePdfText] = useState(true);
+  const [togglePdfImage, setTogglePdfImage] = useState(true);
+  const [toggleAnnotation, setToggleAnnotation] = useState(true);
+
+  const [pieChartData, setPieChartData] = useState<{ [key: number]: any }>({});
+  const [showPieChart, setShowPieChart] = useState<{ [key: number]: boolean }>({});
+
+  const [scriptPages, setScriptPages] = useState<string[]>([]);
+  const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
+  const [annotationPages, setAnnotationPages] = useState<string[]>([]);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -898,6 +960,262 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, []);
 
+  const { data: searchResult, refetch: fetchSearchResult } = useQuery(
+    ["getSearchResult", projectId, searchId, type],
+    getSearchResult,
+    {
+      enabled: !!searchId, // searchId가 있을 때만 실행
+      onSuccess: (data) => {
+        setQueryResult(data);
+        // setIsModalOpen(true);
+        console.log('query:', query)
+        console.log('previousQuery:', previousQuery)
+        if (query !== previousQuery) {
+          setIsModalOpen(true);
+          setPreviousQuery(query); // 현재 검색어를 이전 검색어로 저장
+          // setHasOpenedModal(true); // 모달이 열렸음을 기록
+        }
+
+      },
+      onError: (error) => {
+        console.error("Error fetching search results:", error);
+      },
+    }
+  );
+
+  // 모달이 닫힐 때 상태 초기화
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    // setHasOpenedModal(false); // 모달이 닫히면 다시 열릴 수 있도록 상태 초기화
+    setSelectedSearchId(null); // 선택된 search_id 초기화
+  };
+
+  // getImages API 호출
+  const { data: fetchedImages, refetch: fetchImages } = useQuery(
+    ["getImages", params.id],
+    () => getImages(params.id),
+    {
+      enabled: true, // 항상 호출
+      onSuccess: (data) => {
+        setImages(data);
+      },
+      onError: (error) => {
+        console.error("Error fetching images:", error);
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (queryResult && queryResult.similarities) {
+      const weightScript = toggleScript ? 0.4 : 0;
+      const weightPdfText = togglePdfText ? 0.4 : 0;
+      const weightPdfImage = togglePdfImage ? 0.1 : 0;
+      const weightAnnotation = toggleAnnotation ? 0.1 : 0;
+
+      const totalWeight = weightScript + weightPdfText + weightPdfImage + weightAnnotation;
+
+      const threeStarThreshold = 0.3 * totalWeight;
+      const twoStarThreshold = 0.2 * totalWeight;
+      const oneStarThreshold = 0.15 * totalWeight;
+
+
+      const pageScores = Object.entries(queryResult.similarities).map(
+        ([page, scores]) => {
+          const totalScore =
+            (scores.script * weightScript) +
+            (scores.pdf_text * weightPdfText) +
+            (scores.annotation * weightAnnotation) +
+            (scores.pdf_image * weightPdfImage);
+          return { page: parseInt(page), totalScore };
+        }
+      );
+
+      // 점수를 기준으로 페이지를 내림차순 정렬
+      const sorted = pageScores.sort((a, b) => b.totalScore - a.totalScore);
+      
+      // 페이지들을 별 개수에 따라 분류
+      const threeStar = sorted.filter(({ totalScore }) => totalScore >= threeStarThreshold);
+      const twoStar = sorted.filter(({ totalScore }) => totalScore >= twoStarThreshold && totalScore < threeStarThreshold);
+      const oneStar = sorted.filter(({ totalScore }) => totalScore >= oneStarThreshold && totalScore < twoStarThreshold);
+      
+      setThreeStarPages(threeStar);
+      setTwoStarPages(twoStar);
+      setOneStarPages(oneStar);
+      // setSortedPages(sorted);
+    }
+    // Keyword 검색 결과가 있을 때 해당 배열을 설정
+    if (queryResult && queryResult.source) {
+      setScriptPages(queryResult.source.script || []);
+      setPdfTextPages(queryResult.source.pdf_text || []);
+      setAnnotationPages(queryResult.source.annotation || []);
+    }
+  }, [queryResult, toggleScript, togglePdfText, togglePdfImage, toggleAnnotation]);
+
+  const togglePageSelection = (page: number) => {
+    setSelectedPages((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(page)) {
+        newSelected.delete(page); // 선택 해제
+      } else {
+        newSelected.add(page); // 선택
+      }
+      return newSelected;
+    });
+    // setShowPieChart(false); // 토글 버튼 클릭 시 Pie 차트 표시 방지
+  };
+
+  const handleSaveSearchSet = async () => {
+    try {
+      const selectedPageList = Array.from(selectedPages).map(String);
+      await saveSearchSet(params.id, searchId!, type, selectedPageList); 
+      // 목록을 업데이트하기 위해 fetchSemanticSearchSets 호출
+      await fetchSemanticSearchSets();
+      await fetchKeywordSearchSets();
+      
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error saving search set:", error);
+      alert("Failed to save search set.");
+    }
+  };
+  
+  const handleSearch = async () => {
+    if (query.trim() === "") return;
+    try {
+      const result = await searchQuery(projectId, query, type);
+      setSearchId(result.search_id); // 검색 ID를 저장
+      setSelectedSearchId(null); // 선택된 search_id 초기화
+      setInputText('')
+      setSearchQuery((prevState) => ({ ...prevState, query: '' }));
+      setPreviousQuery(query);
+      setQueryText(query);
+    } catch (error) {
+      console.error("Error during search:", error);
+    }
+  };
+
+  // 선택된 search_id에 해당하는 페이지 리스트를 가져오는 함수
+  const fetchPageList = async (searchId, searchType) => {
+    try {
+      const result = await getSearchResult({ queryKey: ["getSearchResult", projectId, searchId, searchType] });
+      const pages = result.page_set;
+      setPageList(pages);
+      setIsModalOpen(true); // 모달 열기
+    } catch (error) {
+      console.error("Error fetching page list:", error);
+    }
+  };
+
+  const handleBoxClick = (searchId, searchQuery, searchType) => {
+    setSelectedSearchId(searchId); // 선택된 search_id 업데이트
+    setSelectedSearchType(searchType); // 선택된 검색의 타입을 설정
+    setSelectedSearchQuery(searchQuery);
+    fetchPageList(searchId, searchType); // 페이지 리스트 가져오기
+  };
+
+  const handleToggle = (toggleType: string) => {
+    const totalTogglesOn = [toggleScript, togglePdfText, togglePdfImage, toggleAnnotation].filter(t => t).length;
+
+    if (totalTogglesOn === 1 && (
+      (toggleType === 'script' && toggleScript) ||
+      (toggleType === 'pdfText' && togglePdfText) ||
+      (toggleType === 'pdfImage' && togglePdfImage) ||
+      (toggleType === 'annotation' && toggleAnnotation)
+    )) {
+      // 무조건 하나는 켜져 있어야 하므로 마지막 하나를 끄지 못하게 막음
+      return;
+    }
+
+    // 토글 상태 업데이트
+    switch (toggleType) {
+      case 'script':
+        setToggleScript(!toggleScript);
+        break;
+      case 'pdfText':
+        setTogglePdfText(!togglePdfText);
+        break;
+      case 'pdfImage':
+        setTogglePdfImage(!togglePdfImage);
+        break;
+      case 'annotation':
+        setToggleAnnotation(!toggleAnnotation);
+        break;
+    }
+  };
+
+  // 페이지 클릭 시 파이 차트를 계산하는 함수
+  const handlePageClick = (event: React.MouseEvent<HTMLDivElement>, page: number) => {
+    console.log('page clicked');
+    if (queryResult && queryResult.similarities[page]) {
+      const scores = queryResult.similarities[page];
+      const activeScores = [
+        { label: 'Script', value: toggleScript ? scores.script * 0.4 : 0 },
+        { label: 'PDF Text', value: togglePdfText ? scores.pdf_text * 0.4 : 0 },
+        { label: 'PDF Image', value: togglePdfImage ? scores.pdf_image * 0.1 : 0 },
+        { label: 'Annotation', value: toggleAnnotation ? scores.annotation * 0.1 : 0 },
+      ].filter(score => score.value > 0);
+
+      const total = activeScores.reduce((sum, { value }) => sum + value, 0);
+      const pieData = {
+        labels: activeScores.map(({ label }) => label),
+        datasets: [
+          {
+            data: activeScores.map(({ value }) => (value / total) * 100),
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+            borderWidth: 1,
+            borderColor: '#ffffff',
+          },
+        ],
+      };
+
+      setPieChartData(prev => ({ ...prev, [page]: pieData }));
+      setShowPieChart(prev => ({ ...prev, [page]: true }));
+    }
+  };
+
+  // 이미지 클릭 이벤트
+  // const handleMouseDown = (page: number) => handlePageClick(page);
+  const handleMouseUp = (page: number) => {
+    setShowPieChart(prev => ({ ...prev, [page]: false }));
+  };
+
+  useEffect(() => {
+    console.log("query", query);
+    if (query) {
+      handleSearch();
+    }
+  }, [query, type]);
+
+  const fetchSemanticSearchSets = async () => {
+    try {
+      const data = await getSemanticSearchSets({
+        queryKey: ["getSemanticSearchSets", projectId],
+      });
+      setSemanticSearchSets(data);
+    } catch (error) {
+      console.error("Error fetching semantic search sets:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSemanticSearchSets();
+  }, [projectId]);
+
+  const fetchKeywordSearchSets = async () => {
+    try {
+      const data = await getKeywordSearchSets({
+        queryKey: ["getKeywordSearchSets", projectId],
+      });
+      setKeywordSearchSets(data);
+    } catch (error) {
+      console.error("Error fetching keyword search sets:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeywordSearchSets();
+  }, [projectId]);
+
   return (
     <div className="h-full flex flex-col">
       {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
@@ -926,8 +1244,42 @@ export default function Page({ params }: { params: { id: string } }) {
       {tableOfContents && (
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
-            <div className="mb-4 font-bold">Table</div>
+            <div className="mb-4 font-bold">Table of Contents</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
+            <hr className="border-2 border-gray-300 my-4" />
+            <div className="mb-4 font-bold">Semantic Search Results</div>
+            <div className="mt-4">
+              {semanticSearchSets
+                .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
+                .map(({ search_id, query }) => (
+                  <div
+                    key={search_id}
+                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
+                      selectedSearchId === search_id ? "font-bold" : ""
+                    }`}
+                    onClick={() => handleBoxClick(search_id, query, 'semantic')}
+                  >
+                    {search_id}. {query}
+                  </div>
+                ))}
+            </div>
+            <hr className="border-2 border-gray-300 my-4" />
+            <div className="mb-4 font-bold">Keyword Search Results</div>
+            <div className="mt-4">
+              {keywordSearchSets
+                .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
+                .map(({ search_id, query }) => (
+                  <div
+                    key={search_id}
+                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
+                      selectedSearchId === search_id ? "font-bold" : ""
+                    }`}
+                    onClick={() => handleBoxClick(search_id, query, 'keyword')}
+                  >
+                    {search_id}. {query}
+                  </div>
+                ))}
+            </div>
           </div>
           <div className="flex-auto h-full bg-slate-900 p-4 text-white">
             <PdfViewer
@@ -935,6 +1287,406 @@ export default function Page({ params }: { params: { id: string } }) {
               projectId={params.id}
               spotlightRef={spotlightRef}
             />
+            <SearchModal isOpen={isModalOpen} onClose={handleCloseModal} pieChartData={pieChartData} showPieChart={showPieChart} >
+              {selectedSearchId ? (
+                // 박스를 클릭하여 모달을 연 경우
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold text-black">
+                      Pages for "{seletedSearchQuery}" (ID: {selectedSearchId}, {selectedSearchType.charAt(0).toUpperCase() + selectedSearchType.slice(1)} Search)
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {pageList.map((page) => (
+                      <div
+                        key={page}
+                        className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
+                      >
+                        <img
+                          src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
+                          alt={`Page ${page}`}
+                          className="rounded-md mb-2"
+                        />
+                        {/* 페이지 정보 */}
+                        <p className="text-center font-semibold text-black">Page {page}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                // 검색을 통해 모달을 연 경우
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold text-black">
+                      {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{queryText}"
+                    </h2>
+                    <button
+                      className="px-4 py-2 bg-gray-400 text-black rounded hover:bg-gray-500"
+                      onClick={handleSaveSearchSet}
+                    >
+                      Make a Search Set
+                    </button>
+                  </div>
+                  {type === 'keyword' ? (
+                    <div>
+                      <div className="mb-4 font-bold text-black">Script</div>
+                      <div className="grid grid-cols-3 gap-4 mb-8">
+                        {scriptPages.length > 0 ? (
+                          scriptPages.map((page) => (
+                            <div key={page} className="relative p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center">
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={() => togglePageSelection(parseInt(page))}
+                              >
+                                {selectedPages.has(parseInt(page)) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}
+                      </div>
+                      <div className="mb-4 font-bold text-black">PDF Text</div>
+                      <div className="grid grid-cols-3 gap-3 mb-8">
+                        {pdfTextPages.length > 0 ? (
+                          pdfTextPages.map((page) => (
+                            <div key={page} className="relative p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center">
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={() => togglePageSelection(parseInt(page))}
+                              >
+                                {selectedPages.has(parseInt(page)) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}
+                      </div>
+                      <div className="mb-4 font-bold text-black">Annotation</div>
+                      <div className="grid grid-cols-3 gap-3 mb-8">
+                        {annotationPages.length > 0 ? (
+                          annotationPages.map((page) => (
+                            <div key={page} className="relative p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center">
+                              <div
+                                className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                onClick={() => togglePageSelection(parseInt(page))}
+                              >
+                                {selectedPages.has(parseInt(page)) && (
+                                  <span className="text-black text-lg">✔</span>
+                                )}
+                              </div>
+                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <p className="text-center font-semibold text-black">Page {page}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}
+                      </div>
+                    </div>                 
+                  ) : (
+                    <div>
+                      {/* 점수 항목별 토글 */}
+                      <div className="flex space-x-4 items-center mb-4">
+                        {/* Script 점수 토글 */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={toggleScript}
+                            onChange={() => handleToggle('script')}
+                            className="mr-1"
+                          />
+                          <span className="text-black ml-1">Script</span>
+                        </div>
+                        {/* PDF Text 점수 토글 */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={togglePdfText}
+                            onChange={() => handleToggle('pdfText')}
+                            className="mr-1"
+                          />
+                          <span className="text-black ml-1">PDF Text</span>
+                        </div>
+                        {/* PDF Image 점수 토글 */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={togglePdfImage}
+                            onChange={() => handleToggle('pdfImage')}
+                            className="mr-1"
+                          />
+                          <span className="text-black ml-1">PDF Image</span>
+                        </div>
+                        {/* Annotation 점수 토글 */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={toggleAnnotation}
+                            onChange={() => handleToggle('annotation')}
+                            className="mr-1"
+                          />
+                          <span className="text-black ml-1">Annotation</span>
+                        </div>
+                      </div>
+                      {/* 별 3개 그룹 */}
+                      <div className="mb-8">
+                        <div className="flex items-center mb-4">
+                          <span className="text-yellow-500 text-2xl">★★★</span>
+                        </div>
+                        {threeStarPages.length > 0 ? (
+                          <ul className="grid grid-cols-3 gap-4">
+                          {threeStarPages.map(({ page, totalScore }, index) => (
+                            <li key={index} className="relative mb-4">
+                              <div
+                                className="bg-gray-100 rounded-lg shadow p-2 relative"
+                                onMouseDown={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  handlePageClick(e, page);
+                                }}
+                                onMouseUp={(e) => {
+                                  handleMouseUp(page);
+                                }}
+                              >
+                                {/* 체크 표시 영역 */}
+                                <div
+                                  className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                    togglePageSelection(page);
+                                  }}
+                                >
+                                  {selectedPages.has(page) && (
+                                    <span className="text-black text-lg">✔</span>
+                                  )}
+                                </div>
+                                {/* 페이지 이미지 */}
+                                <img
+                                  src={images[page - 1]}
+                                  alt={`Page ${page}`}
+                                  className="rounded-md mb-2"
+                                />
+                                {/* 페이지 정보 */}
+                                <p className="text-center font-semibold text-black">Page {page}</p>
+                                {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                                {/* Pie 차트 영역 (이미지 중심에 위치) */}
+                                {showPieChart[page] && pieChartData[page] && (
+                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                    <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                      <Pie
+                                        data={pieChartData[page]}
+                                        options={{
+                                          plugins: {
+                                            legend: { 
+                                              display: true,
+                                              position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                              labels: {
+                                                font: {
+                                                  size: 10, // 폰트 크기 조절
+                                                },
+                                                padding: 10, // 레이블과 차트 간의 간격 조절
+                                              },
+                                            },
+                                            tooltip: { enabled: false },
+                                            datalabels: {
+                                              display: true,
+                                              color: 'black',
+                                              formatter: (value: number) => `${value.toFixed(2)}%`,
+                                              font: {
+                                                weight: 'bold',
+                                                size: 10,
+                                              },
+                                            },
+                                          },
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}
+                      </div>
+                      {/* 별 2개 그룹 */}
+                      <div className="mb-8">
+                        <div className="flex items-center mb-4">
+                          <span className="text-yellow-500 text-2xl">★★</span>
+                        </div>
+                        {twoStarPages.length > 0 ? (
+                          <ul className="grid grid-cols-3 gap-4">
+                          {twoStarPages.map(({ page, totalScore }, index) => (
+                            <li key={index} className="relative mb-4">
+                              <div
+                                className="bg-gray-100 rounded-lg shadow p-2 relative"
+                                onMouseDown={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  handlePageClick(e, page);
+                                }}
+                                onMouseUp={(e) => {
+                                  handleMouseUp(page);
+                                }}
+                              >
+                                {/* 체크 표시 영역 */}
+                                <div
+                                  className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                    togglePageSelection(page);
+                                  }}
+                                >
+                                  {selectedPages.has(page) && (
+                                    <span className="text-black text-lg">✔</span>
+                                  )}
+                                </div>
+                                {/* 페이지 이미지 */}
+                                <img
+                                  src={images[page - 1]}
+                                  alt={`Page ${page}`}
+                                  className="rounded-md mb-2"
+                                />
+                                {/* 페이지 정보 */}
+                                <p className="text-center font-semibold text-black">Page {page}</p>
+                                {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                                {showPieChart[page] && pieChartData[page] && (
+                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                    <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                      <Pie
+                                        data={pieChartData[page]}
+                                        options={{
+                                          plugins: {
+                                            legend: { 
+                                              display: true,
+                                              position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                              labels: {
+                                                font: {
+                                                  size: 10, // 폰트 크기 조절
+                                                },
+                                                padding: 10, // 레이블과 차트 간의 간격 조절
+                                              },
+                                            },
+                                            tooltip: { enabled: false },
+                                            datalabels: {
+                                              display: true,
+                                              color: 'black',
+                                              formatter: (value: number) => `${value.toFixed(2)}%`,
+                                              font: {
+                                                weight: 'bold',
+                                                size: 10,
+                                              },
+                                            },
+                                          },
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}                                                                    
+                      </div>
+                      {/* 별 1개 그룹 */}                      
+                      <div className="mb-8">
+                        <div className="flex items-center mb-4">
+                          <span className="text-yellow-500 text-2xl">★</span>
+                        </div>
+                        {oneStarPages.length > 0 ? (
+                          <ul className="grid grid-cols-3 gap-4">
+                          {oneStarPages.map(({ page, totalScore }, index) => (
+                            <li key={index} className="relative mb-4">
+                              <div
+                                className="bg-gray-100 rounded-lg shadow p-2 relative"
+                                onMouseDown={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  handlePageClick(e, page);
+                                }}
+                                onMouseUp={(e) => {
+                                  handleMouseUp(page);
+                                }}
+                              >
+                                {/* 체크 표시 영역 */}
+                                <div
+                                  className="absolute top-2 right-2 w-6 h-6 border-2 border-dashed rounded-full cursor-pointer flex items-center justify-center z-20 toggle-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // 클릭 이벤트가 부모로 전파되지 않도록 막음
+                                    togglePageSelection(page);
+                                  }}
+                                >
+                                  {selectedPages.has(page) && (
+                                    <span className="text-black text-lg">✔</span>
+                                  )}
+                                </div>
+                                {/* 페이지 이미지 */}
+                                <img
+                                  src={images[page - 1]}
+                                  alt={`Page ${page}`}
+                                  className="rounded-md mb-2"
+                                />
+                                {/* 페이지 정보 */}
+                                <p className="text-center font-semibold text-black">Page {page}</p>
+                                {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
+                                {showPieChart[page] && pieChartData[page] && (
+                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                    <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
+                                      <Pie
+                                        data={pieChartData[page]}
+                                        options={{
+                                          plugins: {
+                                            legend: { 
+                                              display: true,
+                                              position: 'left', // 'top', 'left', 'right', 'bottom' 중 선택 가능
+                                              labels: {
+                                                font: {
+                                                  size: 10, // 폰트 크기 조절
+                                                },
+                                                padding: 10, // 레이블과 차트 간의 간격 조절
+                                              },
+                                            },
+                                            tooltip: { enabled: false },
+                                            datalabels: {
+                                              display: true,
+                                              color: 'black',
+                                              formatter: (value: number) => `${value.toFixed(2)}%`,
+                                              font: {
+                                                weight: 'bold',
+                                                size: 10,
+                                              },
+                                            },
+                                          },
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        ) : (
+                          <p className="text-red-500 font-bold">(No search results)</p>
+                        )}                    
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </SearchModal>
             {isReviewMode && (
               <div className="flex flex-col rounded-2xl bg-gray-200" ref={containerRef}>
                 <ArousalGraph

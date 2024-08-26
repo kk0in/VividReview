@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import Any, List, Union
 
+import re
 import clip
 import cv2
 import ffmpeg
@@ -187,11 +188,15 @@ def encode_image(image_path):
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
 
-    transcript1 = client.audio.transcriptions.create(
-        model="whisper-1", file=audio_file, language="en"
+    transcript_segment = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file,
+        response_format="verbose_json",
+        language="en",
+        timestamp_granularities=["segment"],
     )
 
-    transcript2 = client.audio.transcriptions.create(
+    transcript_word = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
         response_format="verbose_json",
@@ -199,11 +204,17 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
         timestamp_granularities=["word"],
     )
 
+    script = ''
+    for segment in transcript_segment.segments:
+        script += segment['text']
+
+    script = script.strip()
+
     with open(transcription_path, "w") as output_file:
-        json.dump(transcript1.text, output_file, indent=4)
+        json.dump(script, output_file, indent=4)
 
     with open(timestamp_path, "w") as output_file:
-        json.dump(transcript2.words, output_file, indent=4)
+        json.dump(transcript_word.words, output_file, indent=4)
 
 
 def issue_id():
@@ -374,7 +385,7 @@ def bbox_api_request(script_segment, encoded_image):
             ),
         },
         # {"type": "text", "text": script_segment},
-        {"type": "image_url", "image_url": {"url": encoded_image}},
+        encoded_image
     ]
 
     payload = {
@@ -892,9 +903,8 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     offset = 0
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
-
         gpt_start_time = word_timestamp[offset]["start"]
-        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"]
+        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"] if int(para_id) < len(matched_paragraphs) else word_timestamp[-1]["end"]
         pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
         annotation = annotations[para_id]
         output["pages"][para_id] = {
@@ -946,6 +956,9 @@ def timestamp_for_bbox(project_id, word_timestamp):
         updated_bboxes = []
         for item in bboxes["bboxes"]:
             bbox = item["bbox"]
+
+            if bbox and isinstance(bbox[0], list):
+                bbox = bbox[0]    
             if not bbox or bbox[2] == 0 or bbox[3] == 0:
                 continue
 
@@ -961,7 +974,7 @@ def timestamp_for_bbox(project_id, word_timestamp):
             json.dump(bboxes, file, indent=4)
 
 
-def get_script_times(script_text, word_timestamp):
+def get_script_times(script_text, word_timestamp, check_words_num=3):
     # Remove punctuation from the script_text and split into words
 
     words = re.findall(r"\b[\w\']+\b", script_text.lower())
@@ -969,24 +982,41 @@ def get_script_times(script_text, word_timestamp):
     start_time = None
     end_time = None
 
-    if len(words) >= 3:
-        for i in range(len(word_timestamp) - 2):
-            if (
-                word_timestamp[i]["word"].lower() == words[0]
-                and word_timestamp[i + 1]["word"].lower() == words[1]
-                and word_timestamp[i + 2]["word"].lower() == words[2]
-            ):
+    if len(words) >= check_words_num:
+        for i in range(len(word_timestamp) - (check_words_num-1)):
+            match = True
+            for j in range(check_words_num):
+                if word_timestamp[i + j]["word"].lower() != words[j]:
+                    match = False
+                    break
+            if match:
                 # Set start time from the first word
                 start_time = word_timestamp[i]["start"]
 
                 # Find end time from the last word in words
-                for j in range(i + 2, len(word_timestamp)):
+                for j in range(i + (check_words_num-1), len(word_timestamp)):
                     if word_timestamp[j]["word"].lower() == words[-1]:
                         end_time = word_timestamp[j]["end"]
                         break
                 break
 
     return start_time, end_time
+
+def get_script_times_by_segment(script_text, segment_timestamp, start_time):
+    script_text_without_punctuation = re.sub(r'[^\w\s]', '', script_text.lower().strip())
+    print(script_text_without_punctuation)
+
+    # start_time = None
+
+    for segment in segment_timestamp:
+        segment_text = re.sub(r'[^\w\s]', '',segment["text"].lower().strip())
+        print(segment_text)
+        if segment_text in script_text_without_punctuation:
+            if segment["start"] > start_time:
+                start_time = segment["start"] 
+            break
+
+    return start_time
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
@@ -1111,7 +1141,8 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
     특정 프로젝트 ID에 대해 검색어를 입력받아 검색 결과를 반환하는 API 엔드포인트입니다.
 
     :param project_id: 프로젝트 ID
-    :param search_text: 검색어
+    :param search_queyr: 검색어
+    :param search_type: 검색 타입 ('semantic', 'keyword')
     """
     spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
     similarity_path = os.path.join(SIMILARITY, str(project_id))
@@ -1143,7 +1174,7 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
 
     return {
         "message": "Similarity for the Query is created successfully",
-        "lasso_id": search_id,
+        "search_id": search_id,
         "response": result,
     }
 
@@ -1198,7 +1229,7 @@ async def activate_review(project_id: int):
         json.dump(first_sentences, json_file, indent=4)
 
     # 단락 매칭
-    matched_paragraphs = match_paragraphs_2(script_content, first_sentences)
+    matched_paragraphs = match_paragraphs_1(script_content, first_sentences)
 
     # Phase 2: spatially match the script content to the images
     try:
@@ -1273,8 +1304,8 @@ async def get_lasso_answer(
     return lasso_answer_data
 
 
-@app.get("/api/get_semantic_search/{project_id}/{search_id}", status_code=200)
-async def get_semantic_search(project_id: int, search_id: int, search_type: str):
+@app.get("/api/get_search_result/{project_id}", status_code=200)
+async def get_search_result(project_id: int, search_id: int, search_type: str):
     """
     특정 프로젝트 ID와 search_id에 해당하는 semantic 검색 결과를 반환하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
@@ -1298,6 +1329,29 @@ async def get_semantic_search(project_id: int, search_id: int, search_type: str)
 
     return search_data
 
+
+@app.get("/api/get_search_sets/{project_id}")
+async def get_search_sets(project_id: int, search_type: str):
+    search_path = os.path.join(SIMILARITY, str(project_id))
+
+    if not os.path.exists(search_path):
+        raise HTTPException(status_code=404, detail="Search files not found")
+
+    search_sets = []
+    for filename in os.listdir(search_path):
+        if filename.endswith(f"{search_type}.json"):
+            filepath = os.path.join(search_path, filename)
+            with open(filepath, "r") as file:
+                data = json.load(file)
+                # "page_set" 키가 있는 JSON 파일만 필터링
+                if "page_set" in data:
+                    search_id = filename.split("_")[0]  # 파일 이름에서 search_id 추출
+                    search_sets.append({
+                        "search_id": search_id,
+                        "query": data.get("query", ""),
+                    })
+
+    return search_sets
 
 @app.get("/api/get_page_info/{project_id}", status_code=200)
 async def get_page_info(project_id: int):
@@ -1657,7 +1711,7 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
     return {"message": "Annotated PDF saved successfully"}
 
 @app.post("/api/make_search_set/{project_id}", status_code=200)
-async def make_search_set(project_id: int, search_id: int, page_set: List[str] = Form(...)):
+async def make_search_set(project_id: int, search_id: int, search_type: str = Form(...), page_set: str = Form(...)):
     """
     특정 프로젝트 ID에 대해 검색 결과를 저장하는 API 엔드포인트입니다.
     프로젝트 ID와 search_id 디렉토리에 page_set을 JSON 파일로 저장합니다.
@@ -1667,7 +1721,7 @@ async def make_search_set(project_id: int, search_id: int, page_set: List[str] =
     :param page_set: 검색 결과 페이지 번호 리스트
     """
 
-    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}.json")
+    search_path = os.path.join(SIMILARITY, str(project_id), f"{search_id}_{search_type}.json")
 
     if not os.path.exists(search_path):
         raise HTTPException(status_code=404, detail="Generated JSON files not found")
@@ -1679,8 +1733,14 @@ async def make_search_set(project_id: int, search_id: int, page_set: List[str] =
         raise HTTPException(
             status_code=500, detail=f"Error reading search file: {e}"
         )
+    
+    # page_set을 JSON으로 파싱하여 리스트로 변환
+    page_set_list = json.loads(page_set)
 
-    search_data["page_set"] = page_set
+    # 페이지 번호를 숫자 순서로 정렬
+    sorted_page_set = sorted(page_set_list, key=lambda x: int(x))
+
+    search_data["page_set"] = sorted_page_set
 
     with open(search_path, "w") as search_file:
         json.dump(search_data, search_file, indent=4)
