@@ -1426,6 +1426,29 @@ async def get_missed_parts(project_id: int):
 
     return page_info_data["missed_parts"]
 
+@app.get("/api/get_important_parts/{project_id}", status_code=200)
+async def get_important_parts(project_id: int):
+    """
+    특정 프로젝트 ID에 해당하는 important parts을 반환하는 API 엔드포인트입니다.
+    프로젝트 ID에 해당하는 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    """
+
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
+
+    if not os.path.exists(page_info_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(page_info_path, "r") as page_info_file:
+            page_info_data = json.load(page_info_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading page info file: {e}"
+        )
+
+    return page_info_data["important_parts"]
 
 @app.get("/api/get_matched_paragraphs/{project_id}", status_code=200)
 async def get_matched_paragraphs(project_id: int):
