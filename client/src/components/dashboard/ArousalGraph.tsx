@@ -14,21 +14,28 @@ import {
 import { gridModeState } from "@/app/recoil/ToolState";
 import { CategoricalChartFunc } from "recharts/types/chart/generateCategoricalChart";
 
+const GRAPH_HEIGHT = 200;
+const X_AXIS_HEIGHT = 20;
+
 const processData = (
   data: any,
   positiveEmotion: string[],
-  negativeEmotion: string[]
+  negativeEmotion: string[],
+  selectedPositives: boolean[],
+  selectedNegatives: boolean[],
 ) => {
   if (!data) return [];
   return data.map((d: any) => {
     const begin = parseFloat(d.begin);
     const end = parseFloat(d.end);
     const positiveSum = positiveEmotion.reduce((acc, cur) => {
+      if (!selectedPositives[positiveEmotion.indexOf(cur)]) return acc;
       const value = d[cur];
       return acc + (isNaN(value) ? 0 : value);
     }, 0);
 
     const negativeSum = negativeEmotion.reduce((acc, cur) => {
+      if (!selectedNegatives[negativeEmotion.indexOf(cur)]) return acc;
       const value = d[cur];
       return acc + (isNaN(value) ? 0 : value);
     }, 0);
@@ -84,7 +91,7 @@ const CustomRectangle = ({
       x={pageStartTime}
       y={0}
       width={pageEndTime - pageStartTime}
-      height={200} // Use 100 to fill the entire height
+      height={GRAPH_HEIGHT - X_AXIS_HEIGHT} // Use 100 to fill the entire height
       fill="rgba(0,0,0,0.3)"
     />
   );
@@ -151,7 +158,7 @@ const CustomXAxisTick = ({
           y={-100}
           width={100}
           height={100}
-          href={images[currentXTick-1]} // `href` 속성을 사용하여 이미지 삽입
+          href={images[currentXTick - 1]} // `href` 속성을 사용하여 이미지 삽입
           opacity={0.5}
         />
         <text
@@ -176,7 +183,7 @@ const VerticalLine = ({ x }: { x: number }) => (
     x1={x}
     y1={0}
     x2={x}
-    y2={180}
+    y2={GRAPH_HEIGHT - X_AXIS_HEIGHT}
     stroke="#008014"
     strokeWidth={3} // Reduced thickness
     opacity={0.5} // Added opacity for transparency
@@ -186,11 +193,13 @@ const VerticalLine = ({ x }: { x: number }) => (
 const useProcessedData = (
   data: unknown,
   positiveEmotion: string[],
-  negativeEmotion: string[]
+  negativeEmotion: string[],
+  selectedPositives: boolean[],
+  selectedNegatives: boolean[]
 ): any[] =>
   useMemo(
-    () => processData(data, positiveEmotion, negativeEmotion),
-    [data, positiveEmotion, negativeEmotion]
+    () => processData(data, positiveEmotion, negativeEmotion, selectedPositives, selectedNegatives),
+    [data, positiveEmotion, negativeEmotion, selectedPositives, selectedNegatives]
   );
 
 const useProcessedPageInfo = (pageInfo: unknown) =>
@@ -224,6 +233,124 @@ const useMinMaxValues = (processedData: any[]) => {
   );
 
   return { minY, maxY, minX, maxX };
+};
+
+const ToggleSwitch = ({
+  label,
+  checked,
+  onChange,
+  color,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  color: string;
+}) => {
+  return (
+    <label style={{ display: "flex", alignItems: "center", marginRight: 10 }}>
+      <div style={{ position: "relative", display: "inline-block", width: "24px", height: "12px" }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          style={{
+            opacity: 0,
+            width: 0,
+            height: 0,
+          }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            cursor: "pointer",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: checked ? color : "#D8D6F9",  // Updated colors
+            transition: ".4s",
+            borderRadius: "12px",
+          }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            content: "",
+            height: "8px",
+            width: "8px",
+            borderRadius: "50%",
+            backgroundColor: "white",
+            transition: ".4s",
+            transform: checked ? "translateX(12px)" : "translateX(0)",
+            top: "2px",
+            left: "2px",
+          }}
+        />
+      </div>
+      <span style={{ marginLeft: 8, color: "#333", fontSize: "12px" }}>
+        {label}
+      </span>
+    </label>
+  );
+};
+
+const CustomToggleSwitch = ({
+  positiveEmotion,
+  negativeEmotion,
+  selectedPositives,
+  selectedNegatives,
+  handlePositiveToggle,
+  handleNegativeToggle,
+}: {
+  positiveEmotion: string[];
+  negativeEmotion: string[];
+  selectedPositives: boolean[];
+  selectedNegatives: boolean[];
+  handlePositiveToggle: (index: number) => void;
+  handleNegativeToggle: (index: number) => void;
+}) => {
+  return (
+    <div>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        height: 20,
+        marginTop: 15,
+        paddingTop: 10,
+        backgroundColor: "#E5E7EB",
+      }}
+    >
+      {positiveEmotion.map((label, index) => (
+        <ToggleSwitch
+          key={`positive-${index}`}
+          label={label}
+          checked={selectedPositives[index]}
+          onChange={() => handlePositiveToggle(index)}
+          color = "#8884d8"
+        />
+      ))}
+    </div>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        height: 20,
+        backgroundColor: "#E5E7EB",
+      }}
+    >
+      {negativeEmotion.map((label, index) => (
+        <ToggleSwitch
+          key={`negative-${index}`}
+          label={label}
+          checked={selectedNegatives[index]}
+          onChange={() => handleNegativeToggle(index)}
+          color = "#82ca9d"
+        />
+      ))}
+    </div>
+    </div>
+  );
 };
 
 const ArousalGraph = ({
@@ -266,11 +393,19 @@ const ArousalGraph = ({
   images: any;
 }) => {
   const gridMode = useRecoilValue(gridModeState);
+  const [selectedPositives, setSelectedPositives] = useState(
+    Array(positiveEmotion.length).fill(true)
+  );
+  const [selectedNegatives, setSelectedNegatives] = useState(
+    Array(negativeEmotion.length).fill(true)
+  );
 
   const processedData = useProcessedData(
     data,
     positiveEmotion,
-    negativeEmotion
+    negativeEmotion,
+    selectedPositives,
+    selectedNegatives,
   );
   const ticks_ = useProcessedPageInfo(pageInfo);
   const tableOfContentsMap = useTableOfContentsMap(tableOfContents);
@@ -280,6 +415,22 @@ const ArousalGraph = ({
   const [pageEndTime, setpageEndTime] = useState(100);
   const [currentXTick, setCurrentXTick] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
+
+  const handlePositiveToggle = (index: number) => {
+    setSelectedPositives((prevState) => {
+      const newState = [...prevState];
+      newState[index] = !newState[index];
+      return newState;
+    });
+  };
+
+  const handleNegativeToggle = (index: number) => {
+    setSelectedNegatives((prevState) => {
+      const newState = [...prevState];
+      newState[index] = !newState[index];
+      return newState;
+    });
+  };
 
   const calculateScalingFactor = useCallback(
     (data: number) => (graphWidth * data) / maxX,
@@ -373,7 +524,7 @@ const ArousalGraph = ({
   }, [hoverState.hoverTime, gridMode, pageInfo, findPage]);
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={GRAPH_HEIGHT} style={{}}>
       <LineChart
         data={processedData}
         onMouseMove={handleMouseMove}
@@ -429,6 +580,14 @@ const ArousalGraph = ({
           height={15}
         />
       </LineChart>
+      <CustomToggleSwitch
+        positiveEmotion={positiveEmotion}
+        negativeEmotion={negativeEmotion}
+        selectedPositives={selectedPositives}
+        selectedNegatives={selectedNegatives}
+        handlePositiveToggle={handlePositiveToggle}
+        handleNegativeToggle={handleNegativeToggle}
+      />
     </ResponsiveContainer>
   );
 };
