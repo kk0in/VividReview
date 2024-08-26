@@ -170,7 +170,7 @@ const CustomXAxisTick = ({
   return null;
 };
 
-const VerticalLine = ({ x }: { x: number }) => (
+const CurrentPositionLine = ({ x }: { x: number }) => (
   <line
     x1={x}
     y1={0}
@@ -181,6 +181,49 @@ const VerticalLine = ({ x }: { x: number }) => (
     opacity={0.5} // Added opacity for transparency
   />
 );
+
+const HorizontalLine = ({
+  x1,
+  x2,
+  color,
+  y,
+}: {
+  x1: number;
+  x2: number;
+  color: string;
+  y: number;
+}) => {
+  return <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={3} />;
+};
+
+const CustomLegend = () => {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
+        <div
+          style={{
+            width: 20,
+            height: 3,
+            backgroundColor: "red",
+            marginRight: 5,
+          }}
+        />
+        <span>Missed Part</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div
+          style={{
+            width: 20,
+            height: 3,
+            backgroundColor: "green",
+            marginRight: 5,
+          }}
+        />
+        <span>Important Part</span>
+      </div>
+    </div>
+  );
+};
 
 const useProcessedData = (
   data: unknown,
@@ -244,6 +287,7 @@ const ArousalGraph = ({
   setTocIndex,
   setPage,
   images,
+  missedAndImportantParts,
 }: {
   data: any;
   handleAudioRef: any;
@@ -263,6 +307,7 @@ const ArousalGraph = ({
   setTocIndex: any;
   setPage: any;
   images: any;
+  missedAndImportantParts: any;
 }) => {
   const gridMode = useRecoilValue(gridModeState);
 
@@ -424,9 +469,29 @@ const ArousalGraph = ({
         />
         {hoverState.hoverPosition !== null && (
           <Customized
-            component={<VerticalLine x={hoverState.hoverPosition} />}
+            component={<CurrentPositionLine x={hoverState.hoverPosition} />}
           />
         )}
+        {missedAndImportantParts?.missed.map((part: any) => {
+          // horizontal line
+          return (
+            <Customized
+              component={
+                <HorizontalLine x1={calculateScalingFactor(part[0])} x2={calculateScalingFactor(part[1])} color={"red"} y={180} />
+              }
+            />
+          );
+        })}
+        {missedAndImportantParts?.important.map((part: any) => {
+          // horizontal line
+          return (
+            <Customized
+              component={
+                <HorizontalLine x1={calculateScalingFactor(part[0])} x2={calculateScalingFactor(part[1])} color={"green"} y={177} />
+              }
+            />
+          );
+        })}
       </LineChart>
     </ResponsiveContainer>
   );
