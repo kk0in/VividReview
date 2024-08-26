@@ -1749,7 +1749,7 @@ class TimestampRecord(BaseModel):
 
 @app.post("/api/save_recording/{project_id}", status_code=200)
 async def save_recording(
-    project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...)
+    project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...), drawings: str = Form(...)
 ):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
