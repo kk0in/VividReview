@@ -154,12 +154,13 @@ const CustomXAxisTick = ({
     return (
       <g transform={`translate(${x},${y})`}>
         <image
-          x={0}
+          x={textAnchor == "end"? -80: 0}
           y={-100}
           width={100}
           height={100}
           href={images[currentXTick - 1]} // `href` 속성을 사용하여 이미지 삽입
           opacity={0.5}
+
         />
         <text
           x={0}
