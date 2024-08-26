@@ -151,7 +151,8 @@ const CustomXAxisTick = ({
           y={-100}
           width={100}
           height={100}
-          href={images[currentXTick]} // `href` 속성을 사용하여 이미지 삽입
+          href={images[currentXTick-1]} // `href` 속성을 사용하여 이미지 삽입
+          opacity={0.5}
         />
         <text
           x={0}
@@ -461,6 +462,19 @@ const ArousalGraph = ({
           dot={false}
           isAnimationActive={false}
         />
+        <Customized
+          component={
+            <CustomRectangle
+              pageStartTime={calculateScalingFactor(pageStartTime)}
+              pageEndTime={calculateScalingFactor(pageEndTime)}
+            />
+          }
+        />
+        {hoverState.hoverPosition !== null && (
+          <Customized
+            component={<VerticalLine x={hoverState.hoverPosition} />}
+          />
+        )}
         <XAxis
           dataKey="begin"
           ticks={ticks_}
