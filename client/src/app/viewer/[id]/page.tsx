@@ -810,7 +810,7 @@ export default function Page({ params }: { params: { id: string } }) {
     for (const [key, value] of Object.entries<{ start: number; end: number }>(
       pageInfo
     )) {
-      if (time > value.start && time < value.end) {
+      if (time >= value.start && time < value.end) {
         return parseInt(key);
       }
     }
