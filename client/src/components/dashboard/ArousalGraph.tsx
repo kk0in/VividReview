@@ -249,31 +249,20 @@ const ArousalGraph = ({
               <CustomRectangle
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
+                y={20}
+                x_axis={0}
               />
             }
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
-            />
-          )}
-          <Customized
-            component={
-              <CustomRectangle
-                pageStartTime={calculateScalingFactor(pageStartTime)}
-                pageEndTime={calculateScalingFactor(pageEndTime)}
-              />
-            }
-          />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+              component={<CurrentPositionLine x={hoverState.hoverPosition} y={20} x_axis={0}/>}
             />
           )}
           <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
-      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT-15}>
+      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
         <LineChart
           data={processedData}
           onMouseMove={handleMouseMove}
@@ -294,12 +283,14 @@ const ArousalGraph = ({
               <CustomRectangle
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
+                y={0}
+                x_axis={70}
               />
             }
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+              component={<CurrentPositionLine x={hoverState.hoverPosition} y={0} x_axis={70}/>}
             />
           )}
           <XAxis
@@ -321,19 +312,6 @@ const ArousalGraph = ({
             interval={0}
             height={15}
           />
-          <Customized
-            component={
-              <CustomRectangle
-                pageStartTime={calculateScalingFactor(pageStartTime)}
-                pageEndTime={calculateScalingFactor(pageEndTime)}
-              />
-            }
-          />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
-            />
-          )}
           {missedAndImportantParts?.missed.map((part: any) => {
             return (
               <Customized
