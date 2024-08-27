@@ -375,7 +375,8 @@ function ReviewPage({
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
         const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
+        if (subsection.page[subsection.page.length - 1] >= page) {
+          console.log("Found ToC index:", page, i, j);
           return { section: i, subsection: j };
         }
       }
@@ -472,45 +473,55 @@ function ReviewPage({
   }, [audioSource]);
 
   useEffect(() => {
-    audioRef.current!.ontimeupdate = () => {
-      const handleProgressBar = () => {
-        if (!isMouseDown && audioRef.current) {
-          progressRef.current!.value = audioRef.current.currentTime;
-          setCirclePosition(audioRef.current.currentTime / audioRef.current.duration * progressRef.current!.offsetWidth);
+    if (audioRef.current === null || progressRef.current === null) { return; }
+    const audio = audioRef.current;
+    const progress = progressRef.current;
+
+    audio.ontimeupdate = () => {
+      const handleAudio = () => {
+        if (audio.currentTime > timeline.end) {
+          console.log("Time is up");
+          setPlayerState(PlayerState.IDLE);
+          return;
         }
 
         if (Object.keys(pageInfo).length > page && page > 0) {
-          const timelineForPage = Object.entries<{
-            start: number;
-            end: number;
-          }>(pageInfo)[page - 1][1];
+          const getTimeline = (page: number) => {
+            return Object.entries<{
+              start: number;
+              end: number;
+            }>(pageInfo)[page - 1][1];
+          };
+          
+          const currentPageTimeline = getTimeline(page);
 
-          // if (audioRef.current!.currentTime >= timelineForPage.end) {
-          //   const newPage = page + 1;
-          //   const newTocIndex = findTocIndex(newPage);
+          if (!audio.paused && audio.currentTime > currentPageTimeline.end) {
+            const newPage = findPage(audio.currentTime);
+            const newTocIndex = findTocIndex(newPage);
 
-          //   newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-          //   setPage(newPage);
-          //   console.log("setPage1");
-          // }
+            (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+            setPage(newPage);
+          }
         }
+      }
 
-        if (audioRef.current!.currentTime >= timeline.end) {
-          console.log("Time is up");
-          setPlayerState(PlayerState.IDLE);
+      const handleProgressBar = () => {
+        if (!isMouseDown) {
+          progress.value = audio.currentTime;
+          setCirclePosition(audio.currentTime / audio.duration * progress.offsetWidth);
         }
       };
 
       const handleHighlightBox = () => {
-        if (!isMouseDown && audioRef.current && !audioRef.current.paused) {
-          // console.log(audioRef.current.currentTime);
+        if (!isMouseDown && !audio.paused) {
+          // console.log(audio.currentTime);
           // console.log(bboxList[0]);
           // console.log(bboxIndex.current);
           let changeIndexFlag = false;
           for (let i = 0; i < bboxList.length; i++) {
             if (
-              audioRef.current.currentTime >= bboxList[i].start &&
-              audioRef.current.currentTime < bboxList[i].end
+              audio.currentTime >= bboxList[i].start &&
+              audio.currentTime < bboxList[i].end
             ) {
               if (i !== bboxIndex.current) {
                 bboxIndex.current = i;
@@ -564,10 +575,11 @@ function ReviewPage({
         }
       };
 
+      handleAudio();
       handleProgressBar();
       handleHighlightBox();
     };
-  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page, pageInfo, currentPlayerState, findPage]);
 
   useEffect(() => {
     if (progressRef.current === null || audioRef.current === null) {
@@ -737,26 +749,28 @@ function ReviewPage({
   }, [pageInfo, page, gridMode]);
 
   useEffect(() => {
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
+    if (audioRef.current === null) { return; }
+    const audio = audioRef.current;
 
     switch (currentPlayerState) {
       case PlayerState.PLAYING: {
-        console.log("PLAYING", timeline, audioRef.current!.currentTime);
-        audioRef.current.play();
+        console.log("PLAYING", timeline, audio.currentTime);
+        if (audio.currentTime > timeline.end) {
+          audio.currentTime = timeline.start;
+        }
+        audio.play();
         break;
       }
 
       case PlayerState.PAUSED: {
-        console.log("PAUSED", timeline, audioRef.current!.currentTime);
-        audioRef.current.pause();
+        console.log("PAUSED", timeline, audio.currentTime);
+        audio.pause();
         break;
       }
 
       case PlayerState.IDLE: {
         console.log("IDLE");
-        audioRef.current.pause();
+        audio.pause();
         break;
       }
     }
@@ -1032,7 +1046,7 @@ export default function Page({ params }: { params: { id: string } }) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
         const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
+        if (subsection.page[subsection.page.length - 1] >= page) {
           return { section: i, subsection: j };
         }
       }
