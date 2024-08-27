@@ -34,3 +34,8 @@ export const matchedParagraphsState = atom<Object | null>({
   key: "matchedParagraphsState",
   default: null,
 });
+
+export const pdfImagesState = atom<string[]>({
+  key: "pdfImagesState",
+  default: [],
+});

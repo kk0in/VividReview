@@ -10,11 +10,12 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
-import { pdfPageState, tocState, tocIndexState } from "@/app/recoil/ViewerState";
+import { pdfPageState, tocState, tocIndexState, pdfImagesState } from "@/app/recoil/ViewerState";
 import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
-import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo } from "@/utils/api";
+import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo, getRawImages } from "@/utils/api";
 import "./Lasso.css";
 import { useSearchParams } from "next/navigation";
+import ImagePage from "./ImagePage";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -58,6 +59,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
+  const [pdfImages, setPdfImages] = useRecoilState(pdfImagesState);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -86,17 +88,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     return !pixelBuffer.some(color => color !== 0);
   }
 
-  const onDocumentLoadSuccess = ({ numPages }: pdfjs.PDFDocumentProxy) => {
-    setNumPages(numPages);
-  };
-  
-  const onDocumentError = (error: Error) => {
-    console.log("pdf viewer error", error);
-  };
-  
-  const onDocumentLocked = () => {
-    console.log("pdf locked");
-  };
+  useEffect(() => {
+    const fetchPdfImages = async () => {
+      const images = await getRawImages(projectId);
+      setPdfImages(images);
+    }
+    fetchPdfImages();
+  }, [projectId, setPdfImages]);
 
   const findToCIndex = useCallback((page: number) => {
     for (let i = 0; i < toc.length; i++) {
@@ -424,7 +422,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         const {newCanvas: layerCanvas, newId: layerId} = makeNewCanvas();
         const layerContext = layerCanvas.getContext("2d");
         if (layerContext) {
-          const img = new Image();
+          const img = document.createElement('img');
           img.src = savedDrawings;
           img.onload = () => {
             layerContext.imageSmoothingEnabled = false;
@@ -534,7 +532,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           for (let l = 1; l <= numLayers; l++) {
             const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
             if (drawingLayer) {
-              const img = new Image();
+              const img = document.createElement('img');
               img.src = drawingLayer;
               await img.decode();
               tmpContext.drawImage(img, 0, 0);
@@ -589,7 +587,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
               for (let l = 1; l <= numLayers; l++) {
                 const drawingLayer = localStorage.getItem(`drawings_${projectId}_${i}_${l}`);
                 if (drawingLayer) {
-                  const img = new Image();
+                  const img = document.createElement('img');
                   img.src = drawingLayer;
                   await img.decode();
                   tmpContext.drawImage(img, 0, 0);
@@ -908,12 +906,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   switch (gridMode) {
     case 0: {
       pageComponents.push(
-        <Page
+        <ImagePage
           key={pageNumber}
           pageNumber={pageNumber}
-          width={width}
-          renderAnnotationLayer={false}
-          scale={scale}
         />
       );
       break;
@@ -928,13 +923,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const length = endIndex - startIndex + 1
       for (let i = 0; i < length; i++) {
         pageComponents.push(
-          <Page
+          <ImagePage
             className="mr-4 mb-10"
             key={i}
             pageNumber={startIndex + i}
-            width={width / 2}
-            renderAnnotationLayer={false}
-            scale={scale}
+            divisions={2}
           />
         );
       }
@@ -946,13 +939,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const subsection = section.subsections[tocIndex.subsection];
       for (const page of subsection.page) {
         pageComponents.push(
-          <Page
+          <ImagePage
             className="mr-4 mb-10"
             key={page}
             pageNumber={page}
-            width={width / 2}
-            renderAnnotationLayer={false}
-            scale={scale}
+            divisions={2}
           />
         );
       }
@@ -1058,16 +1049,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
   return (
     <div className="flex justify-items-center">
-      <div className="relative flex flex-col w-full items-center" ref={viewerRef}>
-        <Document
-          className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}
-          file={pdfUrl}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentError}
-          onPassword={onDocumentLocked}
-        >
+      <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
+        <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
           {pageComponents}
-        </Document>
+        </div>
         <canvas
           ref={canvasRef}
           width={width}

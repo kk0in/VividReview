@@ -50,7 +50,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       <div>
         {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []).map((line) => {return (<>{line}<br/></>)}) : ""}
       </div>
-      <div className="control-buttons" style={{display: "flex", alignItems: "center", position: "relative"}}>
+      <div className="control-buttons" style={{display: "flex", alignItems: "center", position: "relative", marginTop: "5px"}}>
         {activePromptIndex[2] > 0 && (
           <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}
             style={{marginRight: "auto", marginLeft: "0"}}
