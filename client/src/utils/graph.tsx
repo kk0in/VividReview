@@ -120,7 +120,11 @@ export const useProcessedPageInfo = (pageInfo: unknown) =>
 
 export const useTableOfContentsMap = (tableOfContents: unknown) =>
   useMemo(() => processTableOfContents(tableOfContents), [tableOfContents]);
-
+const calculate90thPercentile = (values: number[]) => {
+  const sortedValues = values.sort((a, b) => a - b);
+  const index = Math.ceil(0.95 * sortedValues.length) - 1;
+  return sortedValues[index];
+};
 export const useMinMaxValues = (processedData: any[]) => {
   const yValues = processedData.flatMap(
     (data: { positive_score: any; negative_score: any }) => [
@@ -136,12 +140,14 @@ export const useMinMaxValues = (processedData: any[]) => {
   );
   const minYpos = Math.min(...yValuesPos);
   const maxYpos = Math.max(...yValuesPos);
+  const per90YPos = calculate90thPercentile(yValuesPos);
 
   const yValuesNeg = processedData.map(
     (data: { negative_score: any }) => data.negative_score
   );
   const minYneg = Math.min(...yValuesNeg);
   const maxYneg = Math.max(...yValuesNeg);
+  const per90YNeg = calculate90thPercentile(yValuesNeg);
 
   const minX = Math.min(
     ...processedData
@@ -154,5 +160,5 @@ export const useMinMaxValues = (processedData: any[]) => {
       .flat()
   );
 
-  return { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg };
+  return { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg, per90YPos, per90YNeg };
 };

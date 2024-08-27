@@ -19,6 +19,7 @@ import {
   CustomToggleSwitch,
   CustomXAxisTick,
   HorizontalLine,
+  CustomDot
 } from "./GraphComponent";
 import { CategoricalChartState } from "recharts/types/chart/types";
 import {
@@ -90,8 +91,18 @@ const ArousalGraph = ({
   );
   const ticks_ = useProcessedPageInfo(pageInfo);
   const tableOfContentsMap = useTableOfContentsMap(tableOfContents);
-  const { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg } =
-    useMinMaxValues(processedData);
+  const {
+    minY,
+    maxY,
+    minX,
+    maxX,
+    minYpos,
+    maxYpos,
+    minYneg,
+    maxYneg,
+    per90YPos,
+    per90YNeg,
+  } = useMinMaxValues(processedData);
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
@@ -249,7 +260,7 @@ const ArousalGraph = ({
             type="monotone"
             dataKey="positive_score"
             stroke="#8884d8"
-            dot={false}
+            dot={<CustomDot threshold={per90YPos} />}
             isAnimationActive={false}
           />
           <Customized
@@ -276,7 +287,11 @@ const ArousalGraph = ({
           <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
-      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT} style={{borderTopWidth: 1, borderTopColor: "#bbb"}}>
+      <ResponsiveContainer
+        width="100%"
+        height={GRAPH_HEIGHT}
+        style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
+      >
         <LineChart
           data={processedData}
           onMouseMove={handleMouseMove}
@@ -289,7 +304,7 @@ const ArousalGraph = ({
             type="monotone"
             dataKey="negative_score"
             stroke="#82ca9d"
-            dot={false}
+            dot={<CustomDot threshold={per90YNeg} />}
             isAnimationActive={false}
           />
           <Customized
@@ -332,35 +347,40 @@ const ArousalGraph = ({
             interval={0}
             height={15}
           />
-          {missedAndImportantParts?.missed.map((part: any) => {
+          {missedAndImportantParts?.missed.map((part: any, index: number) => {
             return (
               <Customized
+                key={`missed-${index}`} // Add a unique key prop
                 component={
                   <HorizontalLine
+                    key={`missed-${index}`} // Add a unique key prop
                     x1={calculateScalingFactor(part[0])}
                     x2={calculateScalingFactor(part[1])}
                     color={"red"}
-                    y={180}
+                    y={131}
                   />
                 }
               />
             );
           })}
-          {missedAndImportantParts?.important.map((part: any) => {
-            // horizontal line
-            return (
-              <Customized
-                component={
-                  <HorizontalLine
-                    x1={calculateScalingFactor(part[0])}
-                    x2={calculateScalingFactor(part[1])}
-                    color={"green"}
-                    y={177}
-                  />
-                }
-              />
-            );
-          })}
+          {missedAndImportantParts?.important.map(
+            (part: any, index: number) => {
+              // horizontal line
+              return (
+                <Customized
+                  key={`important-${index}`} // Add a unique key prop
+                  component={
+                    <HorizontalLine
+                      x1={calculateScalingFactor(part[0])}
+                      x2={calculateScalingFactor(part[1])}
+                      color={"green"}
+                      y={129}
+                    />
+                  }
+                />
+              );
+            }
+          )}
         </LineChart>
         <CustomToggleSwitch
           positiveEmotion={positiveEmotion}

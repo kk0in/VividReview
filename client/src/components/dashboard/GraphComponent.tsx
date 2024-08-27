@@ -313,3 +313,29 @@ export const CustomRectangle = ({
     />
   );
 };
+
+export const CustomDot = ({
+  cx,
+  cy,
+  value,
+  threshold,
+}: {
+  cx: number;
+  cy: number;
+  value: number;
+  threshold: number;
+}) => {
+  if (value >= threshold) {
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={2}
+        stroke="#FFD700"
+        strokeWidth={1}
+        fill="#FFD700"
+      />
+    );
+  }
+  return null;
+};
