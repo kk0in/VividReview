@@ -104,6 +104,7 @@ export const CustomToggleSwitch = ({
           marginTop: 15,
           paddingTop: 10,
           backgroundColor: "#E5E7EB",
+          borderWidth: 0,
         }}
       >
         {positiveEmotion.map((label, index) => (
@@ -122,6 +123,7 @@ export const CustomToggleSwitch = ({
           justifyContent: "center",
           height: 20,
           backgroundColor: "#E5E7EB",
+          borderWidth: 0,
         }}
       >
         {negativeEmotion.map((label, index) => (
@@ -226,7 +228,7 @@ export const CustomLegend = (props: any) => {
   const { payload } = props;
   return (
     <div
-      style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}
+      style={{ display: "flex", justifyContent: "center", marginBottom: 5, height: 10 }}
     >
       {payload.map((entry: any, index: number) => (
         <div

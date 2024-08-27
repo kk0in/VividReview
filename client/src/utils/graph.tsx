@@ -131,6 +131,18 @@ export const useMinMaxValues = (processedData: any[]) => {
   const minY = Math.min(...yValues);
   const maxY = Math.max(...yValues);
 
+  const yValuesPos = processedData.map(
+    (data: { positive_score: any }) => data.positive_score
+  );
+  const minYpos = Math.min(...yValuesPos);
+  const maxYpos = Math.max(...yValuesPos);
+
+  const yValuesNeg = processedData.map(
+    (data: { negative_score: any }) => data.negative_score
+  );
+  const minYneg = Math.min(...yValuesNeg);
+  const maxYneg = Math.max(...yValuesNeg);
+
   const minX = Math.min(
     ...processedData
       .map((data: { begin: any; end: any }) => [data.begin, data.end])
@@ -142,5 +154,5 @@ export const useMinMaxValues = (processedData: any[]) => {
       .flat()
   );
 
-  return { minY, maxY, minX, maxX };
+  return { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg };
 };
