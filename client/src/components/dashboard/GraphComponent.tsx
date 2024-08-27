@@ -1,13 +1,6 @@
 import React, { useState } from "react";
 import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   Rectangle,
-  Tooltip,
-  XAxis,
-  YAxis,
 } from "recharts";
 
 const GRAPH_HEIGHT = 200;
@@ -196,12 +189,12 @@ export const CustomXAxisTick = ({
   return null;
 };
 
-export const CurrentPositionLine = ({ x }: { x: number }) => (
+export const CurrentPositionLine = ({ x, y, x_axis }: { x: number; y: number; x_axis: number}) => (
   <line
     x1={x}
-    y1={0}
+    y1={y}
     x2={x}
-    y2={GRAPH_HEIGHT - X_AXIS_HEIGHT}
+    y2={GRAPH_HEIGHT-x_axis}
     stroke="#008014"
     strokeWidth={3} // Reduced thickness
     opacity={0.5} // Added opacity for transparency
@@ -228,7 +221,12 @@ export const CustomLegend = (props: any) => {
   const { payload } = props;
   return (
     <div
-      style={{ display: "flex", justifyContent: "center", marginBottom: 5, height: 10 }}
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        marginBottom: 5,
+        height: 10,
+      }}
     >
       {payload.map((entry: any, index: number) => (
         <div
@@ -248,6 +246,22 @@ export const CustomLegend = (props: any) => {
           </span>
         </div>
       ))}
+      <div
+          key={"negative"}
+          style={{ display: "flex", alignItems: "center", marginRight: 20 }}
+        >
+          <div
+            style={{
+              width: 20,
+              height: 3,
+              backgroundColor: "#82ca9d",
+              marginRight: 5,
+            }}
+          />
+          <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
+            {"negative_score"}
+          </span>
+        </div>
       <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
         <div
           style={{
@@ -281,17 +295,47 @@ export const CustomLegend = (props: any) => {
 export const CustomRectangle = ({
   pageStartTime,
   pageEndTime,
+  y,
+  x_axis,
 }: {
   pageStartTime: number;
   pageEndTime: number;
+  y: number;
+  x_axis: number;
 }) => {
   return (
     <Rectangle
       x={pageStartTime}
-      y={33}
+      y={y || 0}
       width={pageEndTime - pageStartTime}
-      height={GRAPH_HEIGHT - X_AXIS_HEIGHT - 33} // Use 100 to fill the entire height
+      height={GRAPH_HEIGHT - x_axis} // Use 100 to fill the entire height
       fill="rgba(0,0,0,0.3)"
     />
   );
+};
+
+export const CustomDot = ({
+  cx,
+  cy,
+  value,
+  threshold,
+}: {
+  cx: number;
+  cy: number;
+  value: number;
+  threshold: number;
+}) => {
+  if (value >= threshold) {
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={2}
+        stroke="#FFD700"
+        strokeWidth={1}
+        fill="#FFD700"
+      />
+    );
+  }
+  return null;
 };

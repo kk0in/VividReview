@@ -19,6 +19,7 @@ import {
   CustomToggleSwitch,
   CustomXAxisTick,
   HorizontalLine,
+  CustomDot,
 } from "./GraphComponent";
 import { CategoricalChartState } from "recharts/types/chart/types";
 import {
@@ -90,8 +91,18 @@ const ArousalGraph = ({
   );
   const ticks_ = useProcessedPageInfo(pageInfo);
   const tableOfContentsMap = useTableOfContentsMap(tableOfContents);
-  const { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg } =
-    useMinMaxValues(processedData);
+  const {
+    minY,
+    maxY,
+    minX,
+    maxX,
+    minYpos,
+    maxYpos,
+    minYneg,
+    maxYneg,
+    per90YPos,
+    per90YNeg,
+  } = useMinMaxValues(processedData);
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
@@ -127,7 +138,7 @@ const ArousalGraph = ({
   }, [hoverState.activeLabel, findPage]);
 
   useEffect(() => {
-    if(!hoverState.hoverPosition && hoverState.hoverTime){
+    if (!hoverState.hoverPosition && hoverState.hoverTime) {
       const time_ = hoverState.hoverTime;
       const hoverState_ = {
         hoverPosition: calculateScalingFactor(time_),
@@ -136,7 +147,7 @@ const ArousalGraph = ({
       };
       setHoverState(hoverState_);
     }
-  },[hoverState]);
+  }, [hoverState]);
 
   const handleMouseDown: CategoricalChartFunc = useCallback(
     (e: any) => {
@@ -180,7 +191,7 @@ const ArousalGraph = ({
         newPage > 0 && setPage(newPage);
 
         handleAudioRef(e.activePayload[0].payload);
-        
+
         calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
           ({ start, end }) => {
             setpageStartTime(start);
@@ -190,7 +201,18 @@ const ArousalGraph = ({
         setIsMouseDown(false);
       }
     },
-    [isMouseDown, findPage, findTocIndex, tocIndex, setTocIndex, setPage, handleAudioRef, gridMode, pageInfo, pages]
+    [
+      isMouseDown,
+      findPage,
+      findTocIndex,
+      tocIndex,
+      setTocIndex,
+      setPage,
+      handleAudioRef,
+      gridMode,
+      pageInfo,
+      pages,
+    ]
   );
 
   // useEffect(() => {
@@ -214,17 +236,13 @@ const ArousalGraph = ({
 
   useEffect(() => {
     const page_ = findPage(hoverState.hoverTime || 0);
-    calculateStartAndEnd(
-      page_,
-      gridMode,
-      pageInfo,
-      pages
-    ).then(({ start, end }) => {
-      setpageStartTime(start);
-      setpageEndTime(end);
-    });
+    calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
+      ({ start, end }) => {
+        setpageStartTime(start);
+        setpageEndTime(end);
+      }
+    );
   }, [hoverState.hoverTime, gridMode]);
-
 
   return (
     <>
@@ -236,12 +254,21 @@ const ArousalGraph = ({
           onMouseUp={handleMouseUp}
         >
           <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="begin"
+            ticks={ticks_}
+            type="number"
+            domain={[minX, maxX]}
+            interval={0}
+            height={15}
+            hide
+          />
           <YAxis hide domain={[minYpos, maxYpos]} />
           <Line
             type="monotone"
             dataKey="positive_score"
             stroke="#8884d8"
-            dot={false}
+            dot={<CustomDot threshold={per90YPos} />}
             isAnimationActive={false}
           />
           <Customized
@@ -249,31 +276,30 @@ const ArousalGraph = ({
               <CustomRectangle
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
+                y={20}
+                x_axis={0}
               />
             }
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
-            />
-          )}
-          <Customized
-            component={
-              <CustomRectangle
-                pageStartTime={calculateScalingFactor(pageStartTime)}
-                pageEndTime={calculateScalingFactor(pageEndTime)}
-              />
-            }
-          />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+              component={
+                <CurrentPositionLine
+                  x={hoverState.hoverPosition}
+                  y={20}
+                  x_axis={0}
+                />
+              }
             />
           )}
           <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
-      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT-15}>
+      <ResponsiveContainer
+        width="100%"
+        height={GRAPH_HEIGHT}
+        style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
+      >
         <LineChart
           data={processedData}
           onMouseMove={handleMouseMove}
@@ -286,7 +312,7 @@ const ArousalGraph = ({
             type="monotone"
             dataKey="negative_score"
             stroke="#82ca9d"
-            dot={false}
+            dot={<CustomDot threshold={per90YNeg} />}
             isAnimationActive={false}
           />
           <Customized
@@ -294,12 +320,20 @@ const ArousalGraph = ({
               <CustomRectangle
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
+                y={0}
+                x_axis={70}
               />
             }
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+              component={
+                <CurrentPositionLine
+                  x={hoverState.hoverPosition}
+                  y={0}
+                  x_axis={70}
+                />
+              }
             />
           )}
           <XAxis
@@ -321,43 +355,17 @@ const ArousalGraph = ({
             interval={0}
             height={15}
           />
-          <Customized
-            component={
-              <CustomRectangle
-                pageStartTime={calculateScalingFactor(pageStartTime)}
-                pageEndTime={calculateScalingFactor(pageEndTime)}
-              />
-            }
-          />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
-            />
-          )}
-          {missedAndImportantParts?.missed.map((part: any) => {
+          {missedAndImportantParts?.missed.map((part: any, index: number) => {
             return (
               <Customized
+                key={`missed-${index}`} // Add a unique key prop
                 component={
                   <HorizontalLine
+                    key={`missed-${index}`} // Add a unique key prop
                     x1={calculateScalingFactor(part[0])}
                     x2={calculateScalingFactor(part[1])}
                     color={"red"}
-                    y={180}
-                  />
-                }
-              />
-            );
-          })}
-          {missedAndImportantParts?.important.map((part: any) => {
-            // horizontal line
-            return (
-              <Customized
-                component={
-                  <HorizontalLine
-                    x1={calculateScalingFactor(part[0])}
-                    x2={calculateScalingFactor(part[1])}
-                    color={"green"}
-                    y={177}
+                    y={131}
                   />
                 }
               />
