@@ -363,24 +363,6 @@ const ArousalGraph = ({
               />
             );
           })}
-          {missedAndImportantParts?.important.map(
-            (part: any, index: number) => {
-              // horizontal line
-              return (
-                <Customized
-                  key={`important-${index}`} // Add a unique key prop
-                  component={
-                    <HorizontalLine
-                      x1={calculateScalingFactor(part[0])}
-                      x2={calculateScalingFactor(part[1])}
-                      color={"green"}
-                      y={129}
-                    />
-                  }
-                />
-              );
-            }
-          )}
         </LineChart>
         <CustomToggleSwitch
           positiveEmotion={positiveEmotion}
