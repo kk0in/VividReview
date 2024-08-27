@@ -720,10 +720,14 @@ function ReviewPage({
 
     console.log("newTimeline", newTimeline, audioRef.current!.currentTime);
     if (
-      audioRef.current!.currentTime < newTimeline.start ||
-      audioRef.current!.currentTime > newTimeline.end
-    ) {
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) < parseFloat(newTimeline.start.toFixed(5)) ||
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) >= parseFloat(newTimeline.end.toFixed(5))
+    )  {
       audioRef.current!.currentTime = newTimeline.start;
+      setHoverState({
+        hoverTime: newTimeline.start,
+        activeLabel: newTimeline.start,
+      });
     }
     setTimeline(newTimeline);
   }, [pageInfo, page, gridMode]);
@@ -995,14 +999,13 @@ export default function Page({ params }: { params: { id: string } }) {
   const fetchMissedAndImportantParts = async () => {
     try{
       const result = await getMissedAndImportantParts(params.id);
-      console.log("Missed and Important Parts:", result);
       setMisssedAndImportantParts(result);
     }catch(error){
       console.error("Failed to fetch missed data:", error);
     }
   };
 
-  const findPage = async (time: number): number => {
+  const findPage = (time: number): number => {
     if (pageInfo === null) {
       return 0;
     }
@@ -1019,6 +1022,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const findTocIndex = (page: number) => {
+    console.log("toc", toc);
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
@@ -1051,11 +1055,14 @@ export default function Page({ params }: { params: { id: string } }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(0);
 
-  useEffect(() => {
-    if (containerRef.current) {
+  const setSize = () => {
+    setTimeout(() => {
+      if (!containerRef.current) return;
+      console.log(containerRef.current.offsetWidth);
       setGraphWidth(containerRef.current.offsetWidth);
-    }
-  }, []);
+    }, 200);
+  };
+  useEffect(setSize, []);
 
   const { data: searchResult, refetch: fetchSearchResult } = useQuery(
     ["getSearchResult", projectId, searchId, type],
