@@ -19,7 +19,7 @@ import {
   CustomToggleSwitch,
   CustomXAxisTick,
   HorizontalLine,
-  CustomDot
+  CustomDot,
 } from "./GraphComponent";
 import { CategoricalChartState } from "recharts/types/chart/types";
 import {
@@ -254,7 +254,15 @@ const ArousalGraph = ({
           onMouseUp={handleMouseUp}
         >
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis hide domain={[minX, maxX]} />
+          <XAxis
+            dataKey="begin"
+            ticks={ticks_}
+            type="number"
+            domain={[minX, maxX]}
+            interval={0}
+            height={15}
+            hide
+          />
           <YAxis hide domain={[minYpos, maxYpos]} />
           <Line
             type="monotone"
