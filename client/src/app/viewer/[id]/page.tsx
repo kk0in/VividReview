@@ -590,7 +590,7 @@ function ReviewPage({
     const audio = audioRef.current;
 
     const getOffsetX = (event: MouseEvent | TouchEvent) => {
-      const offsetX = event instanceof MouseEvent ? event.offsetX : event.targetTouches[0].clientX - progressRef.current!.offsetLeft;
+      const offsetX = event instanceof MouseEvent ? event.offsetX : event.targetTouches[0].clientX - progress.parentElement!.offsetLeft;
       setLastOffsetX(offsetX);
       return offsetX;
     }
@@ -630,7 +630,7 @@ function ReviewPage({
       event.preventDefault();
       if (isMouseDown) {
         const offsetX = lastOffsetX;
-        console.log("mouseup", progress!.offsetWidth, offsetX);
+        console.log("mouseup", progress.offsetWidth, offsetX);
         const timeValue = getNewProgressValue(offsetX);
         const newPage = findPage(timeValue);
         const newTocIndex = findTocIndex(newPage);
