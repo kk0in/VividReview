@@ -288,9 +288,9 @@ export const CustomRectangle = ({
   return (
     <Rectangle
       x={pageStartTime}
-      y={0}
+      y={33}
       width={pageEndTime - pageStartTime}
-      height={GRAPH_HEIGHT - X_AXIS_HEIGHT} // Use 100 to fill the entire height
+      height={GRAPH_HEIGHT - X_AXIS_HEIGHT - 33} // Use 100 to fill the entire height
       fill="rgba(0,0,0,0.3)"
     />
   );

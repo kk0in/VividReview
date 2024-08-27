@@ -126,6 +126,18 @@ const ArousalGraph = ({
     }
   }, [hoverState.activeLabel, findPage]);
 
+  useEffect(() => {
+    if(!hoverState.hoverPosition && hoverState.hoverTime){
+      const time_ = hoverState.hoverTime;
+      const hoverState_ = {
+        hoverPosition: calculateScalingFactor(time_),
+        hoverTime: time_,
+        activeLabel: time_,
+      };
+      setHoverState(hoverState_);
+    }
+  },[hoverState]);
+
   const handleMouseDown: CategoricalChartFunc = useCallback(
     (e: any) => {
       handleAudioRef(e.activePayload[0].payload);
@@ -168,49 +180,51 @@ const ArousalGraph = ({
         newPage > 0 && setPage(newPage);
 
         handleAudioRef(e.activePayload[0].payload);
+        
+        calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
+          ({ start, end }) => {
+            setpageStartTime(start);
+            setpageEndTime(end);
+          }
+        );
         setIsMouseDown(false);
       }
     },
-    [
-      isMouseDown,
-      findPage,
-      findTocIndex,
-      tocIndex,
-      setTocIndex,
-      setPage,
-      handleAudioRef,
-    ]
+    [isMouseDown, findPage, findTocIndex, tocIndex, setTocIndex, setPage, handleAudioRef, gridMode, pageInfo, pages]
   );
 
-  useEffect(() => {
-    calculateStartAndEnd(page, gridMode, pageInfo, pages).then(
-      ({ start, end }) => {
-        console.log("page", page, "pageStartTime", start, "pageEndTime", end);
-        setpageStartTime(start);
-        setpageEndTime(end);
-        const hoverState_ = {
-          hoverPosition: calculateScalingFactor(start),
-          hoverTime: start,
-          activeLabel: start,
-        };
-        setHoverState(hoverState_);
-      }
-    );
-  }, [pages, page, gridMode]);
+  // useEffect(() => {
+  //   if (!isMouseDown) {
+  //     // handle page change when not dragging
+  //     calculateStartAndEnd(page, gridMode, pageInfo, pages).then(
+  //       ({ start, end }) => {
+  //         setpageStartTime(start);
+  //         setpageEndTime(end);
+
+  //         const hoverState_ = {
+  //           hoverPosition: calculateScalingFactor(start),
+  //           hoverTime: start,
+  //           activeLabel: start,
+  //         };
+  //         setHoverState(hoverState_);
+  //       }
+  //     );
+  //   }
+  // }, [pages, page, gridMode]);
 
   useEffect(() => {
-    console.log("hoverPosiiton", hoverState.hoverPosition);
-  }, [hoverState.hoverPosition]);
-
-  useEffect(() => {
-    console.log("page changed", page);
-  }, [page]);
-
-  useEffect(() => {
-    findPage(hoverState.hoverTime || 0).then((page_: number) => {
-      calculateStartAndEnd(page_, gridMode, pageInfo, pages).then();
+    const page_ = findPage(hoverState.hoverTime || 0);
+    calculateStartAndEnd(
+      page_,
+      gridMode,
+      pageInfo,
+      pages
+    ).then(({ start, end }) => {
+      setpageStartTime(start);
+      setpageEndTime(end);
     });
-  }, [hoverState.hoverTime, gridMode, findPage]);
+  }, [hoverState.hoverTime, gridMode]);
+
 
   return (
     <>

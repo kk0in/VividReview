@@ -12,16 +12,6 @@ export enum PlayerRequestType {
   NONE,
 };
 
-export const audioTimeState = atom<number>({
-  key: "audioTimeState",
-  default: 0,
-});
-
-export const audioDurationState = atom<number>({
-  key: "audioDurationState",
-  default: 0,
-});
-
 export const playerState = atom<PlayerState>({
   key: "playerState",
   default: PlayerState.PAUSED,

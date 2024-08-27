@@ -67,29 +67,9 @@ export async function saveRecording(projectId: string, formData: FormData) {
     return response.data;
 }
 
-export async function saveAnnotatedPdf(projectId: string, drawings: Record<number, string>, numPages: number) {
-    const pdfDoc = new jsPDF();
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      if (pageNum > 1) {
-        pdfDoc.addPage();
-      }
-
-      const imgData = drawings[pageNum];
-      if (imgData) {
-        pdfDoc.addImage(imgData, 'PNG', 0, 0, pdfDoc.internal.pageSize.getWidth(), pdfDoc.internal.pageSize.getHeight());
-      }
-    }
-
-    const pdfBlob = pdfDoc.output('blob');
-
-    const formData = new FormData();
-    formData.append('annotated_pdf', pdfBlob, 'annotated.pdf');
-
-    const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+export async function saveAnnotatedPdf(projectId: string, drawings: string[]) {
+    const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, {
+      annotations: drawings
     });
 
     return response.data;
@@ -232,8 +212,21 @@ export async function getProsody({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
-export async function getImages(projectId: string) {
-    const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`);
+export async function getRawImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'raw'
+      }
+  });
+  return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
+}
+
+export async function getAnnotatedImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'annotated'
+      }
+  });
     return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
 }
 

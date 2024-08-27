@@ -1,22 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import AppBar from "@/components/AppBar";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import SearchModal from "@/components/dashboard/SearchModal";
-import SearchPanel from "@/components/dashboard/SearchPanel";
 import { useSearchParams } from "next/navigation";
 import {
-  audioTimeState,
-  audioDurationState,
   playerState,
   PlayerState,
   playerRequestState,
@@ -120,82 +116,27 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
-function ReviewPage({
-  projectId,
-  spotlightRef,
-  audioRef,
-  progressRef,
-  page,
-  pageInfo,
-  pages,
-  setPage,
-  setPageInfo,
-  setHoverState,
-  setPages,
-  tocIndex,
-  setTocIndex,
-}: {
-  projectId: string;
-  spotlightRef: React.RefObject<HTMLCanvasElement>;
-  audioRef: React.RefObject<HTMLAudioElement>;
-  progressRef: React.RefObject<HTMLProgressElement>;
-  page: number;
-  pageInfo: any;
-  pages: number[];
-  setPage: (page: number) => void;
-  setPageInfo: (pageInfo: any) => void;
-  setPages: (pages: any) => void;
-  setHoverState: (hoverState: any) => void;
-  tocIndex: any;
-  setTocIndex: (tocIndex: any) => void;
-}) {
-  const gridMode = useRecoilValue(gridModeState);
-  const toc = useRecoilValue(tocState);
-  // const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
-  const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
-  const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
-  const [audioSource, setAudioSource] = useState<string>("");
-  const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
-  const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
-  const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
-  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
-  const [isMouseDown, setIsMouseDown] = useState(false);
-  const [scripts, setScripts] = useState<IScript[]>([]);
-  const [timeline, setTimeline] = useState<{ start: number; end: number }>({
-    start: 0,
-    end: 0,
-  });
-  const [lastOffsetX, setLastOffsetX] = useState(0);
-  const [bboxList, setBboxList] = useState<any[]>([]);
-  const pdfWidth = useRef(0);
-  const pdfHeight = useRef(0);
-  const bboxIndex = useRef(-1);
-  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
-  const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
-  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
-  const [mode, setMode] = useState("script");
-  const lassos = useRef<number[]>([]);
-  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
-  const answers = useRef<string[]>([]);
-
+function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) {
+  const [focusedTabIndex, setFocusedTabIndex] = useState(0);
+  
   const subTabs: TabProps[] = [
     {
       title: "Original",
       onClick: () => {
-        setActiveSubTabIndex(0);
+        setFocusedTabIndex(0);
       },
     },
     {
       title: "Processing",
       onClick: () => {
-        setActiveSubTabIndex(1);
+        setFocusedTabIndex(1);
       },
     },
   ];
 
   const subTabElements = subTabs.map((tab, idx) => {
     const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-      (idx === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
+      (idx === focusedTabIndex ? "bg-gray-300" : "bg-gray-300/50");
 
     return (
       <div className={className} onClick={tab.onClick} key={"subtab-" + idx}>
@@ -204,11 +145,69 @@ function ReviewPage({
     );
   })
 
+  const preprocessText = (text: string, keywords: string[]) => {
+    const highlightKeywords = (text: string, keywords: string[]) => {
+      let result = text;
+      for (const keyword of keywords) {
+        result = result.replace(
+          new RegExp(keyword, "gi"),
+          (text) => `<span class="text-red-600 font-bold">${text}</span>`
+        );
+      }
+      return result;
+    };
+
+    const processedHTML = text.replace(/- (.*?)(\n|$)/g, "• $1\n")
+                            .replace(/\n/g, "<br />")
+                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                            .replace(/  /g, "\u00a0\u00a0");
+    return highlightKeywords(processedHTML, keywords);
+  };
+
+  const paragraph = pages.map((page) => {
+    const script = scripts.find((script) => script.page === page);
+    if (script === undefined) {
+      return (<></>);
+    }
+
+    const processedHTML = focusedTabIndex === 0 ?
+      preprocessText(script.original, script.keyword) :
+      preprocessText(script.formal, script.keyword);
+
+    return (
+      <Fragment key={page}>
+        <p className="font-bold text-lg">Page {script.page} -</p>
+        <p className="mb-2" dangerouslySetInnerHTML={{ __html: processedHTML }} />
+      </Fragment>
+    );
+  });
+
+  return (
+    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+      <div className="flex flex-row overflow-x-auto">
+        {subTabElements}
+      </div>
+      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300 p-3">
+        {paragraph}
+      </div>
+    </div>
+  );
+}
+
+function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
+  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
+  const reloadFlag = useRecoilValue(reloadFlagState);
+  const lassos = useRef<{lasso_id: number, name: string}[]>([]);
+  const answers = useRef<string[]>([]);
+  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
+
   useEffect(() => {
     const fetchLassos = async () => {
       console.log("fetching lassos");
-      const response: number[] = await getLassosOnPage(projectId, page);
-      lassos.current = response.sort((a, b) => b - a);
+      const response: {lasso_id: number, name: string}[] = await getLassosOnPage(projectId, page);
+      lassos.current = response.sort((a, b) => b.lasso_id - a.lasso_id);
     }
 
     const fetchPrompts = async () => {
@@ -249,53 +248,109 @@ function ReviewPage({
     }
 
     fetchAnswers();
-    
-  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, mode]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag]);
 
-  const lassoTabElements = () => {    
+  const lassoTabElements = lassos.current.map((lasso, idx) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-300/50");  
+      
     return (
-      <>
-        {lassos.current.map((lassoNum, idx) => {
-          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-            (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-400/50");  
-           
-          return (
-            <>
-              <div className={className}
-                onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lassoNum)}}
-                key={"sublasso-"+idx}
-              >
-                {lassoNum}
-              </div>
-            </>
-          )
-        })}
-      </>
-    );
-  };
-
-  const promptTabElements = () => {
-    if (lassos.current.length === 0) return <></>;
-    return (
-      <>
-        {focusedLasso !== null && prompts.current.map((prompt, idx) => {
-          const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-            (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
-          
-          return (
-            <>
-              <div className={className}
-                onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
-                key={"subprompt-"+idx}
-              >
-                {prompt}
-              </div>
-            </>
-          )
-        })}
-      </>
+      <div className={className}
+        onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lasso.lasso_id)}}
+        key={"sublasso-"+idx}
+      >
+        {idx === activePromptIndex[0] ? lasso.name : lasso.name.slice(0, 5) + "..."}
+      </div>
     )
-  }
+  });
+
+  const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
+    prompts.current.map((prompt, idx) => {
+      const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+        (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
+      
+      return (
+        <div className={className}
+          onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+          key={"subprompt-"+idx}
+        >
+          {prompt}
+        </div>
+      )
+    }));
+
+  return (
+    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+      <div className="flex flex-row overflow-x-auto">
+        {lassoTabElements}
+      </div>
+      <div className={`rounded-b-2xl rounded-tr-2xl ${lassoTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-300 p-3`}>
+        <div className="flex flex-row mt-1 overflow-x-auto">
+          {promptTabElements}
+        </div>
+        <div className={`rounded-b-2xl rounded-tr-2xl ${promptTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-400/50 p-3`}>
+          <PromptDisplay
+            answers={answers.current}
+            projectId={projectId}
+            page={page}
+            focusedLasso={focusedLasso!}
+            prompts={prompts.current}
+            rerenderFlag={rerenderFlag}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewPage({
+  projectId,
+  spotlightRef,
+  audioRef,
+  progressRef,
+  page,
+  pageInfo,
+  pages,
+  setPage,
+  setPageInfo,
+  setHoverState,
+  setPages,
+  tocIndex,
+  setTocIndex,
+}: {
+  projectId: string;
+  spotlightRef: React.RefObject<HTMLCanvasElement>;
+  audioRef: React.RefObject<HTMLAudioElement>;
+  progressRef: React.RefObject<HTMLProgressElement>;
+  page: number;
+  pageInfo: any;
+  pages: number[];
+  setPage: (page: number) => void;
+  setPageInfo: (pageInfo: any) => void;
+  setPages: (pages: any) => void;
+  setHoverState: (hoverState: any) => void;
+  tocIndex: any;
+  setTocIndex: (tocIndex: any) => void;
+}) {
+  const gridMode = useRecoilValue(gridModeState);
+  const toc = useRecoilValue(tocState);
+  // const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
+  const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
+  const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
+  const [audioSource, setAudioSource] = useState<string>("");
+  const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [scripts, setScripts] = useState<IScript[]>([]);
+  const [timeline, setTimeline] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 0,
+  });
+  const [lastOffsetX, setLastOffsetX] = useState(0);
+  const [bboxList, setBboxList] = useState<any[]>([]);
+  const pdfWidth = useRef(0);
+  const pdfHeight = useRef(0);
+  const bboxIndex = useRef(-1);
+  const [scriptMode, setMode] = useState("script");
 
   const findPage = (time: number): number => {
     if (pageInfo === null) {
@@ -411,8 +466,6 @@ function ReviewPage({
     audioRef.current.onloadedmetadata = () => {
       if (audioRef.current) {
         console.log(audioRef.current.duration);
-        setAudioDuration(audioRef.current.duration);
-
         progressRef.current!.max = audioRef.current.duration;
       }
     };
@@ -425,7 +478,7 @@ function ReviewPage({
           progressRef.current!.value = audioRef.current.currentTime;
         }
 
-        if (pageInfo && page > 0) {
+        if (Object.keys(pageInfo).length > page && page > 0) {
           const timelineForPage = Object.entries<{
             start: number;
             end: number;
@@ -448,7 +501,7 @@ function ReviewPage({
       };
 
       const handleHighlightBox = () => {
-        if (!isMouseDown && audioRef.current) {
+        if (!isMouseDown && audioRef.current && !audioRef.current.paused) {
           // console.log(audioRef.current.currentTime);
           // console.log(bboxList[0]);
           // console.log(bboxIndex.current);
@@ -667,10 +720,14 @@ function ReviewPage({
 
     console.log("newTimeline", newTimeline, audioRef.current!.currentTime);
     if (
-      audioRef.current!.currentTime < newTimeline.start ||
-      audioRef.current!.currentTime > newTimeline.end
-    ) {
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) < parseFloat(newTimeline.start.toFixed(5)) ||
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) >= parseFloat(newTimeline.end.toFixed(5))
+    )  {
       audioRef.current!.currentTime = newTimeline.start;
+      setHoverState({
+        hoverTime: newTimeline.start,
+        activeLabel: newTimeline.start,
+      });
     }
     setTimeline(newTimeline);
   }, [pageInfo, page, gridMode]);
@@ -754,138 +811,19 @@ function ReviewPage({
     setPages(pages_);
   }, [gridMode, page, tocIndex]);
 
-  const convertWhiteSpaces = (text: string) => {
-    return text.replace(/  /g, "\u00a0\u00a0");
-  };
-
-  const convertStrongSymbols = (text: string) => {
-    return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  };
-
-  const convertLineEscapes = (text: string) => {
-    return text.replace(/\n/g, "<br />");
-  };
-
-  const convertListSymbols = (text: string) => {
-    return text.replace(/- (.*?)(\n|$)/g, "• $1\n");
-  };
-
-  const highlightKeywords = (text: string, keywords: string[]) => {
-    let result = text;
-    for (const keyword of keywords) {
-      result = result.replace(
-        new RegExp(keyword, "gi"),
-        (text) => `<span class="text-red-600 font-bold">${text}</span>`
-      );
-    }
-    return result;
-  };
-
-  const preprocessText = (text: string, keywords: string[]) => {
-    let processedHTML = convertListSymbols(text);
-    processedHTML = convertLineEscapes(processedHTML);
-    processedHTML = convertStrongSymbols(processedHTML);
-    processedHTML = convertWhiteSpaces(processedHTML);
-    processedHTML = highlightKeywords(processedHTML, keywords);
-    return processedHTML;
-  };
-
-  const paragraph: React.JSX.Element[] = [];
-  for (const page of pages) {
-    for (const script of scripts) {
-      if (script.page === page) {
-        let processedHTML = "";
-        if (activeSubTabIndex === 0) {
-          processedHTML = preprocessText(script.original, script.keyword);
-        } else {
-          processedHTML = preprocessText(script.formal, script.keyword);
-        }
-
-        paragraph.push(
-          <Fragment key={page}>
-            <p className="font-bold text-lg">Page {script.page} -</p>
-            <p
-              className="mb-2"
-              dangerouslySetInnerHTML={{ __html: processedHTML }}
-            ></p>
-          </Fragment>
-        );
-        break;
-      }
-    }
-  }
-
-  // useEffect(() => {
-  //   const fetchResults = async () => {
-  //     if (!searchId) return;
-
-  //     try {
-  //       const result = await getSearchResult(projectId, searchId, type);
-  //       const sortedPages = result.similarities
-  //         ? Object.entries(result.similarities).sort((a, b) => b[1] - a[1])
-  //         : [];
-
-  //       setSearchResult(sortedPages);
-  //       setIsModalOpen(true); // 검색 결과를 불러오면 모달을 염
-  //     } catch (error) {
-  //       console.error("Error fetching search results:", error);
-  //     }
-  //   };
-
-  //   fetchResults();
-  // }, [searchId, type, projectId]);
-
-  // useEffect(() => {
-  //   const fetchSearchResults = async () => {
-  //     if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
-
-  //     try {
-  //       await searchQuery(projectId, query, type); // API 요청만 수행
-  //     } catch (error) {
-  //       console.error("Error during search:", error);
-  //     }
-  //   };
-
-  //   fetchSearchResults();
-  // }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
-
-  const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
-  const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
-  const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
-  const unfocusedPrompts = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 py-1 px-4 font-bold";
-
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={mode === "script" ? focusedScript : unfocusedScript} onClick={() => setMode("script")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => setMode("script")}>
           Script
         </div>
-        <div className={mode === "prompts" ? focusedPrompts : unfocusedPrompts} onClick={() => setMode("prompts")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => setMode("prompts")}>
           Prompts
         </div>
       </div>
-      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row overflow-y-auto">
-          {mode === "script" ? subTabElements : lassoTabElements()}
-        </div>
-        <div className="rounded-b-2xl bg-gray-300 p-3">
-          <div className="flex flex-row mt-1 overflow-y-auto">
-            {mode === "script" ? <></> : promptTabElements()}
-          </div>
-          <div className="rounded-b-2xl rounded-tr-2xl bg-gray-400/50 p-3">
-            {mode === "script" ? paragraph :
-              <PromptDisplay
-                answers={answers.current}
-                projectId={projectId}
-                page={page}
-                focusedLasso={focusedLasso!}
-                prompts={prompts.current}
-                rerenderFlag={rerenderFlag}
-              />
-            }
-          </div>
-        </div>
-      </div>
+      {scriptMode === "script" ? 
+        <ScriptTabPage pages={pages} scripts={scripts} /> :
+        <PromptTabPage projectId={projectId} page={page} />}
     </div>
   );
 }
@@ -896,7 +834,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [searchId, setSearchId] = useState<string | null>(null);
   const [sortedPages, setSortedPages] = useState<any[]>([]);
   const [queryResult, setQueryResult] = useState(null);
-  const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
+  const [rawImages, setRawImages] = useState<string[]>([]); 
+  const [annotatedImages, setAnnotatedImages] = useState<string[]>([]); 
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
   const [semanticSearchSets, setSemanticSearchSets] = useState([]);
   const [keywordSearchSets, setKeywordSearchSets] = useState([]);
@@ -907,7 +846,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
-  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
   const [hoverState, setHoverState] = useState<{
@@ -1061,14 +999,13 @@ export default function Page({ params }: { params: { id: string } }) {
   const fetchMissedAndImportantParts = async () => {
     try{
       const result = await getMissedAndImportantParts(params.id);
-      console.log("Missed and Important Parts:", result);
       setMisssedAndImportantParts(result);
     }catch(error){
       console.error("Failed to fetch missed data:", error);
     }
   };
 
-  const findPage = async (time: number): number => {
+  const findPage = (time: number): number => {
     if (pageInfo === null) {
       return 0;
     }
@@ -1085,6 +1022,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const findTocIndex = (page: number) => {
+    console.log("toc", toc);
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
@@ -1114,30 +1052,17 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, [pdfData]);
 
-  // const handleUndo = () => {
-  //   if (history.length === 0) return;
-  //   const newHistory = [...history];
-  //   const lastDrawing = newHistory.pop();
-  //   setHistory(newHistory);
-  //   setRedoStack((prev) => [...prev, lastDrawing || '']);
-  // };
-
-  // const handleRedo = () => {
-  //   if (redoStack.length === 0) return;
-  //   const newRedoStack = [...redoStack];
-  //   const nextDrawing = newRedoStack.pop();
-  //   setRedoStack(newRedoStack);
-  //   setHistory((prev) => [...prev, nextDrawing || '']);
-  // };
-
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(0);
 
-  useEffect(() => {
-    if (containerRef.current) {
+  const setSize = () => {
+    setTimeout(() => {
+      if (!containerRef.current) return;
+      console.log(containerRef.current.offsetWidth);
       setGraphWidth(containerRef.current.offsetWidth);
-    }
-  }, []);
+    }, 200);
+  };
+  useEffect(setSize, []);
 
   const { data: searchResult, refetch: fetchSearchResult } = useQuery(
     ["getSearchResult", projectId, searchId, type],
@@ -1170,16 +1095,30 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   // getImages API 호출
-  const { data: fetchedImages, refetch: fetchImages } = useQuery(
-    ["getImages", params.id],
-    () => getImages(params.id),
+  const { data: fetchedRawImages, refetch: fetchRawImages } = useQuery(
+    ["getRawImages", params.id],
+    () => getRawImages(params.id),
     {
       enabled: true, // 항상 호출
       onSuccess: (data) => {
-        setImages(data);
+        setRawImages(data);
       },
       onError: (error) => {
-        console.error("Error fetching images:", error);
+        console.error("Error fetching raw images:", error);
+      },
+    }
+  );
+
+  const { data: fetchedAnnotatedImages, refetch: fetchAnnotatedImages } = useQuery(
+    ["getAnnotatedImages", params.id],
+    () => getAnnotatedImages(params.id),
+    {
+      enabled: true, // 항상 호출
+      onSuccess: (data) => {
+        setAnnotatedImages(data);
+      },
+      onError: (error) => {
+        console.error("Error fetching annotated images:", error);
       },
     }
   );
@@ -1482,7 +1421,7 @@ export default function Page({ params }: { params: { id: string } }) {
                         className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
                       >
                         <img
-                          src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
+                          src={annotatedImages[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
                           alt={`Page ${page}`}
                           className="rounded-md mb-2"
                         />
@@ -1521,7 +1460,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1542,7 +1481,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1563,7 +1502,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1655,7 +1594,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1746,7 +1685,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1836,7 +1775,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1]}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1909,7 +1848,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   setHoverState={setHoverState}
                   setTocIndex={setTocIndex}
                   setPage={setPage}
-                  images={images}
+                  images={rawImages}
                   missedAndImportantParts={missedAndImportantParts}
                 />
                 <audio ref={audioRef} />

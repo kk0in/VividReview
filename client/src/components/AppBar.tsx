@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
 import {
   FaPencilAlt,
@@ -184,11 +184,17 @@ export default function AppBar() {
       handleSearch(); // Enter 키를 눌렀을 때 검색 실행
     }
   };
-
+  
   const toggleSearchType = () => {
-    setSearchType((prevType) => (prevType === 'semantic' ? 'keyword' : 'semantic')); // 타입을 토글
+    if (isReviewMode) {
+      setSearchType((prevType) => (prevType === 'semantic' ? 'keyword' : 'semantic')); // 타입을 토글
+    }
   };
 
+  useEffect(() => {
+    setSearchType(isReviewMode ? 'semantic' : 'keyword');
+  }, [isReviewMode]);
+  
   const icons = [
     { name: 'pencil', icon: FaPencilAlt, tool: 'pencil' },
     { name: 'highlighter', icon: FaHighlighter, tool: 'highlighter' },
@@ -267,13 +273,13 @@ export default function AppBar() {
                   onClick={() => handleTemporaryActivation(name, action)}
                 />
               ))}
-              <FaMicrophone
+              {!isReviewMode && <FaMicrophone
                 className={classNames(
                   'h-6 w-6 cursor-pointer transition-colors duration-300',
                   isRecording ? 'text-yellow-500' : 'text-white'
                 )}
                 onClick={handleMicToggle}
-              />
+              />}
               <div className="relative flex items-center">
                 <FaSearch className="absolute left-3 text-white" onClick={handleSearch} />
                 <input
@@ -286,7 +292,7 @@ export default function AppBar() {
                 />
                 <button
                   onClick={toggleSearchType}
-                  className="bg-gray-600 text-white p-2 rounded cursor-pointer outline-none"
+                  className="bg-gray-600 w-24 text-white p-2 rounded cursor-pointer outline-none"
                 >
                   {searchType === 'semantic' ? 'Semantic' : 'Keyword'}
                 </button>
