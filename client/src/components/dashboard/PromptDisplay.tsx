@@ -11,22 +11,11 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
 
   const preprocessText = (text: string, keywords: string[]) => {
     if (text === undefined) return "";
-    const highlightKeywords = (text: string, keywords: string[]) => {
-      let result = text;
-      for (const keyword of keywords) {
-        result = result.replace(
-          new RegExp(keyword, "gi"),
-          (text) => `<span class="text-red-600 font-bold">${text}</span>`
-        );
-      }
-      return result;
-    };
 
-    const processedHTML = text.replace(/- (.*?)(\n|$)/g, "• $1\n")
-                            .replace(/\n/g, "<br />")
-                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                            .replace(/  /g, "\u00a0\u00a0");
-    return highlightKeywords(processedHTML, keywords);
+    return text.replace(/- (.*?)(\n|$)/g, "• $1\n")
+              .replace(/\n/g, "<br />")
+              .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+              .replace(/  /g, "\u00a0\u00a0");
   };
 
   return (

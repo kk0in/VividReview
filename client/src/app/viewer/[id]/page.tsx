@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -9,14 +9,10 @@ import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraph
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import AppBar from "@/components/AppBar";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import SearchModal from "@/components/dashboard/SearchModal";
-import SearchPanel from "@/components/dashboard/SearchPanel";
 import { useSearchParams } from "next/navigation";
 import {
-  audioTimeState,
-  audioDurationState,
   playerState,
   PlayerState,
   playerRequestState,
@@ -342,9 +338,7 @@ function ReviewPage({
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
-  const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
-  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
@@ -472,8 +466,6 @@ function ReviewPage({
     audioRef.current.onloadedmetadata = () => {
       if (audioRef.current) {
         console.log(audioRef.current.duration);
-        setAudioDuration(audioRef.current.duration);
-
         progressRef.current!.max = audioRef.current.duration;
       }
     };
@@ -815,18 +807,13 @@ function ReviewPage({
     setPages(pages_);
   }, [gridMode, page, tocIndex]);
 
-  const focusedScript = "rounded-t-2xl w-fit bg-gray-200 mt-4 ml-4 py-1 px-4 font-bold";
-  const unfocusedScript = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 ml-4 py-1 px-4 font-bold";
-  const focusedPrompts = "rounded-t-2xl w-fit bg-gray-200 mt-4 py-1 px-4 font-bold";
-  const unfocusedPrompts = "rounded-t-2xl w-fit bg-gray-200/50 mt-4 py-1 px-4 font-bold";
-
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={scriptMode === "script" ? focusedScript : unfocusedScript} onClick={() => setMode("script")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => setMode("script")}>
           Script
         </div>
-        <div className={scriptMode === "prompts" ? focusedPrompts : unfocusedPrompts} onClick={() => setMode("prompts")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => setMode("prompts")}>
           Prompts
         </div>
       </div>
@@ -855,7 +842,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
-  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
   const [hoverState, setHoverState] = useState<{
@@ -1061,22 +1047,6 @@ export default function Page({ params }: { params: { id: string } }) {
       setIsLoaded(true);
     }
   }, [pdfData]);
-
-  // const handleUndo = () => {
-  //   if (history.length === 0) return;
-  //   const newHistory = [...history];
-  //   const lastDrawing = newHistory.pop();
-  //   setHistory(newHistory);
-  //   setRedoStack((prev) => [...prev, lastDrawing || '']);
-  // };
-
-  // const handleRedo = () => {
-  //   if (redoStack.length === 0) return;
-  //   const newRedoStack = [...redoStack];
-  //   const nextDrawing = newRedoStack.pop();
-  //   setRedoStack(newRedoStack);
-  //   setHistory((prev) => [...prev, nextDrawing || '']);
-  // };
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(0);
