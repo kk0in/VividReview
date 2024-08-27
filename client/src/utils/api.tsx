@@ -218,7 +218,7 @@ export async function getRawImages(projectId: string) {
           image_type: 'raw'
       }
   });
-  return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
+  return response.data; // {image: str, dimensions: [number, number]}[]
 }
 
 export async function getAnnotatedImages(projectId: string) {

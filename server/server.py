@@ -1542,7 +1542,11 @@ async def get_images(project_id: int, image_type: str):
         ]
     )
 
-    encoded_images = [f"data:image/png;base64,{encode_image(image)}" for image in image_paths]
+    encoded_images = []
+    for image in image_paths:
+        encoded_image = f"data:image/png;base64,{encode_image(image)}"
+        dimensions = Image.open(image).size
+        encoded_images.append({"image": encoded_image, "dimensions": dimensions})
 
     return encoded_images
 
