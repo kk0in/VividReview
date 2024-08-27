@@ -478,7 +478,7 @@ function ReviewPage({
           progressRef.current!.value = audioRef.current.currentTime;
         }
 
-        if (pageInfo && page > 0) {
+        if (Object.keys(pageInfo).length > page && page > 0) {
           const timelineForPage = Object.entries<{
             start: number;
             end: number;
