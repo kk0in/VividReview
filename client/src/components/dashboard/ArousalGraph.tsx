@@ -127,7 +127,7 @@ const ArousalGraph = ({
   }, [hoverState.activeLabel, findPage]);
 
   useEffect(() => {
-    if(!hoverState.hoverPosition && hoverState.hoverTime){
+    if (!hoverState.hoverPosition && hoverState.hoverTime) {
       const time_ = hoverState.hoverTime;
       const hoverState_ = {
         hoverPosition: calculateScalingFactor(time_),
@@ -136,7 +136,7 @@ const ArousalGraph = ({
       };
       setHoverState(hoverState_);
     }
-  },[hoverState]);
+  }, [hoverState]);
 
   const handleMouseDown: CategoricalChartFunc = useCallback(
     (e: any) => {
@@ -180,7 +180,7 @@ const ArousalGraph = ({
         newPage > 0 && setPage(newPage);
 
         handleAudioRef(e.activePayload[0].payload);
-        
+
         calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
           ({ start, end }) => {
             setpageStartTime(start);
@@ -190,7 +190,18 @@ const ArousalGraph = ({
         setIsMouseDown(false);
       }
     },
-    [isMouseDown, findPage, findTocIndex, tocIndex, setTocIndex, setPage, handleAudioRef, gridMode, pageInfo, pages]
+    [
+      isMouseDown,
+      findPage,
+      findTocIndex,
+      tocIndex,
+      setTocIndex,
+      setPage,
+      handleAudioRef,
+      gridMode,
+      pageInfo,
+      pages,
+    ]
   );
 
   // useEffect(() => {
@@ -214,17 +225,13 @@ const ArousalGraph = ({
 
   useEffect(() => {
     const page_ = findPage(hoverState.hoverTime || 0);
-    calculateStartAndEnd(
-      page_,
-      gridMode,
-      pageInfo,
-      pages
-    ).then(({ start, end }) => {
-      setpageStartTime(start);
-      setpageEndTime(end);
-    });
+    calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
+      ({ start, end }) => {
+        setpageStartTime(start);
+        setpageEndTime(end);
+      }
+    );
   }, [hoverState.hoverTime, gridMode]);
-
 
   return (
     <>
@@ -236,6 +243,7 @@ const ArousalGraph = ({
           onMouseUp={handleMouseUp}
         >
           <CartesianGrid strokeDasharray="3 3" />
+          <XAxis hide domain={[minX, maxX]} />
           <YAxis hide domain={[minYpos, maxYpos]} />
           <Line
             type="monotone"
@@ -256,13 +264,19 @@ const ArousalGraph = ({
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} y={20} x_axis={0}/>}
+              component={
+                <CurrentPositionLine
+                  x={hoverState.hoverPosition}
+                  y={20}
+                  x_axis={0}
+                />
+              }
             />
           )}
           <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
-      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
+      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT} style={{borderTopWidth: 1, borderTopColor: "#bbb"}}>
         <LineChart
           data={processedData}
           onMouseMove={handleMouseMove}
@@ -290,7 +304,13 @@ const ArousalGraph = ({
           />
           {hoverState.hoverPosition !== null && (
             <Customized
-              component={<CurrentPositionLine x={hoverState.hoverPosition} y={0} x_axis={70}/>}
+              component={
+                <CurrentPositionLine
+                  x={hoverState.hoverPosition}
+                  y={0}
+                  x_axis={70}
+                />
+              }
             />
           )}
           <XAxis

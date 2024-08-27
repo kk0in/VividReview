@@ -246,6 +246,22 @@ export const CustomLegend = (props: any) => {
           </span>
         </div>
       ))}
+      <div
+          key={"negative"}
+          style={{ display: "flex", alignItems: "center", marginRight: 20 }}
+        >
+          <div
+            style={{
+              width: 20,
+              height: 3,
+              backgroundColor: "#82ca9d",
+              marginRight: 5,
+            }}
+          />
+          <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
+            {"negative_score"}
+          </span>
+        </div>
       <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
         <div
           style={{
