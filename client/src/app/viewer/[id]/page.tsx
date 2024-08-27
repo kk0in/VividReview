@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Fragment } from "react";
+import React, { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
@@ -1332,6 +1332,13 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchKeywordSearchSets();
   }, [projectId]);
 
+  const getOffsetXForCircle = useCallback(() => {
+    if (progressRef.current === null) return 0;
+    const progress = progressRef.current;
+
+    return progress.offsetWidth * (progress.value / progress.max);
+  }, [progressRef.current?.value, audioRef.current?.currentTime]);
+
   return (
     <div className="h-full flex flex-col">
       {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
@@ -1850,7 +1857,12 @@ export default function Page({ params }: { params: { id: string } }) {
                   missedAndImportantParts={missedAndImportantParts}
                 />
                 <audio ref={audioRef} />
-                <progress className="w-[calc(100%-10px)] rounded-lg" ref={progressRef} />
+                <div className="relative w-[calc(100%-10px)] h-4">
+                  <progress className="absolute w-full h-4" ref={progressRef} />
+                  <div style={{left:`calc(${getOffsetXForCircle()}px - 0.5rem`}} 
+                    className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}
+                    draggable={false} />
+                </div>
               </div>
             )}
           </div>
