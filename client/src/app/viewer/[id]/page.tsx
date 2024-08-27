@@ -5,7 +5,7 @@ import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -352,7 +352,7 @@ function ReviewPage({
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
-  const [scriptMode, setMode] = useState("script");
+  const [scriptMode, setScriptMode] = useRecoilState(scriptModeState);
 
   const findPage = (time: number): number => {
     if (pageInfo === null) {
@@ -812,10 +812,10 @@ function ReviewPage({
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setMode("script"); setFocusedLasso(null);}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => {setMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>

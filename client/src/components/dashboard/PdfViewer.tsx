@@ -10,7 +10,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
-import { pdfPageState, tocState, tocIndexState, pdfImagesState } from "@/app/recoil/ViewerState";
+import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState } from "@/app/recoil/ViewerState";
 import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo, getRawImages } from "@/utils/api";
 import "./Lasso.css";
@@ -60,6 +60,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   const [pdfImages, setPdfImages] = useRecoilState(pdfImagesState);
+  const [, setScriptMode] = useRecoilState(scriptModeState);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -966,7 +967,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       setReloadFlag((prev) => !prev);
-      setFocusedLasso(response.lasso_id)
+      setFocusedLasso(response.lasso_id);
+      setScriptMode("prompts");
       setActivePromptIndex([activePromptIndex[0], idx, activePromptIndex[2]]);
       console.log(response);
     }

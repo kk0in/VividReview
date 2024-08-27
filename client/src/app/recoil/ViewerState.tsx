@@ -39,3 +39,8 @@ export const pdfImagesState = atom<{image: string, dimensions: [number, number]}
   key: "pdfImagesState",
   default: [],
 });
+
+export const scriptModeState = atom<string>({
+  key: "scriptModeState",
+  default: "script",
+});
