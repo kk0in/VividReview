@@ -92,6 +92,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     const fetchPdfImages = async () => {
       const images = await getRawImages(projectId);
       setPdfImages(images);
+      setNumPages(images.length);
     }
     fetchPdfImages();
   }, [projectId, setPdfImages]);
@@ -265,7 +266,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     if (focusedLasso !== null) {
       drawBorder();
-      setTimeout(() => {context.clearRect(0, 0, canvas.width, canvas.height);}, 3000);
     }
   }, [focusedLasso, pageNumber, projectId, setFocusedLasso]);
 

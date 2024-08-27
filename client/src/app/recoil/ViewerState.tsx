@@ -35,7 +35,7 @@ export const matchedParagraphsState = atom<Object | null>({
   default: null,
 });
 
-export const pdfImagesState = atom<string[]>({
+export const pdfImagesState = atom<{image: string, dimensions: [number, number]}[]>({
   key: "pdfImagesState",
   default: [],
 });

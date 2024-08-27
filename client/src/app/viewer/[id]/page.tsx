@@ -211,9 +211,10 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     }
 
     const fetchPrompts = async () => {
-      fetchLassos();
+      await fetchLassos();
       if(focusedLasso === null){
         console.log("focus lasso is null");
+        if(lassos.current.length > 0) setFocusedLasso(lassos.current[0].lasso_id);
         prompts.current = defaultPrompts.map((prompt) => prompt.prompt);
         return;
       }
@@ -224,7 +225,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     }
 
     const fetchAnswers = async () => {
-      fetchPrompts();
+      await fetchPrompts();
 
       if(focusedLasso === null) {
         console.log("focus lasso is null");
@@ -339,6 +340,7 @@ function ReviewPage({
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
@@ -810,10 +812,10 @@ function ReviewPage({
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => setMode("script")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => setMode("prompts")}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => {setMode("prompts");}}>
           Prompts
         </div>
       </div>
