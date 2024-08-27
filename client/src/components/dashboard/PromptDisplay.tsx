@@ -34,7 +34,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       <div>
         {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []) : ""}
       </div>
-      <div className="control-buttons">
+      <div className="flex control-buttons">
         {activePromptIndex[2] > 0 && (
           <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}
             style={{marginRight: "auto", marginLeft: "0", display: "block"}}
