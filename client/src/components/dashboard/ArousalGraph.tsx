@@ -304,7 +304,7 @@ const ArousalGraph = ({
                   x1={calculateScalingFactor(part[0])}
                   x2={calculateScalingFactor(part[1])}
                   color={"red"}
-                  y={180}
+                  y={181}
                 />
               }
             />
@@ -320,7 +320,7 @@ const ArousalGraph = ({
                   x1={calculateScalingFactor(part[0])}
                   x2={calculateScalingFactor(part[1])}
                   color={"green"}
-                  y={177}
+                  y={179}
                 />
               }
             />
