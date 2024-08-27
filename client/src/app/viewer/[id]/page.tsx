@@ -353,14 +353,12 @@ function ReviewPage({
   const [scriptMode, setMode] = useState("script");
 
   const findPage = (time: number): number => {
-    if (pageInfo === null) {
-      return 0;
-    }
+    if (pageInfo === null) { return 0; }
 
     for (const [key, value] of Object.entries<{ start: number; end: number }>(
       pageInfo
     )) {
-      if (time > value.start && time < value.end) {
+      if (time >= value.start && time < value.end) {
         return parseInt(key);
       }
     }
@@ -458,16 +456,14 @@ function ReviewPage({
   }, [projectId, fetchRecording]);
 
   useEffect(() => {
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
+    if (audioRef.current === null || progressRef.current === null) { return; }
+    const audio = audioRef.current;
+    const progress = progressRef.current;
 
-    audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
-    audioRef.current.onloadedmetadata = () => {
-      if (audioRef.current) {
-        console.log(audioRef.current.duration);
-        progressRef.current!.max = audioRef.current.duration;
-      }
+    audio.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
+    audio.onloadedmetadata = () => {
+      console.log("Audio is loaded", audio.duration);
+      progress.max = audio.duration;
     };
   }, [audioSource]);
 
@@ -593,7 +589,7 @@ function ReviewPage({
       progress.value = getNewProgressValue(offsetX);
       setIsMouseDown(true);
       setHoverState({
-        hoverPosition: offsetX,
+        hoverPosition: offsetX + 5,
         hoverTime: progress.value,
         activeLabel: progress.value,
       });
@@ -604,7 +600,7 @@ function ReviewPage({
         const offsetX = getOffsetX(event);
         progress.value = getNewProgressValue(offsetX);
         setHoverState({
-          hoverPosition: offsetX,
+          hoverPosition: offsetX + 5,
           hoverTime: progress.value,
           activeLabel: progress.value,
         });
@@ -624,7 +620,7 @@ function ReviewPage({
 
         audio.currentTime = timeValue;
         setHoverState({
-          hoverPosition: offsetX,
+          hoverPosition: offsetX + 5,
           hoverTime: timeValue,
           activeLabel: timeValue,
         });
@@ -1829,7 +1825,7 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div className="flex flex-col bg-gray-200" ref={containerRef}>
+              <div className="flex flex-col bg-gray-200 items-center" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
                   handleAudioRef={handleAudioRef}
@@ -1852,7 +1848,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   missedAndImportantParts={missedAndImportantParts}
                 />
                 <audio ref={audioRef} />
-                <progress className="w-full rounded-lg" ref={progressRef} />
+                <progress className="w-[calc(100%-10px)] rounded-lg" ref={progressRef} />
               </div>
             )}
           </div>
