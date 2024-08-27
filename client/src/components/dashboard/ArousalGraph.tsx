@@ -182,27 +182,34 @@ const ArousalGraph = ({
   );
 
   useEffect(() => {
-    const { start, end } = calculateStartAndEnd(
-      page,
-      gridMode,
-      pageInfo,
-      pages
+    calculateStartAndEnd(page, gridMode, pageInfo, pages).then(
+      ({ start, end }) => {
+        console.log("page", page, "pageStartTime", start, "pageEndTime", end);
+        setpageStartTime(start);
+        setpageEndTime(end);
+        const hoverState_ = {
+          hoverPosition: calculateScalingFactor(start),
+          hoverTime: start,
+          activeLabel: start,
+        };
+        setHoverState(hoverState_);
+      }
     );
-    setpageStartTime(start);
-    setpageEndTime(end);
-  }, [pages, page, gridMode, pageInfo]);
+  }, [pages, page, gridMode]);
 
   useEffect(() => {
-    const page_ = findPage(hoverState.hoverTime || 0);
-    const { start, end } = calculateStartAndEnd(
-      page_,
-      gridMode,
-      pageInfo,
-      pages
-    );
-    setpageStartTime(start);
-    setpageEndTime(end);
-  }, [hoverState.hoverTime, gridMode, pageInfo, findPage]);
+    console.log("hoverPosiiton", hoverState.hoverPosition);
+  }, [hoverState.hoverPosition]);
+
+  useEffect(() => {
+    console.log("page changed", page);
+  }, [page]);
+
+  useEffect(() => {
+    findPage(hoverState.hoverTime || 0).then((page_: number) => {
+      calculateStartAndEnd(page_, gridMode, pageInfo, pages).then();
+    });
+  }, [hoverState.hoverTime, gridMode, findPage]);
 
   return (
     <ResponsiveContainer width="100%" height={GRAPH_HEIGHT} style={{}}>

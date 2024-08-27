@@ -62,7 +62,7 @@ export const processTableOfContents = (tableOfContents: any) => {
   return pageToTitleSubtitleMap;
 };
 
-export const calculateStartAndEnd = (
+export const calculateStartAndEnd = async (
   pageKey: number | string,
   gridMode: number,
   pageInfo: any,
