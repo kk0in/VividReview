@@ -29,7 +29,7 @@ import {
   calculateStartAndEnd,
 } from "../../utils/graph";
 
-const GRAPH_HEIGHT = 200;
+const GRAPH_HEIGHT = 150;
 const X_AXIS_HEIGHT = 20;
 
 const ArousalGraph = ({
@@ -90,7 +90,8 @@ const ArousalGraph = ({
   );
   const ticks_ = useProcessedPageInfo(pageInfo);
   const tableOfContentsMap = useTableOfContentsMap(tableOfContents);
-  const { minY, maxY, minX, maxX } = useMinMaxValues(processedData);
+  const { minY, maxY, minX, maxX, minYpos, maxYpos, minYneg, maxYneg } =
+    useMinMaxValues(processedData);
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
@@ -226,117 +227,153 @@ const ArousalGraph = ({
 
 
   return (
-    <ResponsiveContainer width="100%" height={GRAPH_HEIGHT} style={{}}>
-      <LineChart
-        data={processedData}
-        onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <YAxis hide domain={[minY, maxY]} />
-        <Line
-          type="monotone"
-          dataKey="positive_score"
-          stroke="#8884d8"
-          dot={false}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="negative_score"
-          stroke="#82ca9d"
-          dot={false}
-          isAnimationActive={false}
-        />
-        <Customized
-          component={
-            <CustomRectangle
-              pageStartTime={calculateScalingFactor(pageStartTime)}
-              pageEndTime={calculateScalingFactor(pageEndTime)}
-            />
-          }
-        />
-        {hoverState.hoverPosition !== null && (
-          <Customized
-            component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+    <>
+      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
+        <LineChart
+          data={processedData}
+          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <YAxis hide domain={[minYpos, maxYpos]} />
+          <Line
+            type="monotone"
+            dataKey="positive_score"
+            stroke="#8884d8"
+            dot={false}
+            isAnimationActive={false}
           />
-        )}
-        <XAxis
-          dataKey="begin"
-          ticks={ticks_}
-          type="number"
-          tick={(props) => (
-            <CustomXAxisTick
-              {...props}
-              currentXTick={currentXTick}
-              tableOfContentsMap={tableOfContentsMap}
-              graphWidth={graphWidth}
-              findPage={findPage}
-              images={images}
+          <Customized
+            component={
+              <CustomRectangle
+                pageStartTime={calculateScalingFactor(pageStartTime)}
+                pageEndTime={calculateScalingFactor(pageEndTime)}
+              />
+            }
+          />
+          {hoverState.hoverPosition !== null && (
+            <Customized
+              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
             />
           )}
-          tickLine={false}
-          domain={[minX, maxX]}
-          interval={0}
-          height={15}
-        />
-        <Customized
-          component={
-            <CustomRectangle
-              pageStartTime={calculateScalingFactor(pageStartTime)}
-              pageEndTime={calculateScalingFactor(pageEndTime)}
-            />
-          }
-        />
-        {hoverState.hoverPosition !== null && (
           <Customized
-            component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+            component={
+              <CustomRectangle
+                pageStartTime={calculateScalingFactor(pageStartTime)}
+                pageEndTime={calculateScalingFactor(pageEndTime)}
+              />
+            }
           />
-        )}
-        {missedAndImportantParts?.missed.map((part: any, index: number) => {
-          return (
+          {hoverState.hoverPosition !== null && (
             <Customized
-              key={`missed-${index}`} // Add a unique key prop
-              component={
-                <HorizontalLine
-                  key={`missed-${index}`} // Add a unique key prop
-                  x1={calculateScalingFactor(part[0])}
-                  x2={calculateScalingFactor(part[1])}
-                  color={"red"}
-                  y={181}
-                />
-              }
+              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
             />
-          );
-        })}
-        {missedAndImportantParts?.important.map((part: any, index: number) => {
-          return (
+          )}
+          <Legend verticalAlign="top" content={<CustomLegend />} />
+        </LineChart>
+      </ResponsiveContainer>
+      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT-15}>
+        <LineChart
+          data={processedData}
+          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <YAxis hide domain={[minYneg, maxYneg]} />
+          <Line
+            type="monotone"
+            dataKey="negative_score"
+            stroke="#82ca9d"
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Customized
+            component={
+              <CustomRectangle
+                pageStartTime={calculateScalingFactor(pageStartTime)}
+                pageEndTime={calculateScalingFactor(pageEndTime)}
+              />
+            }
+          />
+          {hoverState.hoverPosition !== null && (
             <Customized
-              key={`important-${index}`} // Add a unique key prop
-              component={
-                <HorizontalLine
-                  key={`important-${index}`} // Add a unique key prop
-                  x1={calculateScalingFactor(part[0])}
-                  x2={calculateScalingFactor(part[1])}
-                  color={"green"}
-                  y={179}
-                />
-              }
+              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
             />
-          );
-        })}
-        <Legend verticalAlign="top" content={<CustomLegend />} />
-      </LineChart>
-      <CustomToggleSwitch
-        positiveEmotion={positiveEmotion}
-        negativeEmotion={negativeEmotion}
-        selectedPositives={selectedPositives}
-        selectedNegatives={selectedNegatives}
-        handlePositiveToggle={handlePositiveToggle}
-        handleNegativeToggle={handleNegativeToggle}
-      />
-    </ResponsiveContainer>
+          )}
+          <XAxis
+            dataKey="begin"
+            ticks={ticks_}
+            type="number"
+            tick={(props) => (
+              <CustomXAxisTick
+                {...props}
+                currentXTick={currentXTick}
+                tableOfContentsMap={tableOfContentsMap}
+                graphWidth={graphWidth}
+                findPage={findPage}
+                images={images}
+              />
+            )}
+            tickLine={false}
+            domain={[minX, maxX]}
+            interval={0}
+            height={15}
+          />
+          <Customized
+            component={
+              <CustomRectangle
+                pageStartTime={calculateScalingFactor(pageStartTime)}
+                pageEndTime={calculateScalingFactor(pageEndTime)}
+              />
+            }
+          />
+          {hoverState.hoverPosition !== null && (
+            <Customized
+              component={<CurrentPositionLine x={hoverState.hoverPosition} />}
+            />
+          )}
+          {missedAndImportantParts?.missed.map((part: any) => {
+            return (
+              <Customized
+                component={
+                  <HorizontalLine
+                    x1={calculateScalingFactor(part[0])}
+                    x2={calculateScalingFactor(part[1])}
+                    color={"red"}
+                    y={180}
+                  />
+                }
+              />
+            );
+          })}
+          {missedAndImportantParts?.important.map((part: any) => {
+            // horizontal line
+            return (
+              <Customized
+                component={
+                  <HorizontalLine
+                    x1={calculateScalingFactor(part[0])}
+                    x2={calculateScalingFactor(part[1])}
+                    color={"green"}
+                    y={177}
+                  />
+                }
+              />
+            );
+          })}
+        </LineChart>
+        <CustomToggleSwitch
+          positiveEmotion={positiveEmotion}
+          negativeEmotion={negativeEmotion}
+          selectedPositives={selectedPositives}
+          selectedNegatives={selectedNegatives}
+          handlePositiveToggle={handlePositiveToggle}
+          handleNegativeToggle={handleNegativeToggle}
+        />
+      </ResponsiveContainer>
+    </>
   );
 };
 
