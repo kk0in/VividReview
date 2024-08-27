@@ -1065,14 +1065,13 @@ export default function Page({ params }: { params: { id: string } }) {
   const fetchMissedAndImportantParts = async () => {
     try{
       const result = await getMissedAndImportantParts(params.id);
-      console.log("Missed and Important Parts:", result);
       setMisssedAndImportantParts(result);
     }catch(error){
       console.error("Failed to fetch missed data:", error);
     }
   };
 
-  const findPage = async (time: number): number => {
+  const findPage = (time: number): number => {
     if (pageInfo === null) {
       return 0;
     }
@@ -1089,6 +1088,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const findTocIndex = (page: number) => {
+    console.log("toc", toc);
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
