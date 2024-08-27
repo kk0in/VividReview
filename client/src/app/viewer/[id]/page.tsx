@@ -318,6 +318,7 @@ function ReviewPage({
   setPages,
   tocIndex,
   setTocIndex,
+  setCirclePosition,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
@@ -332,6 +333,7 @@ function ReviewPage({
   setHoverState: (hoverState: any) => void;
   tocIndex: any;
   setTocIndex: (tocIndex: any) => void;
+  setCirclePosition: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -474,6 +476,7 @@ function ReviewPage({
       const handleProgressBar = () => {
         if (!isMouseDown && audioRef.current) {
           progressRef.current!.value = audioRef.current.currentTime;
+          setCirclePosition(audioRef.current.currentTime / audioRef.current.duration * progressRef.current!.offsetWidth);
         }
 
         if (Object.keys(pageInfo).length > page && page > 0) {
@@ -589,6 +592,7 @@ function ReviewPage({
       const offsetX = getOffsetX(event);
       console.log("mousedown", offsetX);
       progress.value = getNewProgressValue(offsetX);
+      setCirclePosition(offsetX);
       setIsMouseDown(true);
       setHoverState({
         hoverPosition: offsetX + 5,
@@ -601,6 +605,7 @@ function ReviewPage({
       if (isMouseDown && progress) {
         const offsetX = getOffsetX(event);
         progress.value = getNewProgressValue(offsetX);
+        setCirclePosition(offsetX);
         setHoverState({
           hoverPosition: offsetX + 5,
           hoverTime: progress.value,
@@ -621,6 +626,7 @@ function ReviewPage({
         newPage > 0 && setPage(newPage);
 
         audio.currentTime = timeValue;
+        setCirclePosition(offsetX);
         setHoverState({
           hoverPosition: offsetX + 5,
           hoverTime: timeValue,
@@ -879,6 +885,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [scriptPages, setScriptPages] = useState<string[]>([]);
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
+  const [circlePosition, setCirclePosition] = useState(0);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -1859,7 +1866,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 <audio ref={audioRef} />
                 <div className="relative w-[calc(100%-10px)] h-4">
                   <progress className="absolute w-full h-4" ref={progressRef} />
-                  <div style={{left:`calc(${getOffsetXForCircle()}px - 0.5rem`}} 
+                  <div style={{left:`calc(${circlePosition}px - 0.5rem`}} 
                     className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}
                     draggable={false} />
                 </div>
@@ -1881,6 +1888,7 @@ export default function Page({ params }: { params: { id: string } }) {
               setHoverState={setHoverState}
               tocIndex={tocIndex}
               setTocIndex={setTocIndex}
+              setCirclePosition={setCirclePosition}
             />
           )}
         </div>
