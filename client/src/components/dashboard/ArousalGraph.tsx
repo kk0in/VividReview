@@ -109,6 +109,8 @@ const ArousalGraph = ({
   const [currentXTick, setCurrentXTick] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
 
+  const divRef = React.useRef<HTMLDivElement>(null);
+
   const handlePositiveToggle = (index: number) => {
     setSelectedPositives((prevState) => {
       const newState = [...prevState];
@@ -215,6 +217,88 @@ const ArousalGraph = ({
     ]
   );
 
+  useEffect(() => {
+    if (divRef.current === null) {
+      return;
+    }
+    const div = divRef.current;
+
+    const handleMouseDown = (event: TouchEvent) => {
+      event.preventDefault();
+      const offsetX = event.targetTouches[0].clientX - div.offsetLeft;
+      console.log("touchstart", offsetX);
+      const audioValue = (offsetX / div.offsetWidth) * maxX;
+
+      handleAudioRef(audioValue);
+      setHoverState({
+        hoverPosition: offsetX,
+        hoverTime: audioValue,
+        activeLabel: audioValue,
+      });
+      setIsMouseDown(true);
+    };
+
+    const handleMouseMove = (event: TouchEvent) => {
+      if (!isMouseDown) {
+        return;
+      }
+
+      const offsetX = event.targetTouches[0].clientX - div.offsetLeft;
+      const audioValue = (offsetX / div.offsetWidth) * maxX;
+
+      handleAudioRef(audioValue);
+      setHoverState({
+        hoverPosition: offsetX,
+        hoverTime: audioValue,
+        activeLabel: audioValue,
+      });
+    };
+
+    const handleMouseUp = (event: TouchEvent) => {
+      event.preventDefault();
+      if (!isMouseDown) {
+        return;
+      }
+
+      const offsetX = hoverState.hoverPosition;
+      console.log("touchend", offsetX);
+      const audioValue = (offsetX / div.offsetWidth) * maxX;
+      const newPage = findPage(audioValue);
+      const newTocIndex = findTocIndex(newPage);
+      newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+      newPage > 0 && setPage(newPage);
+
+      calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
+        ({ start, end }) => {
+          setpageStartTime(start);
+          setpageEndTime(end);
+        }
+      );
+      setIsMouseDown(false);
+    };
+
+    div.addEventListener("touchstart", handleMouseDown);
+    div.addEventListener("touchmove", handleMouseMove);
+    div.addEventListener("touchend", handleMouseUp);
+
+    return () => {
+      div.removeEventListener("touchstart", handleMouseDown);
+      div.removeEventListener("touchmove", handleMouseMove);
+      div.removeEventListener("touchend", handleMouseUp);
+    };
+  }, [
+    isMouseDown,
+    findPage,
+    findTocIndex,
+    tocIndex,
+    setTocIndex,
+    setPage,
+    handleAudioRef,
+    gridMode,
+    pageInfo,
+    pages,
+  ]);
+
   // useEffect(() => {
   //   if (!isMouseDown) {
   //     // handle page change when not dragging
@@ -245,7 +329,7 @@ const ArousalGraph = ({
   }, [hoverState.hoverTime, gridMode]);
 
   return (
-    <>
+    <div className="relative w-full" ref={divRef}>
       <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
         <LineChart
           data={processedData}
@@ -381,7 +465,7 @@ const ArousalGraph = ({
           handleNegativeToggle={handleNegativeToggle}
         />
       </ResponsiveContainer>
-    </>
+    </div>
   );
 };
 
