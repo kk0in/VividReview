@@ -501,7 +501,7 @@ function ReviewPage({
       };
 
       const handleHighlightBox = () => {
-        if (!isMouseDown && audioRef.current) {
+        if (!isMouseDown && audioRef.current && !audioRef.current.paused) {
           // console.log(audioRef.current.currentTime);
           // console.log(bboxList[0]);
           // console.log(bboxIndex.current);
