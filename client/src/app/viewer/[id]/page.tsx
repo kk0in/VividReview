@@ -319,6 +319,8 @@ function ReviewPage({
   tocIndex,
   setTocIndex,
   setCirclePosition,
+  setPageStartTime,
+  setPageEndTime,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
@@ -334,6 +336,8 @@ function ReviewPage({
   tocIndex: any;
   setTocIndex: (tocIndex: any) => void;
   setCirclePosition: React.Dispatch<React.SetStateAction<number>>;
+  setPageStartTime: React.Dispatch<React.SetStateAction<number>>;
+  setPageEndTime: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -754,6 +758,8 @@ function ReviewPage({
         hoverTime: newTimeline.start,
         activeLabel: newTimeline.start,
       });
+      setPageStartTime(newTimeline.start);
+      setPageEndTime(newTimeline.end);
     }
     setTimeline(newTimeline);
   }, [pageInfo, page, gridMode]);
@@ -919,6 +925,10 @@ export default function Page({ params }: { params: { id: string } }) {
   const toc = useRecoilValue(tocState);
 
   const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
+
+
+  const [pageStartTime, setpageStartTime] = useState(0);
+  const [pageEndTime, setpageEndTime] = useState(100);
 
   const handleAudioRef = (data: any) => {
     if (Number.isFinite(data)) {
@@ -1911,6 +1921,10 @@ export default function Page({ params }: { params: { id: string } }) {
                   setPage={setPage}
                   images={rawImages}
                   missedAndImportantParts={missedAndImportantParts}
+                  pageStartTime={pageStartTime}
+                  pageEndTime={pageEndTime}
+                  setpageStartTime={setpageStartTime}
+                  setpageEndTime={setpageEndTime}
                 />
                 <audio ref={audioRef} />
                 <div className="relative w-[calc(100%-10px)] h-4">
@@ -1938,6 +1952,8 @@ export default function Page({ params }: { params: { id: string } }) {
               tocIndex={tocIndex}
               setTocIndex={setTocIndex}
               setCirclePosition={setCirclePosition}
+              setPageStartTime={setpageStartTime}
+              setPageEndTime={setpageEndTime}
             />
           )}
         </div>

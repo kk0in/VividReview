@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, use } from "react";
 import { useRecoilValue } from "recoil";
 import {
   LineChart,
@@ -53,6 +53,10 @@ const ArousalGraph = ({
   setPage,
   images,
   missedAndImportantParts,
+  pageStartTime,
+  pageEndTime,
+  setpageStartTime,
+  setpageEndTime,
 }: {
   data: any;
   handleAudioRef: any;
@@ -73,6 +77,10 @@ const ArousalGraph = ({
   setPage: any;
   images: any;
   missedAndImportantParts: any;
+  pageStartTime: number;
+  pageEndTime: number;
+  setpageStartTime: any;
+  setpageEndTime: any;
 }) => {
   const gridMode = useRecoilValue(gridModeState);
   const [selectedPositives, setSelectedPositives] = useState(
@@ -104,8 +112,6 @@ const ArousalGraph = ({
     per90YNeg,
   } = useMinMaxValues(processedData);
 
-  const [pageStartTime, setpageStartTime] = useState(0);
-  const [pageEndTime, setpageEndTime] = useState(100);
   const [currentXTick, setCurrentXTick] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
 
@@ -135,21 +141,24 @@ const ArousalGraph = ({
   );
 
   useEffect(() => {
-    const page = findPage(hoverState.activeLabel);
     if (page) {
       setCurrentXTick(page);
     }
   }, [hoverState.activeLabel, findPage]);
 
   useEffect(() => {
-    if (!hoverState.hoverPosition && hoverState.hoverTime) {
-      const time_ = hoverState.hoverTime;
-      const hoverState_ = {
-        hoverPosition: calculateScalingFactor(time_),
-        hoverTime: time_,
-        activeLabel: time_,
-      };
-      setHoverState(hoverState_);
+    const page_ = findPage(hoverState.activeLabel);
+    if (page_) {
+      setCurrentXTick(page_);
+    }
+
+    if (setpageStartTime && setpageEndTime) {
+      calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
+        ({ start, end }) => {
+          setpageStartTime(start);
+          setpageEndTime(end);
+        }
+      );
     }
   }, [hoverState]);
 
@@ -251,17 +260,8 @@ const ArousalGraph = ({
     gridMode,
     pageInfo,
     pages,
+    page,
   ]);
-
-  useEffect(() => {
-    const page_ = findPage(hoverState.hoverTime || 0);
-    calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
-      ({ start, end }) => {
-        setpageStartTime(start);
-        setpageEndTime(end);
-      }
-    );
-  }, [hoverState.hoverTime, gridMode]);
 
   return (
     <div className="relative w-full" ref={divRef}>
