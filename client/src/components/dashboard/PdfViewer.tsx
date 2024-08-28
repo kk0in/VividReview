@@ -418,6 +418,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawingsRef.current = [];
     document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
+    if (gridMode !== 0) return;
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
     for(let i = 1; i <= Number(numLayers); i++) {
       const savedDrawings = localStorage.getItem(`drawings_${projectId}_${pageNumber}_${i}`);
@@ -435,7 +436,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         }
       }
     }
-  }, [makeNewCanvas, pageNumber, projectId]);
+  }, [gridMode, makeNewCanvas, pageNumber, projectId]);
 
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
     const pdfImage: HTMLCanvasElement | null = document.querySelector('.react-pdf__Page canvas');
@@ -915,6 +916,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       pageComponents.push(
         <ImagePage
           key={pageNumber}
+          projectId={projectId}
           pageNumber={pageNumber}
         />
       );
@@ -933,6 +935,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <ImagePage
             className="mr-4 mb-10"
             key={i}
+            projectId={projectId}
             pageNumber={startIndex + i}
             divisions={2}
           />
@@ -949,6 +952,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <ImagePage
             className="mr-4 mb-10"
             key={page}
+            projectId={projectId}
             pageNumber={page}
             divisions={2}
           />
