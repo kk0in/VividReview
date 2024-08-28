@@ -10,6 +10,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import Any, List, Union
+from dotenv import load_dotenv
 
 import re
 import clip
@@ -36,8 +37,11 @@ from sentence_transformers import SentenceTransformer, util
 app = FastAPI()
 logging.basicConfig(filename="info.log", level=logging.DEBUG)
 GPT_MODEL = "gpt-4o"
-gpt_api_key = "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"
-hume_api_key = "hCcXf3mVNMtVtNvAO9oz60drAywtf4qsHSVArsg2KFij5LvT"
+
+load_dotenv()
+
+gpt_api_key = os.getenv("GPT_API_KEY")
+hume_api_key = os.getenv("HUME_API_KEY")
 
 executor = ThreadPoolExecutor(10)
 client = OpenAI(api_key=gpt_api_key)
