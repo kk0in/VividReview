@@ -172,7 +172,7 @@ const ArousalGraph = ({
     const getOffsetX = (event: MouseEvent | TouchEvent) => {
       return event instanceof MouseEvent
         ? event.offsetX
-        : event.targetTouches[0].clientX - div.offsetLeft;
+        : event.targetTouches[0].clientX - div.parentElement!.offsetLeft;
     };
 
     const handleMouseDown = (event: MouseEvent | TouchEvent) => {
@@ -265,7 +265,7 @@ const ArousalGraph = ({
   ]);
 
   return (
-    <div className="relative w-full" ref={divRef}>
+    <div className="relative w-full">
       <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -407,6 +407,8 @@ const ArousalGraph = ({
           handleNegativeToggle={handleNegativeToggle}
         />
       </ResponsiveContainer>
+      <div className="absolute inset-0 w-full h-[300px]" ref={divRef}>
+      </div>
     </div>
   );
 };

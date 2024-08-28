@@ -135,7 +135,7 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   ];
 
   const subTabElements = subTabs.map((tab, idx) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+    const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
       (idx === focusedTabIndex ? "bg-gray-300" : "bg-gray-300/50");
 
     return (
@@ -183,11 +183,11 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   });
 
   return (
-    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-      <div className="flex flex-row overflow-x-auto">
+    <div className="relative rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3 z-10">
+      <div className="flex flex-row overflow-x-auto -mb-3">
         {subTabElements}
       </div>
-      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300 p-3">
+      <div className="rounded-b-2xl rounded-t-2xl bg-gray-300 p-3">
         {paragraph}
       </div>
     </div>
@@ -252,7 +252,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag]);
 
   const lassoTabElements = lassos.current.map((lasso, idx) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+    const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
       (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-300/50");  
       
     return (
@@ -267,8 +267,8 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
 
   const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
     prompts.current.map((prompt, idx) => {
-      const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-        (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
+      const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
+        (idx === activePromptIndex[1] ? "bg-[#b6bcc5]" : "bg-[#b6bcc5]/50");
       
       return (
         <div className={className}
@@ -281,15 +281,15 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     }));
 
   return (
-    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-      <div className="flex flex-row overflow-x-auto">
+    <div className="relative rounded-b-2xl rounded-t-2xl bg-gray-200 mx-4 p-3 z-10">
+      <div className={`${lassoTabElements.length > 0 ? "-mb-3" : ""} flex flex-row overflow-x-auto`}>
         {lassoTabElements}
       </div>
-      <div className={`rounded-b-2xl rounded-tr-2xl ${lassoTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-300 p-3`}>
-        <div className="flex flex-row mt-1 overflow-x-auto">
+      <div className="rounded-b-2xl rounded-t-2xl bg-gray-300 p-3">
+        <div className={`flex flex-row mt-1 ${promptTabElements.length > 0 ? "-mb-3" : ""} overflow-x-auto`}>
           {promptTabElements}
         </div>
-        <div className={`rounded-b-2xl rounded-tr-2xl ${promptTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-400/50 p-3`}>
+        <div className="rounded-b-2xl rounded-t-2xl bg-[#b6bcc5] p-3">
           <PromptDisplay
             answers={answers.current}
             projectId={projectId}
@@ -847,11 +847,11 @@ function ReviewPage({
 
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
-      <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+      <div className="flex -mb-3">
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} z-0 mt-4 ml-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} z-0 mt-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>
@@ -866,7 +866,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const projectId = params.id;
   const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [searchId, setSearchId] = useState<string | null>(null);
-  const [sortedPages, setSortedPages] = useState<any[]>([]);
   const [queryResult, setQueryResult] = useState(null);
   const [rawImages, setRawImages] = useState<string[]>([]); 
   const [annotatedImages, setAnnotatedImages] = useState<{image: string, dimensions: [number, number]}[]>([]); 
@@ -877,7 +876,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
-  const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
@@ -898,7 +896,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [selectedSearchType, setSelectedSearchType] = useState<string>(''); 
   const [seletedSearchQuery, setSelectedSearchQuery] = useState<string>(''); 
   const [pageList, setPageList] = useState([]);
-  const [hasOpenedModal, setHasOpenedModal] = useState(false); // 모달이 이미 열렸는지 확인하기 위한 상태
   const [previousQuery, setPreviousQuery] = useState<string | null>(null);
   const setInputText = useSetRecoilState(inputTextState);
   const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
@@ -1385,19 +1382,12 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchKeywordSearchSets();
   }, [projectId]);
 
-  const getOffsetXForCircle = useCallback(() => {
-    if (progressRef.current === null) return 0;
-    const progress = progressRef.current;
-
-    return progress.offsetWidth * (progress.value / progress.max);
-  }, [progressRef.current?.value, audioRef.current?.currentTime]);
-
   return (
     <div className="h-full flex flex-col">
       {isOnSearching && (
         <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
           <svg className="animate-spin h-24 w-24 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <div className="mt-5 text-xl text-white pointer-events-none">

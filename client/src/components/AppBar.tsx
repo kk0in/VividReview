@@ -281,7 +281,7 @@ export default function AppBar() {
                 onClick={handleMicToggle}
               />}
               <div className="relative flex items-center">
-                <FaSearch className="absolute left-3 text-white" onClick={handleSearch} />
+                <FaSearch className="absolute cursor-pointer left-3 text-white" onClick={handleSearch} />
                 <input
                   type="text"
                   value={inputText}
