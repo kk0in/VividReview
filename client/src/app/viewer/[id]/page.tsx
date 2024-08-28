@@ -837,10 +837,10 @@ function ReviewPage({
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>
