@@ -242,7 +242,7 @@ export const CustomLegend = (props: any) => {
             }}
           />
           <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
-            {entry.value}
+            {"Engagement"}
           </span>
         </div>
       ))}
@@ -259,7 +259,7 @@ export const CustomLegend = (props: any) => {
             }}
           />
           <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
-            {"negative_score"}
+            {"Relaxation"}
           </span>
         </div>
       <div style={{ display: "flex", alignItems: "center", marginRight: 20 }}>
@@ -272,20 +272,7 @@ export const CustomLegend = (props: any) => {
           }}
         />
         <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
-          Missed Part
-        </span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div
-          style={{
-            width: 20,
-            height: 3,
-            backgroundColor: "green",
-            marginRight: 5,
-          }}
-        />
-        <span style={{ color: FONT_COLOR, fontSize: FONT_SIZE }}>
-          Important Part
+          Miss
         </span>
       </div>
     </div>
@@ -331,9 +318,9 @@ export const CustomDot = ({
         cx={cx}
         cy={cy}
         r={2}
-        stroke="#FFD700"
+        stroke="#000000"
         strokeWidth={1}
-        fill="#FFD700"
+        fill="#000000"
       />
     );
   }
