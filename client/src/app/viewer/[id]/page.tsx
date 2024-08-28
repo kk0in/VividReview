@@ -135,7 +135,7 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   ];
 
   const subTabElements = subTabs.map((tab, idx) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+    const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
       (idx === focusedTabIndex ? "bg-gray-300" : "bg-gray-300/50");
 
     return (
@@ -183,11 +183,11 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   });
 
   return (
-    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-      <div className="flex flex-row overflow-x-auto">
+    <div className="relative rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3 z-10">
+      <div className="flex flex-row overflow-x-auto -mb-3">
         {subTabElements}
       </div>
-      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300 p-3">
+      <div className="rounded-b-2xl rounded-t-2xl bg-gray-300 p-3">
         {paragraph}
       </div>
     </div>
@@ -252,7 +252,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag]);
 
   const lassoTabElements = lassos.current.map((lasso, idx) => {
-    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+    const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
       (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-300/50");  
       
     return (
@@ -267,8 +267,8 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
 
   const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
     prompts.current.map((prompt, idx) => {
-      const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-        (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
+      const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
+        (idx === activePromptIndex[1] ? "bg-[#b6bcc5]" : "bg-[#b6bcc5]/50");
       
       return (
         <div className={className}
@@ -281,15 +281,15 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     }));
 
   return (
-    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-      <div className="flex flex-row overflow-x-auto">
+    <div className="relative rounded-b-2xl rounded-t-2xl bg-gray-200 mx-4 p-3 z-10">
+      <div className={`${lassoTabElements.length > 0 ? "-mb-3" : ""} flex flex-row overflow-x-auto`}>
         {lassoTabElements}
       </div>
-      <div className={`rounded-b-2xl rounded-tr-2xl ${lassoTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-300 p-3`}>
-        <div className="flex flex-row mt-1 overflow-x-auto">
+      <div className="rounded-b-2xl rounded-t-2xl bg-gray-300 p-3">
+        <div className={`flex flex-row mt-1 ${promptTabElements.length > 0 ? "-mb-3" : ""} overflow-x-auto`}>
           {promptTabElements}
         </div>
-        <div className={`rounded-b-2xl rounded-tr-2xl ${promptTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-400/50 p-3`}>
+        <div className="rounded-b-2xl rounded-t-2xl bg-[#b6bcc5] p-3">
           <PromptDisplay
             answers={answers.current}
             projectId={projectId}
@@ -847,11 +847,11 @@ function ReviewPage({
 
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
-      <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+      <div className="flex -mb-3">
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} z-0 mt-4 ml-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} z-0 mt-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>
