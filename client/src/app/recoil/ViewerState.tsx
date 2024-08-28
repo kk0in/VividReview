@@ -34,3 +34,13 @@ export const matchedParagraphsState = atom<Object | null>({
   key: "matchedParagraphsState",
   default: null,
 });
+
+export const pdfImagesState = atom<{image: string, dimensions: [number, number]}[]>({
+  key: "pdfImagesState",
+  default: [],
+});
+
+export const scriptModeState = atom<string>({
+  key: "scriptModeState",
+  default: "script",
+});

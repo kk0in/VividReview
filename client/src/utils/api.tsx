@@ -1,6 +1,8 @@
 import axios from 'axios';
 import jsPDF from "jspdf";
 
+import {defaultPrompts} from "@/app/recoil/LassoState";
+
 const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT || "http://localhost:8000/";
 
 // export async function saveAnnotations(projectId: string, annotations: any[]) {
@@ -65,29 +67,9 @@ export async function saveRecording(projectId: string, formData: FormData) {
     return response.data;
 }
 
-export async function saveAnnotatedPdf(projectId: string, drawings: Record<number, string>, numPages: number) {
-    const pdfDoc = new jsPDF();
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      if (pageNum > 1) {
-        pdfDoc.addPage();
-      }
-
-      const imgData = drawings[pageNum];
-      if (imgData) {
-        pdfDoc.addImage(imgData, 'PNG', 0, 0, pdfDoc.internal.pageSize.getWidth(), pdfDoc.internal.pageSize.getHeight());
-      }
-    }
-
-    const pdfBlob = pdfDoc.output('blob');
-
-    const formData = new FormData();
-    formData.append('annotated_pdf', pdfBlob, 'annotated.pdf');
-
-    const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+export async function saveAnnotatedPdf(projectId: string, drawings: string[]) {
+    const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, {
+      annotations: drawings
     });
 
     return response.data;
@@ -230,9 +212,29 @@ export async function getProsody({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
-export async function getImages(projectId: string) {
-    const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`);
+export async function getRawImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'raw'
+      }
+  });
+  return response.data; // {image: str, dimensions: [number, number]}[]
+}
+
+export async function getAnnotatedImages(projectId: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
+      params: {
+          image_type: 'annotated'
+      }
+  });
     return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
+}
+
+export async function getMissedAndImportantParts(projectId: string) {
+    const response_missed = await axios.get(`${SERVER_ENDPOINT}api/get_missed_parts/${projectId}`);
+    const response_important = await axios.get(`${SERVER_ENDPOINT}api/get_important_parts/${projectId}`);
+
+    return {missed: response_missed.data, important: response_important.data};
 }
 
 export async function updateResult({project_id, result}: {project_id: string, result: any}) {
@@ -270,6 +272,84 @@ export async function lassoQuery(projectId: string, pageNumber: number, prompt: 
     bbox: boundingBox,
     cur_lasso_id: lassoId
   });
+
+  return response.data;
+}
+
+export async function lassoPrompts(projectId: string, pageNumber: number, lassoId: number | null) {
+  try {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/lasso_prompts/`, {
+      params: {
+        project_id: projectId,
+        page_num: pageNumber,
+        lasso_id: lassoId
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return defaultPrompts.map((prompt) => prompt.prompt);
+  }
+}
+
+export async function addLassoPrompt(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
+  const response = await axios.post(`${SERVER_ENDPOINT}api/add_lasso_prompt/`, {
+    project_id: projectId,
+    page_num: pageNumber,
+    lasso_id: lassoId,
+    prompt_text: prompt
+  });
+
+  return response.data;
+}
+
+export async function getLassosOnPage(projectId: string, pageNumber: number) {
+  try {
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
+
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
+}
+
+export async function getLassoInfo(projectId: string, pageNumber: number, lassoId: number | null) {
+  try {
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`);
+
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
+
+export async function lassoTransform(projectId: string, pageNumber: number, lassoId: number | null, version: number, prompt: string, transformType: string) {
+  const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_transform/${projectId}/${pageNumber}/${lassoId}/${version}`, {
+    prompt_text: prompt,
+    transform_type: transformType
+  });
+
+  return response.data;
+}
+
+export async function getLassoAnswer(projectId: string, pageNumber: number, lassoId: number | null, prompt: string, version: number) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answer/${projectId}/${pageNumber}/${lassoId}`, {
+    params: {
+      prompt_text: prompt,
+      version: version
+  }});
+
+  return response.data;
+}
+
+export async function getLassoAnswers(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
+  const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answers/${projectId}/${pageNumber}/${lassoId}`, {
+    params: {
+      prompt_text: prompt
+  }});
 
   return response.data;
 }

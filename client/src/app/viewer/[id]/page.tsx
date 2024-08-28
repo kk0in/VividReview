@@ -1,31 +1,39 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets } from "@/utils/api";
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState } from '@/app/recoil/ViewerState';
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import AppBar from "@/components/AppBar";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import SearchModal from "@/components/dashboard/SearchModal";
-import SearchPanel from "@/components/dashboard/SearchPanel";
 import { useSearchParams } from "next/navigation";
 import {
-  audioTimeState,
-  audioDurationState,
   playerState,
   PlayerState,
   playerRequestState,
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
+import {
+  focusedLassoState,
+  reloadFlagState,
+  rerenderFlagState,
+  activePromptState,
+  defaultPrompts
+} from "@/app/recoil/LassoState";
+import PromptDisplay from "@/components/dashboard/PromptDisplay";
 
 import { Pie } from 'react-chartjs-2';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
 Chart.register(ArcElement, Tooltip, Legend);
+
+import {
+  ToggleSwitch
+} from "@/components/dashboard/GraphComponent"
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -108,6 +116,194 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 }
 
+function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) {
+  const [focusedTabIndex, setFocusedTabIndex] = useState(0);
+  
+  const subTabs: TabProps[] = [
+    {
+      title: "Original",
+      onClick: () => {
+        setFocusedTabIndex(0);
+      },
+    },
+    {
+      title: "Processing",
+      onClick: () => {
+        setFocusedTabIndex(1);
+      },
+    },
+  ];
+
+  const subTabElements = subTabs.map((tab, idx) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (idx === focusedTabIndex ? "bg-gray-300" : "bg-gray-300/50");
+
+    return (
+      <div className={className} onClick={tab.onClick} key={"subtab-" + idx}>
+        {tab.title}
+      </div>
+    );
+  })
+
+  const preprocessText = (text: string, keywords: string[]) => {
+    const highlightKeywords = (text: string, keywords: string[]) => {
+      let result = text;
+      for (const keyword of keywords) {
+        result = result.replace(
+          new RegExp(keyword, "gi"),
+          (text) => `<span class="text-red-600 font-bold">${text}</span>`
+        );
+      }
+      return result;
+    };
+
+    const processedHTML = text.replace(/- (.*?)(\n|$)/g, "• $1\n")
+                            .replace(/\n/g, "<br />")
+                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                            .replace(/  /g, "\u00a0\u00a0");
+    return highlightKeywords(processedHTML, keywords);
+  };
+
+  const paragraph = pages.map((page) => {
+    const script = scripts.find((script) => script.page === page);
+    if (script === undefined) {
+      return (<></>);
+    }
+
+    const processedHTML = focusedTabIndex === 0 ?
+      preprocessText(script.original, script.keyword) :
+      preprocessText(script.formal, script.keyword);
+
+    return (
+      <Fragment key={page}>
+        <p className="font-bold text-lg">Page {script.page} -</p>
+        <p className="mb-2" dangerouslySetInnerHTML={{ __html: processedHTML }} />
+      </Fragment>
+    );
+  });
+
+  return (
+    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+      <div className="flex flex-row overflow-x-auto">
+        {subTabElements}
+      </div>
+      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300 p-3">
+        {paragraph}
+      </div>
+    </div>
+  );
+}
+
+function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
+  const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
+  const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
+  const reloadFlag = useRecoilValue(reloadFlagState);
+  const lassos = useRef<{lasso_id: number, name: string}[]>([]);
+  const answers = useRef<string[]>([]);
+  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
+
+  useEffect(() => {
+    const fetchLassos = async () => {
+      console.log("fetching lassos");
+      const response: {lasso_id: number, name: string}[] = await getLassosOnPage(projectId, page);
+      lassos.current = response.sort((a, b) => b.lasso_id - a.lasso_id);
+    }
+
+    const fetchPrompts = async () => {
+      await fetchLassos();
+      if(focusedLasso === null){
+        console.log("focus lasso is null");
+        if(lassos.current.length > 0) setFocusedLasso(lassos.current[0].lasso_id);
+        prompts.current = defaultPrompts.map((prompt) => prompt.prompt);
+        return;
+      }
+      console.log("fetching prompts");
+
+      const response = await lassoPrompts(projectId, page, focusedLasso);
+      prompts.current = response;
+    }
+
+    const fetchAnswers = async () => {
+      await fetchPrompts();
+
+      if(focusedLasso === null) {
+        console.log("focus lasso is null");
+        answers.current = [];
+        return;
+      }
+      
+      console.log("fetching answers");
+
+      try {
+        console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
+        const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        console.log("fetched answers", response);
+        answers.current = response.map((result: {caption: string, result: string}) => result.result);
+        console.log("mapped answers", answers.current);
+      } catch (e) {
+        console.log("Failed to fetch answers:", e);
+        answers.current = [];
+      }
+      setRerenderFlag((prev) => !prev);
+    }
+
+    fetchAnswers();
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag]);
+
+  const lassoTabElements = lassos.current.map((lasso, idx) => {
+    const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+      (idx === activePromptIndex[0] ? "bg-gray-300" : "bg-gray-300/50");  
+      
+    return (
+      <div className={className}
+        onClick = {() => {setActivePromptIndex([idx, activePromptIndex[1], 0]); setFocusedLasso(lasso.lasso_id)}}
+        key={"sublasso-"+idx}
+      >
+        {idx === activePromptIndex[0] ? lasso.name : lasso.name.slice(0, 5) + "..."}
+      </div>
+    )
+  });
+
+  const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
+    prompts.current.map((prompt, idx) => {
+      const className = "rounded-t-2xl w-fit py-1 px-4 font-bold " +
+        (idx === activePromptIndex[1] ? "bg-gray-400/50" : "bg-gray-400");
+      
+      return (
+        <div className={className}
+          onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+          key={"subprompt-"+idx}
+        >
+          {prompt}
+        </div>
+      )
+    }));
+
+  return (
+    <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
+      <div className="flex flex-row overflow-x-auto">
+        {lassoTabElements}
+      </div>
+      <div className={`rounded-b-2xl rounded-tr-2xl ${lassoTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-300 p-3`}>
+        <div className="flex flex-row mt-1 overflow-x-auto">
+          {promptTabElements}
+        </div>
+        <div className={`rounded-b-2xl rounded-tr-2xl ${promptTabElements.length == 0 ? "rounded-tl-2xl":""} bg-gray-400/50 p-3`}>
+          <PromptDisplay
+            answers={answers.current}
+            projectId={projectId}
+            page={page}
+            focusedLasso={focusedLasso!}
+            prompts={prompts.current}
+            rerenderFlag={rerenderFlag}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReviewPage({
   projectId,
   spotlightRef,
@@ -122,6 +318,7 @@ function ReviewPage({
   setPages,
   tocIndex,
   setTocIndex,
+  setCirclePosition,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
@@ -136,6 +333,7 @@ function ReviewPage({
   setHoverState: (hoverState: any) => void;
   tocIndex: any;
   setTocIndex: (tocIndex: any) => void;
+  setCirclePosition: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -143,57 +341,28 @@ function ReviewPage({
   const [paragraphs, setParagraphs] = useRecoilState(matchedParagraphsState);
   const [currentPlayerState, setPlayerState] = useRecoilState(playerState);
   const [audioSource, setAudioSource] = useState<string>("");
-  const [audioDuration, setAudioDuration] = useRecoilState(audioDurationState);
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
-  const [activeSubTabIndex, setActiveSubTabIndex] = useState(0);
+  const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
     start: 0,
     end: 0,
   });
+  const [lastOffsetX, setLastOffsetX] = useState(0);
   const [bboxList, setBboxList] = useState<any[]>([]);
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
-
-  const subTabs: TabProps[] = [
-    {
-      title: "Original",
-      onClick: () => {
-        setActiveSubTabIndex(0);
-      },
-    },
-    {
-      title: "Processing",
-      onClick: () => {
-        setActiveSubTabIndex(1);
-      },
-    },
-  ];
-
-  let i = 0;
-  const subTabElements = subTabs.map((tab, idx) => {
-    const className =
-      "rounded-t-2xl w-fit py-1 px-4 font-bold " +
-      (i++ === activeSubTabIndex ? "bg-gray-300/50" : "bg-gray-300");
-
-    return (
-      <div className={className} onClick={tab.onClick} key={"subtab-" + idx}>
-        {tab.title}
-      </div>
-    );
-  });
+  const [scriptMode, setScriptMode] = useRecoilState(scriptModeState);
 
   const findPage = (time: number): number => {
-    if (pageInfo === null) {
-      return 0;
-    }
+    if (pageInfo === null) { return 0; }
 
     for (const [key, value] of Object.entries<{ start: number; end: number }>(
       pageInfo
     )) {
-      if (time > value.start && time < value.end) {
+      if (time >= value.start && time < value.end) {
         return parseInt(key);
       }
     }
@@ -206,7 +375,8 @@ function ReviewPage({
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
         const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
+        if (subsection.page[subsection.page.length - 1] >= page) {
+          console.log("Found ToC index:", page, i, j);
           return { section: i, subsection: j };
         }
       }
@@ -291,60 +461,67 @@ function ReviewPage({
   }, [projectId, fetchRecording]);
 
   useEffect(() => {
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
+    if (audioRef.current === null || progressRef.current === null) { return; }
+    const audio = audioRef.current;
+    const progress = progressRef.current;
 
-    audioRef.current.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
-    audioRef.current.onloadedmetadata = () => {
-      if (audioRef.current) {
-        console.log(audioRef.current.duration);
-        setAudioDuration(audioRef.current.duration);
-
-        progressRef.current!.max = audioRef.current.duration;
-      }
+    audio.src = audioSource; // 가져온 음성 파일 URL을 src로 설정
+    audio.onloadedmetadata = () => {
+      console.log("Audio is loaded", audio.duration);
+      progress.max = audio.duration;
     };
   }, [audioSource]);
 
   useEffect(() => {
-    audioRef.current!.ontimeupdate = () => {
-      const handleProgressBar = () => {
-        if (!isMouseDown && audioRef.current) {
-          progressRef.current!.value = audioRef.current.currentTime;
-        }
+    if (audioRef.current === null || progressRef.current === null) { return; }
+    const audio = audioRef.current;
+    const progress = progressRef.current;
 
-        if (pageInfo && page > 0) {
-          const timelineForPage = Object.entries<{
-            start: number;
-            end: number;
-          }>(pageInfo)[page - 1][1];
-
-          // if (audioRef.current!.currentTime >= timelineForPage.end) {
-          //   const newPage = page + 1;
-          //   const newTocIndex = findTocIndex(newPage);
-
-          //   newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-          //   setPage(newPage);
-          //   console.log("setPage1");
-          // }
-        }
-
-        if (audioRef.current!.currentTime >= timeline.end) {
+    audio.ontimeupdate = () => {
+      const handleAudio = () => {
+        if (audio.currentTime > timeline.end) {
           console.log("Time is up");
           setPlayerState(PlayerState.IDLE);
+          return;
+        }
+
+        if (Object.keys(pageInfo).length > page && page > 0) {
+          const getTimeline = (page: number) => {
+            return Object.entries<{
+              start: number;
+              end: number;
+            }>(pageInfo)[page - 1][1];
+          };
+          
+          const currentPageTimeline = getTimeline(page);
+
+          if (!audio.paused && audio.currentTime > currentPageTimeline.end) {
+            const newPage = findPage(audio.currentTime);
+            const newTocIndex = findTocIndex(newPage);
+
+            (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+            setPage(newPage);
+          }
+        }
+      }
+
+      const handleProgressBar = () => {
+        if (!isMouseDown) {
+          progress.value = audio.currentTime;
+          setCirclePosition(audio.currentTime / audio.duration * progress.offsetWidth);
         }
       };
 
       const handleHighlightBox = () => {
-        if (!isMouseDown && audioRef.current) {
-          // console.log(audioRef.current.currentTime);
+        if (!isMouseDown && !audio.paused) {
+          // console.log(audio.currentTime);
           // console.log(bboxList[0]);
           // console.log(bboxIndex.current);
           let changeIndexFlag = false;
           for (let i = 0; i < bboxList.length; i++) {
             if (
-              audioRef.current.currentTime >= bboxList[i].start &&
-              audioRef.current.currentTime < bboxList[i].end
+              audio.currentTime >= bboxList[i].start &&
+              audio.currentTime < bboxList[i].end
             ) {
               if (i !== bboxIndex.current) {
                 bboxIndex.current = i;
@@ -354,23 +531,22 @@ function ReviewPage({
             }
           }
           if (!changeIndexFlag) return;
+
           const bbox = bboxList[bboxIndex.current].bbox;
           const canvas = spotlightRef.current;
           const ctx = canvas?.getContext("2d");
           if (!canvas || !ctx) return;
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          console.log("pdfWidth.current, pdfHeight.current: ", pdfWidth.current, pdfHeight.current); 
-          console.log("bbox: ", bbox);
-          console.log("canvas.width, canvas.height: ", canvas.width, canvas.height);  
+
           // 중심점 계산
           const centerX =
             ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
           const centerY =
             ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
-          console.log("centerX, centerY: ", centerX, centerY); 
+
           // 그라디언트 생성
-          const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; // 큰 반경을 설정하여 부드러운 전환
+          const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; 
           const gradient = ctx.createRadialGradient(
             centerX,
             centerY,
@@ -383,10 +559,16 @@ function ReviewPage({
           // 그라디언트 색상 단계 설정
           gradient.addColorStop(0, "rgba(0, 0, 0, 0)"); // 중심부 투명
           gradient.addColorStop(0.7, "rgba(0, 0, 0, 0.3)"); // 중심에서 조금 떨어진 부분
+          gradient.addColorStop(0.9, "rgba(0, 0, 0, 0.5)"); // 중심에서 조금 떨어진 부분
           gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)"); // 외곽부는 어두운 명암
-          // ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-          ctx.fillStyle = gradient;
+          // ctx.fillStyle = gradient;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.clearRect(
+            bbox[0] / pdfWidth.current * canvas.width,
+            bbox[1] / pdfHeight.current * canvas.width,
+            (bbox[2]*3) / pdfWidth.current * canvas.width,
+            (bbox[3]*3) / pdfHeight.current * canvas.height);  
           // ctx.clearRect(
           // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
           // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
@@ -398,70 +580,105 @@ function ReviewPage({
         }
       };
 
+      handleAudio();
       handleProgressBar();
       handleHighlightBox();
     };
-  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page]);
+  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page, pageInfo, currentPlayerState, findPage]);
 
   useEffect(() => {
-    if (progressRef.current === null) {
+    if (progressRef.current === null || audioRef.current === null) {
       return;
     }
 
-    const getNewProgressValue = (event: MouseEvent) => {
-      return (
-        (event.offsetX / progressRef.current!.offsetWidth) *
-        audioRef.current!.duration
-      );
+    const progress = progressRef.current;
+    const audio = audioRef.current;
+
+    const getOffsetX = (event: MouseEvent | TouchEvent) => {
+      const offsetX = event instanceof MouseEvent ? event.offsetX : event.targetTouches[0].clientX - progress.parentElement!.offsetLeft;
+      setLastOffsetX(offsetX);
+      return offsetX;
+    }
+
+    const getNewProgressValue = (offsetX : number) => {
+      return offsetX / progress.offsetWidth * audio.duration;
     };
 
-    progressRef.current.onmousedown = (event) => {
+    const handleMouseDown = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
-      console.log("mousedown", event.offsetX);
-      progressRef.current!.value = getNewProgressValue(event);
+      const offsetX = getOffsetX(event);
+      console.log("mousedown", offsetX);
+      progress.value = getNewProgressValue(offsetX);
+      setCirclePosition(offsetX);
       setIsMouseDown(true);
       setHoverState({
-        hoverPosition: event.offsetX,
-        hoverTime: progressRef.current?.value,
-        activeLabel: progressRef.current?.value,
+        hoverPosition: offsetX + 5,
+        hoverTime: progress.value,
+        activeLabel: progress.value,
       });
     };
 
-    progressRef.current.onmousemove = (event) => {
-      if (isMouseDown && progressRef.current) {
-        progressRef.current.value = getNewProgressValue(event);
+    const handleMouseMove = (event: MouseEvent | TouchEvent) => {
+      if (isMouseDown && progress) {
+        const offsetX = getOffsetX(event);
+        progress.value = getNewProgressValue(offsetX);
+        setCirclePosition(offsetX);
         setHoverState({
-          hoverPosition: event.offsetX,
-          hoverTime: progressRef.current.value,
-          activeLabel: progressRef.current.value,
+          hoverPosition: offsetX + 5,
+          hoverTime: progress.value,
+          activeLabel: progress.value,
         });
       }
-    };
+    }
 
-    progressRef.current.onmouseup = (event) => {
+    const handleMouseUp = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
       if (isMouseDown) {
-        console.log("mouseup", progressRef.current!.offsetWidth, event.offsetX);
-        const timeValue = getNewProgressValue(event);
+        const offsetX = lastOffsetX;
+        console.log("mouseup", progress.offsetWidth, offsetX);
+        const timeValue = getNewProgressValue(offsetX);
         const newPage = findPage(timeValue);
         const newTocIndex = findTocIndex(newPage);
         newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
         newPage > 0 && setPage(newPage);
 
-        audioRef.current!.currentTime = timeValue;
+        audio.currentTime = timeValue;
+        setCirclePosition(offsetX);
         setHoverState({
-          hoverPosition: event.offsetX,
+          hoverPosition: offsetX + 5,
           hoverTime: timeValue,
           activeLabel: timeValue,
         });
         setIsMouseDown(false);
       }
-    };
+    }
+
+    // For mouse events
+    progress.addEventListener("mousedown", handleMouseDown);
+    progress.addEventListener("mousemove", handleMouseMove);
+    progress.addEventListener("mouseup", handleMouseUp);
+
+    // For touch events
+    progress.addEventListener("touchstart", handleMouseDown);
+    progress.addEventListener("touchmove", handleMouseMove);
+    progress.addEventListener("touchend", handleMouseUp);
 
     window.onmouseup = () => {
       setIsMouseDown(false);
     };
-  }, [progressRef, isMouseDown]);
+
+    return () => {
+      // For mouse events
+      progress.removeEventListener("mousedown", handleMouseDown);
+      progress.removeEventListener("mousemove", handleMouseMove);
+      progress.removeEventListener("mouseup", handleMouseUp);
+
+      // For touch events
+      progress.removeEventListener("touchstart", handleMouseDown);
+      progress.removeEventListener("touchmove", handleMouseMove);
+      progress.removeEventListener("touchend", handleMouseUp);
+    }
+  }, [isMouseDown, lastOffsetX]);
 
   useEffect(() => {
     const newTimeline = { start: 0, end: 0 };
@@ -524,35 +741,41 @@ function ReviewPage({
 
     console.log("newTimeline", newTimeline, audioRef.current!.currentTime);
     if (
-      audioRef.current!.currentTime < newTimeline.start ||
-      audioRef.current!.currentTime > newTimeline.end
-    ) {
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) < parseFloat(newTimeline.start.toFixed(5)) ||
+      parseFloat(audioRef.current!.currentTime.toFixed(5)) >= parseFloat(newTimeline.end.toFixed(5))
+    )  {
       audioRef.current!.currentTime = newTimeline.start;
+      setHoverState({
+        hoverTime: newTimeline.start,
+        activeLabel: newTimeline.start,
+      });
     }
     setTimeline(newTimeline);
   }, [pageInfo, page, gridMode]);
 
   useEffect(() => {
-    if (audioRef.current === null || !audioSource) {
-      return;
-    }
+    if (audioRef.current === null) { return; }
+    const audio = audioRef.current;
 
     switch (currentPlayerState) {
       case PlayerState.PLAYING: {
-        console.log("PLAYING", timeline, audioRef.current!.currentTime);
-        audioRef.current.play();
+        console.log("PLAYING", timeline, audio.currentTime);
+        if (audio.currentTime > timeline.end) {
+          audio.currentTime = timeline.start;
+        }
+        audio.play();
         break;
       }
 
       case PlayerState.PAUSED: {
-        console.log("PAUSED", timeline, audioRef.current!.currentTime);
-        audioRef.current.pause();
+        console.log("PAUSED", timeline, audio.currentTime);
+        audio.pause();
         break;
       }
 
       case PlayerState.IDLE: {
         console.log("IDLE");
-        audioRef.current.pause();
+        audio.pause();
         break;
       }
     }
@@ -611,112 +834,19 @@ function ReviewPage({
     setPages(pages_);
   }, [gridMode, page, tocIndex]);
 
-  const convertWhiteSpaces = (text: string) => {
-    return text.replace(/  /g, "\u00a0\u00a0");
-  };
-
-  const convertStrongSymbols = (text: string) => {
-    return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  };
-
-  const convertLineEscapes = (text: string) => {
-    return text.replace(/\n/g, "<br />");
-  };
-
-  const convertListSymbols = (text: string) => {
-    return text.replace(/- (.*?)(\n|$)/g, "• $1\n");
-  };
-
-  const highlightKeywords = (text: string, keywords: string[]) => {
-    let result = text;
-    for (const keyword of keywords) {
-      result = result.replace(
-        new RegExp(keyword, "gi"),
-        (text) => `<span class="text-red-600 font-bold">${text}</span>`
-      );
-    }
-    return result;
-  };
-
-  const preprocessText = (text: string, keywords: string[]) => {
-    let processedHTML = convertListSymbols(text);
-    processedHTML = convertLineEscapes(processedHTML);
-    processedHTML = convertStrongSymbols(processedHTML);
-    processedHTML = convertWhiteSpaces(processedHTML);
-    processedHTML = highlightKeywords(processedHTML, keywords);
-    return processedHTML;
-  };
-
-  const paragraph: React.JSX.Element[] = [];
-  for (const page of pages) {
-    for (const script of scripts) {
-      if (script.page === page) {
-        let processedHTML = "";
-        if (activeSubTabIndex === 0) {
-          processedHTML = preprocessText(script.original, script.keyword);
-        } else {
-          processedHTML = preprocessText(script.formal, script.keyword);
-        }
-
-        paragraph.push(
-          <Fragment key={page}>
-            <p className="font-bold text-lg">Page {script.page} -</p>
-            <p
-              className="mb-2"
-              dangerouslySetInnerHTML={{ __html: processedHTML }}
-            ></p>
-          </Fragment>
-        );
-        break;
-      }
-    }
-  }
-
-  // useEffect(() => {
-  //   const fetchResults = async () => {
-  //     if (!searchId) return;
-
-  //     try {
-  //       const result = await getSearchResult(projectId, searchId, type);
-  //       const sortedPages = result.similarities
-  //         ? Object.entries(result.similarities).sort((a, b) => b[1] - a[1])
-  //         : [];
-
-  //       setSearchResult(sortedPages);
-  //       setIsModalOpen(true); // 검색 결과를 불러오면 모달을 염
-  //     } catch (error) {
-  //       console.error("Error fetching search results:", error);
-  //     }
-  //   };
-
-  //   fetchResults();
-  // }, [searchId, type, projectId]);
-
-  // useEffect(() => {
-  //   const fetchSearchResults = async () => {
-  //     if (query.trim() === "") return; // 검색어가 비어 있으면 API 호출하지 않음
-
-  //     try {
-  //       await searchQuery(projectId, query, type); // API 요청만 수행
-  //     } catch (error) {
-  //       console.error("Error during search:", error);
-  //     }
-  //   };
-
-  //   fetchSearchResults();
-  // }, [query, type, projectId]); // 검색어 또는 타입이 변경될 때만 API 호출
-
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
-      <div className="rounded-t-2xl w-fit bg-gray-200 mt-4 mx-4 py-1 px-4 font-bold">
-        Script
-      </div>
-      <div className="rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3">
-        <div className="flex flex-row">{subTabElements}</div>
-        <div className="rounded-b-2xl rounded-tr-2xl bg-gray-300/50 p-3">
-          {paragraph}
+      <div className="flex">
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+          Script
+        </div>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+          Prompts
         </div>
       </div>
+      {scriptMode === "script" ? 
+        <ScriptTabPage pages={pages} scripts={scripts} /> :
+        <PromptTabPage projectId={projectId} page={page} />}
     </div>
   );
 }
@@ -727,7 +857,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [searchId, setSearchId] = useState<string | null>(null);
   const [sortedPages, setSortedPages] = useState<any[]>([]);
   const [queryResult, setQueryResult] = useState(null);
-  const [images, setImages] = useState<string[]>([]); // 이미지를 저장할 상태
+  const [rawImages, setRawImages] = useState<string[]>([]); 
+  const [annotatedImages, setAnnotatedImages] = useState<{image: string, dimensions: [number, number]}[]>([]); 
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
   const [semanticSearchSets, setSemanticSearchSets] = useState([]);
   const [keywordSearchSets, setKeywordSearchSets] = useState([]);
@@ -773,12 +904,16 @@ export default function Page({ params }: { params: { id: string } }) {
   const [scriptPages, setScriptPages] = useState<string[]>([]);
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
+  const [circlePosition, setCirclePosition] = useState(0);
+  const [isOnSearching, setOnSearching] = useState(false);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
   const toc = useRecoilValue(tocState);
+
+  const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
 
   const handleAudioRef = (data: any) => {
     if (Number.isFinite(data?.begin)) {
@@ -787,16 +922,14 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const [prosodyData, setProsodyData] = useState<any>(null);
+  const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
-    "Part for taking away",
     "Excitement",
-    "Enthusiasm",
     "Interest",
     "Amusement",
     "Joy",
   ]);
   const [negativeEmotion, setnegativeEmotion] = useState([
-    "Part for throwing away",
     "Calmness",
     "Boredom",
     "Tiredness",
@@ -889,6 +1022,16 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   };
 
+  // Missed and Important Parts 정보를 가져오는 함수
+  const fetchMissedAndImportantParts = async () => {
+    try{
+      const result = await getMissedAndImportantParts(params.id);
+      setMisssedAndImportantParts(result);
+    }catch(error){
+      console.error("Failed to fetch missed data:", error);
+    }
+  };
+
   const findPage = (time: number): number => {
     if (pageInfo === null) {
       return 0;
@@ -906,11 +1049,12 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   const findTocIndex = (page: number) => {
+    console.log("toc", toc);
     for (let i = 0; i < toc.length; i++) {
       const section = toc[i];
       for (let j = 0; j < section.subsections.length; j++) {
         const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
+        if (subsection.page[subsection.page.length - 1] >= page) {
           return { section: i, subsection: j };
         }
       }
@@ -924,6 +1068,7 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchTableOfContents();
     fetchProsody();
     fetchPageInfo();
+    fetchMissedAndImportantParts();
   }, []);
 
   useEffect(() => {
@@ -934,30 +1079,17 @@ export default function Page({ params }: { params: { id: string } }) {
     }
   }, [pdfData]);
 
-  // const handleUndo = () => {
-  //   if (history.length === 0) return;
-  //   const newHistory = [...history];
-  //   const lastDrawing = newHistory.pop();
-  //   setHistory(newHistory);
-  //   setRedoStack((prev) => [...prev, lastDrawing || '']);
-  // };
-
-  // const handleRedo = () => {
-  //   if (redoStack.length === 0) return;
-  //   const newRedoStack = [...redoStack];
-  //   const nextDrawing = newRedoStack.pop();
-  //   setRedoStack(newRedoStack);
-  //   setHistory((prev) => [...prev, nextDrawing || '']);
-  // };
-
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(0);
 
-  useEffect(() => {
-    if (containerRef.current) {
+  const setSize = () => {
+    setTimeout(() => {
+      if (!containerRef.current) return;
+      console.log(containerRef.current.offsetWidth);
       setGraphWidth(containerRef.current.offsetWidth);
-    }
-  }, []);
+    }, 200);
+  };
+  useEffect(setSize, []);
 
   const { data: searchResult, refetch: fetchSearchResult } = useQuery(
     ["getSearchResult", projectId, searchId, type],
@@ -990,16 +1122,30 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   // getImages API 호출
-  const { data: fetchedImages, refetch: fetchImages } = useQuery(
-    ["getImages", params.id],
-    () => getImages(params.id),
+  const { data: fetchedRawImages, refetch: fetchRawImages } = useQuery(
+    ["getRawImages", params.id],
+    () => getRawImages(params.id),
     {
       enabled: true, // 항상 호출
       onSuccess: (data) => {
-        setImages(data);
+        setRawImages(data);
       },
       onError: (error) => {
-        console.error("Error fetching images:", error);
+        console.error("Error fetching raw images:", error);
+      },
+    }
+  );
+
+  const { data: fetchedAnnotatedImages, refetch: fetchAnnotatedImages } = useQuery(
+    ["getAnnotatedImages", params.id],
+    () => getAnnotatedImages(params.id),
+    {
+      enabled: true, // 항상 호출
+      onSuccess: (data) => {
+        setAnnotatedImages(data);
+      },
+      onError: (error) => {
+        console.error("Error fetching annotated images:", error);
       },
     }
   );
@@ -1063,6 +1209,11 @@ export default function Page({ params }: { params: { id: string } }) {
     // setShowPieChart(false); // 토글 버튼 클릭 시 Pie 차트 표시 방지
   };
 
+  useEffect(() => {
+    // selectedPages가 비어 있으면 버튼을 비활성화하고, 비어 있지 않으면 활성화
+    setIsSaveButtonDisabled(selectedPages.size === 0);
+  }, [selectedPages]);
+
   const handleSaveSearchSet = async () => {
     try {
       const selectedPageList = Array.from(selectedPages).map(String);
@@ -1081,6 +1232,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const handleSearch = async () => {
     if (query.trim() === "") return;
     try {
+      console.log('start search');
+      setOnSearching(true);
       const result = await searchQuery(projectId, query, type);
       setSearchId(result.search_id); // 검색 ID를 저장
       setSelectedSearchId(null); // 선택된 search_id 초기화
@@ -1088,6 +1241,8 @@ export default function Page({ params }: { params: { id: string } }) {
       setSearchQuery((prevState) => ({ ...prevState, query: '' }));
       setPreviousQuery(query);
       setQueryText(query);
+      console.log('end search');
+      setOnSearching(false);
     } catch (error) {
       console.error("Error during search:", error);
     }
@@ -1143,7 +1298,7 @@ export default function Page({ params }: { params: { id: string } }) {
   };
 
   // 페이지 클릭 시 파이 차트를 계산하는 함수
-  const handlePageClick = (event: React.MouseEvent<HTMLDivElement>, page: number) => {
+  const handlePageClick = (event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, page: number) => {
     console.log('page clicked');
     if (queryResult && queryResult.similarities[page]) {
       const scores = queryResult.similarities[page];
@@ -1215,9 +1370,26 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchKeywordSearchSets();
   }, [projectId]);
 
+  const getOffsetXForCircle = useCallback(() => {
+    if (progressRef.current === null) return 0;
+    const progress = progressRef.current;
+
+    return progress.offsetWidth * (progress.value / progress.max);
+  }, [progressRef.current?.value, audioRef.current?.currentTime]);
+
   return (
     <div className="h-full flex flex-col">
-      {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
+      {isOnSearching && (
+        <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
+          <svg className="animate-spin h-24 w-24 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div className="mt-5 text-xl text-white pointer-events-none">
+            Searching...
+          </div>
+        </div>
+      )}
       {isError && (
         <div className="mx-auto my-auto">
           <div className="flex flex-col">
@@ -1302,7 +1474,7 @@ export default function Page({ params }: { params: { id: string } }) {
                         className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
                       >
                         <img
-                          src={images[page - 1]} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
+                          src={annotatedImages[page - 1].image} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
                           alt={`Page ${page}`}
                           className="rounded-md mb-2"
                         />
@@ -1320,8 +1492,11 @@ export default function Page({ params }: { params: { id: string } }) {
                       {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{queryText}"
                     </h2>
                     <button
-                      className="px-4 py-2 bg-gray-400 text-black rounded hover:bg-gray-500"
+                      className={`px-4 py-2 text-white rounded ${
+                        isSaveButtonDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700'
+                      }`}
                       onClick={handleSaveSearchSet}
+                      disabled={isSaveButtonDisabled}
                     >
                       Make a Search Set
                     </button>
@@ -1341,7 +1516,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1].image} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1362,7 +1537,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1].image} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1383,7 +1558,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                   <span className="text-black text-lg">✔</span>
                                 )}
                               </div>
-                              <img src={images[parseInt(page) - 1]} alt={`Page ${page}`} className="rounded-md mb-2" />
+                              <img src={annotatedImages[parseInt(page) - 1].image} alt={`Page ${page}`} className="rounded-md mb-2" />
                               <p className="text-center font-semibold text-black">Page {page}</p>
                             </div>
                           ))
@@ -1398,43 +1573,39 @@ export default function Page({ params }: { params: { id: string } }) {
                       <div className="flex space-x-4 items-center mb-4">
                         {/* Script 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="Script"
                             checked={toggleScript}
-                            onChange={() => handleToggle('script')}
-                            className="mr-1"
+                            onChange={() => handleToggle("script")}
+                            color="#8884d8"
                           />
-                          <span className="text-black ml-1">Script</span>
                         </div>
                         {/* PDF Text 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="PDF Text"
                             checked={togglePdfText}
-                            onChange={() => handleToggle('pdfText')}
-                            className="mr-1"
+                            onChange={() => handleToggle("pdfText")}
+                            color="#8884d8"
                           />
-                          <span className="text-black ml-1">PDF Text</span>
                         </div>
                         {/* PDF Image 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="PDF Image"
                             checked={togglePdfImage}
-                            onChange={() => handleToggle('pdfImage')}
-                            className="mr-1"
+                            onChange={() => handleToggle("pdfImage")}
+                            color="#8884d8" 
                           />
-                          <span className="text-black ml-1">PDF Image</span>
                         </div>
                         {/* Annotation 점수 토글 */}
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
+                          <ToggleSwitch
+                            label="Annotation"
                             checked={toggleAnnotation}
-                            onChange={() => handleToggle('annotation')}
-                            className="mr-1"
+                            onChange={() => handleToggle("annotation")}
+                            color="#8884d8" 
                           />
-                          <span className="text-black ml-1">Annotation</span>
                         </div>
                       </div>
                       {/* 별 3개 그룹 */}
@@ -1455,6 +1626,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                 onMouseUp={(e) => {
                                   handleMouseUp(page);
                                 }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
+                                  handleMouseUp(page);
+                                }}
                               >
                                 {/* 체크 표시 영역 */}
                                 <div
@@ -1470,7 +1650,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1].image}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1537,6 +1717,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                 onMouseUp={(e) => {
                                   handleMouseUp(page);
                                 }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
+                                  handleMouseUp(page);
+                                }}
                               >
                                 {/* 체크 표시 영역 */}
                                 <div
@@ -1552,7 +1741,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1].image}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1618,6 +1807,15 @@ export default function Page({ params }: { params: { id: string } }) {
                                 onMouseUp={(e) => {
                                   handleMouseUp(page);
                                 }}
+                                onTouchStart={(e) => {
+                                  if (e.target.closest('.toggle-button')) return;
+                                  e.preventDefault();
+                                  handlePageClick(e, page);
+                                }}
+                                onTouchEnd={(e) => {
+                                  e.preventDefault();
+                                  handleMouseUp(page);
+                                }}
                               >
                                 {/* 체크 표시 영역 */}
                                 <div
@@ -1633,7 +1831,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 </div>
                                 {/* 페이지 이미지 */}
                                 <img
-                                  src={images[page - 1]}
+                                  src={annotatedImages[page - 1].image}
                                   alt={`Page ${page}`}
                                   className="rounded-md mb-2"
                                 />
@@ -1687,7 +1885,7 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div className="flex flex-col bg-gray-200" ref={containerRef}>
+              <div className="flex flex-col bg-gray-200 items-center" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
                   handleAudioRef={handleAudioRef}
@@ -1706,10 +1904,16 @@ export default function Page({ params }: { params: { id: string } }) {
                   setHoverState={setHoverState}
                   setTocIndex={setTocIndex}
                   setPage={setPage}
-                  images={images}
+                  images={rawImages}
+                  missedAndImportantParts={missedAndImportantParts}
                 />
                 <audio ref={audioRef} />
-                <progress className="w-full rounded-lg" ref={progressRef} />
+                <div className="relative w-[calc(100%-10px)] h-4">
+                  <progress className="absolute w-full h-4" ref={progressRef} />
+                  <div style={{left:`calc(${circlePosition}px - 0.5rem`}} 
+                    className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}
+                    draggable={false} />
+                </div>
               </div>
             )}
           </div>
@@ -1728,6 +1932,7 @@ export default function Page({ params }: { params: { id: string } }) {
               setHoverState={setHoverState}
               tocIndex={tocIndex}
               setTocIndex={setTocIndex}
+              setCirclePosition={setCirclePosition}
             />
           )}
         </div>

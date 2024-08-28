@@ -10,18 +10,22 @@ export const defaultPrompts: Prompt[] = [
   {prompt: "translate to korean", answers: []}
 ]
 
-export type Lasso = {
-  boundingBox: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  lassoId: number | null;
-  prompts: Prompt[];
-}
+export const focusedLassoState = atom<number | null>({
+  key: 'focusedLassoState',
+  default: null,
+});
 
-export const lassoState = atom<Record<string, Record<number, Lasso[]>>>({
-  key: 'lassoState',
-  default: {},
+export const reloadFlagState = atom<boolean>({
+  key: 'reloadFlagState',
+  default: false,
+});
+
+export const rerenderFlagState = atom<boolean>({
+  key: 'rerenderFlagState',
+  default: false,
+});
+
+export const activePromptState = atom<[number, number, number]>({
+  key: 'activePromptState',
+  default: [0, 0, 0],
 });

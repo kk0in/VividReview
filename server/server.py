@@ -5,6 +5,7 @@ import math
 import os
 import shutil
 import zipfile
+import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
@@ -52,7 +53,7 @@ app.add_middleware(
 )
 
 PDF = "./pdfs"
-TEMP = "./temp"
+ANNOTATED_PDF = "./annotated_pdfs"
 RESULT = "./results"
 META_DATA = "./metadata"
 ANNOTATIONS = "./annotations"
@@ -66,10 +67,10 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
-WINDOW_SIZE = 1
+WINDOW_SIZE = 3
 
 os.makedirs(PDF, exist_ok=True)
-os.makedirs(TEMP, exist_ok=True)
+os.makedirs(ANNOTATED_PDF, exist_ok=True)
 os.makedirs(META_DATA, exist_ok=True)
 os.makedirs(RESULT, exist_ok=True)
 os.makedirs(ANNOTATIONS, exist_ok=True)
@@ -1020,14 +1021,17 @@ def get_script_times_by_segment(script_text, segment_timestamp, start_time):
 
 
 # 아래부터는 FastAPI 경로 작업입니다. 각각의 함수는 API 엔드포인트로, 특정 작업을 수행합니다.
-@app.post("/api/lasso_transform/")
+class LassoTransformData(BaseModel):
+    prompt_text: str
+    transform_type: str
+
+@app.post("/api/lasso_transform/{project_id}/{page_num}/{lasso_id}/{version}", status_code=200)
 async def lasso_transform(
     project_id: int,
     page_num: int,
     lasso_id: int,
     version: int,
-    prompt_text: str,
-    transform_type: str,
+    data: LassoTransformData
 ):
     """
     lasso_answer에 대해 다양한 버전을 생성하는 API.
@@ -1045,7 +1049,7 @@ async def lasso_transform(
         str(project_id),
         str(page_num),
         str(lasso_id),
-        sanitize_filename(prompt_text),
+        sanitize_filename(data.prompt_text),
     )
     result_json_path = os.path.join(result_path, f"{version}.json")
 
@@ -1057,7 +1061,7 @@ async def lasso_transform(
 
     # 변환된 버전을 생성
     try:
-        transformed_answer = await transform_lasso_answer(lasso_answer, transform_type)
+        transformed_answer = await transform_lasso_answer(lasso_answer, data.transform_type)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error during transforming lasso answer: {e}"
@@ -1070,9 +1074,90 @@ async def lasso_transform(
         json.dump(transformed_answer, json_file, indent=4)
 
     return {
-        "message": f"Lasso answer transformed successfully. Version: {version_count}"
+        "message": f"Lasso answer transformed successfully. Version: {version_count}",
+        "version": version_count
     }
 
+
+@app.get("/api/lasso_prompts/")
+async def lasso_prompts(project_id: int, page_num: int, lasso_id: int):
+    """
+    특정 Lasso ID에 대한 모든 프롬프트 텍스트를 반환하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    """
+
+    lasso_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Lasso ID not found")
+    
+    prompt_texts = []
+
+    info_json_path = os.path.join(lasso_path, "info.json")
+    with open(info_json_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        prompt_texts = lasso_info["prompts"]
+    
+    return prompt_texts
+
+
+class AddPromptData(BaseModel):
+    project_id: int
+    page_num: int
+    lasso_id: int
+    prompt_text: str
+
+@app.post("/api/add_lasso_prompt/")
+async def add_lasso_prompt(data: AddPromptData):
+    """
+    특정 Lasso ID에 대한 프롬프트 텍스트를 추가하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    :param prompt_text: 추가할 프롬프트 텍스트
+    """
+
+    lasso_path = os.path.join(LASSO, str(data.project_id), str(data.page_num), str(data.lasso_id))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Lasso ID not found")
+
+    info_json_path = os.path.join(lasso_path, "info.json")
+    with open(info_json_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        lasso_info["prompts"].append(data.prompt_text)
+
+    with open(info_json_path, "w") as json_file:
+        json.dump(lasso_info, json_file, indent=4)
+
+    return {"message": "Prompt text added successfully"}
+
+
+@app.get("/api/get_lassos_on_page/{project_id}/{page_num}")
+async def get_lassos_on_page(project_id: int, page_num: int):
+    """
+    특정 페이지에 대한 모든 Lasso ID를 반환하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    """
+
+    lasso_path = os.path.join(LASSO, str(project_id), str(page_num))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    lasso_pairs = []
+    for f in os.listdir(lasso_path):
+        if os.path.isdir(os.path.join(lasso_path, f)):
+            info_json_path = os.path.join(lasso_path, f, "info.json")
+            if not os.path.exists(info_json_path):
+                continue
+            with open(info_json_path, "r") as json_file:
+                lasso_info = json.load(json_file)
+                lasso_pairs.append({"lasso_id": f, "name": lasso_info["name"]})
+    return lasso_pairs
 
 class Lasso_Query_Data(BaseModel):
     project_id: int
@@ -1114,7 +1199,7 @@ async def lasso_query(data: Lasso_Query_Data):
 
     if cur_lasso_id is None:
         caption = lasso_answer.get("caption", "untitled")
-        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url}
+        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url, "prompts": ["summarize", "translate to korean"]}
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
@@ -1303,6 +1388,67 @@ async def get_lasso_answer(
 
     return lasso_answer_data
 
+@app.get("/api/get_lasso_answers/{project_id}/{page_num}/{lasso_id}", status_code=200)
+async def get_lasso_answer(
+    project_id: int, page_num: int, lasso_id: int, prompt_text: str
+):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 답변을 모두 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 prompt_text에 해당하는 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    :param prompt_text: prompt_text
+    """
+
+    lasso_answer_path = os.path.join(
+        LASSO,
+        str(project_id),
+        str(page_num),
+        str(lasso_id), 
+        sanitize_filename(prompt_text),
+    )
+
+    if not os.path.exists(lasso_answer_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+    
+    answers = []
+
+    for file in os.listdir(lasso_answer_path):
+        if file.endswith(".json"):
+            with open(os.path.join(lasso_answer_path, file), "r") as lasso_answer_file:
+                lasso_answer_data = json.load(lasso_answer_file)
+                answers.append(lasso_answer_data)
+        
+    return answers
+
+@app.get("/api/get_lasso_info/{project_id}/{page_num}/{lasso_id}", status_code=200)
+async def get_lasso_info(project_id: int, page_num: int, lasso_id: int):
+    """
+    특정 프로젝트 ID와 페이지 번호에 해당하는 lasso_id에 대한 정보를 반환하는 API 엔드포인트입니다.
+    프로젝트 ID와 페이지 번호에 해당하는 lasso_id 디렉토리에서 info.json 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: lasso_id
+    """
+
+    lasso_info_path = os.path.join(LASSO, str(project_id), str(page_num), str(lasso_id), "info.json")
+
+    if not os.path.exists(lasso_info_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(lasso_info_path, "r") as lasso_info_file:
+            lasso_info_data = json.load(lasso_info_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading lasso info file: {e}"
+        )
+
+    return lasso_info_data
+
 
 @app.get("/api/get_search_result/{project_id}", status_code=200)
 async def get_search_result(project_id: int, search_id: int, search_type: str):
@@ -1376,7 +1522,7 @@ async def get_page_info(project_id: int):
     return page_info_data["pages"]
 
 @app.get("/api/get_images/{project_id}", status_code=200)
-async def get_images(project_id: int):
+async def get_images(project_id: int, image_type: str):
     """
     특정 프로젝트 ID에 해당하는 이미지 파일을 반환하는 API 엔드포인트입니다.
     프로젝트 ID에 해당하는 이미지 파일을 찾아 반환합니다.
@@ -1384,9 +1530,7 @@ async def get_images(project_id: int):
     :param project_id: 프로젝트 ID
     """
 
-    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
-
-
+    image_directory = os.path.join(IMAGE, str(project_id), str(image_type))
     if not os.path.exists(image_directory):
         raise HTTPException(status_code=404, detail="Image files not found")
 
@@ -1398,7 +1542,11 @@ async def get_images(project_id: int):
         ]
     )
 
-    encoded_images = [f"data:image/png;base64,{encode_image(image)}" for image in image_paths]
+    encoded_images = []
+    for image in image_paths:
+        encoded_image = f"data:image/png;base64,{encode_image(image)}"
+        dimensions = Image.open(image).size
+        encoded_images.append({"image": encoded_image, "dimensions": dimensions})
 
     return encoded_images
 
@@ -1482,7 +1630,7 @@ async def get_bbox(project_id: int, page_num: int):
     """
     bbox_path = os.path.join(BBOX, str(project_id), f"{page_num}_spm.json")
     image_path = os.path.join(
-        IMAGE, str(project_id), f"page_{str(page_num).zfill(4)}.png"
+        IMAGE, str(project_id), "raw", f"page_{str(page_num).zfill(4)}.png"
     )
 
     image = Image.open(image_path)
@@ -1611,7 +1759,7 @@ class TimestampRecord(BaseModel):
 
 @app.post("/api/save_recording/{project_id}", status_code=200)
 async def save_recording(
-    project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...)
+    project_id: int, recording: UploadFile = File(...), timestamp: str = Form(...), drawings: str = Form(...)
 ):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
@@ -1689,8 +1837,11 @@ async def save_recording(
     return {"message": "Recording saved and STT processing started successfully"}
 
 
+class AnnotationData(BaseModel):
+    annotations: List[str]
+
 @app.post("/api/save_annotated_pdf/{project_id}", status_code=200)
-async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(...)):
+async def save_annotated_pdf(project_id: int, data: AnnotationData):
     pdf_file = [
         file
         for file in os.listdir(PDF)
@@ -1705,32 +1856,44 @@ async def save_annotated_pdf(project_id: int, annotated_pdf: UploadFile = File(.
 
     original_pdf_path = os.path.join(PDF, pdf_file[0])
 
-    # Save the uploaded annotated PDF temporarily
-    annotated_pdf_path = f"{TEMP}/{project_id}_annotated_temp.pdf"
-    with open(annotated_pdf_path, "wb") as buffer:
-        shutil.copyfileobj(annotated_pdf.file, buffer)
-
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
-    annotated_pdf = fitz.open(annotated_pdf_path)
 
-    if len(original_pdf) != len(annotated_pdf):
+    if len(original_pdf) != len(data.annotations):
         raise HTTPException(status_code=400, detail="Page count mismatch")
+    
+    annotated_pdf_path = os.path.join(ANNOTATED_PDF, pdf_file[0])
+    annotated_pdf = fitz.open(original_pdf_path)
 
     # Add annotations from the annotated PDF to the original PDF
-    for page_num in range(len(original_pdf)):
-        original_page = original_pdf.load_page(page_num)
+    annotated_image_path = os.path.join(IMAGE, str(project_id), "annotated")
+    os.makedirs(annotated_image_path, exist_ok=True)
+    for page_num in range(len(annotated_pdf)):
         annotated_page = annotated_pdf.load_page(page_num)
+        annotation_image = decode_base64_image(data.annotations[page_num])
+
+        # PDF 페이지를 이미지로 변환
+        pdf_image = annotated_page.get_pixmap()  # 페이지를 이미지로 변환
+        pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
+        annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
+
+        combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
+
+        image_path = os.path.join(annotated_image_path, f"page_{page_num + 1:04}.png")
+        combined_image.save(image_path, format="PNG")
+        
+        img_bytes = BytesIO()
+        annotation_image_resized.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
 
         # Insert the annotated page image into the original PDF
-        original_page.show_pdf_page(original_page.rect, annotated_pdf, page_num)
+        annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
-    # Save the modified original PDF
-    original_pdf.saveIncr()
+    annotated_pdf.save(annotated_pdf_path)
 
-    # Clean up the temporary annotated PDF file
-    os.remove(annotated_pdf_path)
-
+    original_pdf.close()
+    annotated_pdf.close()
+    
     return {"message": "Annotated PDF saved successfully"}
 
 @app.post("/api/make_search_set/{project_id}", status_code=200)
@@ -1992,12 +2155,12 @@ async def upload_project(
     with open(metadata_file_path, "w") as f:
         json.dump(metadata, f)
 
-    image_dir = os.path.join(IMAGE, str(id))
+    image_dir = os.path.join(IMAGE, str(id), "raw")
     os.makedirs(image_dir, exist_ok=True)
     images = convert_from_path(pdf_file_path)
 
     for i, image in enumerate(images):
-        image_path = os.path.join(IMAGE, str(id), f"page_{i + 1:04}.png")
+        image_path = os.path.join(image_dir, f"page_{i + 1:04}.png")
         image.save(image_path, "PNG")
 
     # OpenAI GPT API를 호출하여 목차 생성
