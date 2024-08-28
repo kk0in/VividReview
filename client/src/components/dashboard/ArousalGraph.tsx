@@ -253,25 +253,6 @@ const ArousalGraph = ({
     pages,
   ]);
 
-  // useEffect(() => {
-  //   if (!isMouseDown) {
-  //     // handle page change when not dragging
-  //     calculateStartAndEnd(page, gridMode, pageInfo, pages).then(
-  //       ({ start, end }) => {
-  //         setpageStartTime(start);
-  //         setpageEndTime(end);
-
-  //         const hoverState_ = {
-  //           hoverPosition: calculateScalingFactor(start),
-  //           hoverTime: start,
-  //           activeLabel: start,
-  //         };
-  //         setHoverState(hoverState_);
-  //       }
-  //     );
-  //   }
-  // }, [pages, page, gridMode]);
-
   useEffect(() => {
     const page_ = findPage(hoverState.hoverTime || 0);
     calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
@@ -325,13 +306,29 @@ const ArousalGraph = ({
               }
             />
           )}
+          {missedAndImportantParts?.missed.map((part: any, index: number) => {
+            return (
+              <Customized
+                key={`missed-${index}`} // Add a unique key prop
+                component={
+                  <HorizontalLine
+                    key={`missed-${index}`} // Add a unique key prop
+                    x1={calculateScalingFactor(part[0])}
+                    x2={calculateScalingFactor(part[1])}
+                    color={"red"}
+                    y={148}
+                  />
+                }
+              />
+            );
+          })}
           <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
       <ResponsiveContainer
         width="100%"
         height={GRAPH_HEIGHT}
-        style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
+        // style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
       >
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -393,7 +390,7 @@ const ArousalGraph = ({
                     x1={calculateScalingFactor(part[0])}
                     x2={calculateScalingFactor(part[1])}
                     color={"red"}
-                    y={131}
+                    y={2}
                   />
                 }
               />
