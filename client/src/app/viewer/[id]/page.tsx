@@ -509,6 +509,11 @@ function ReviewPage({
         if (!isMouseDown) {
           progress.value = audio.currentTime;
           setCirclePosition(audio.currentTime / audio.duration * progress.offsetWidth);
+          setHoverState({
+            hoverPosition: progress.value / progress.max * progress.offsetWidth + 5,
+            hoverTime: progress.value,
+            activeLabel: progress.value,
+          });
         }
       };
 
