@@ -921,8 +921,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
 
   const handleAudioRef = (data: any) => {
-    if (Number.isFinite(data?.begin)) {
-      audioRef.current!.currentTime = data.begin;
+    if (Number.isFinite(data)) {
+      audioRef.current!.currentTime = data;
     }
   };
 
