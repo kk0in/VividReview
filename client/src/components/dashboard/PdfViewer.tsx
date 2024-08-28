@@ -1050,7 +1050,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div className="flex justify-items-center">
+    <div className="flex justify-center">
       <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
         <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
           {pageComponents}
