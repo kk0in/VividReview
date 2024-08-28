@@ -151,81 +151,21 @@ const ArousalGraph = ({
     }
   }, [hoverState]);
 
-  const handleMouseDown: CategoricalChartFunc = useCallback(
-    (e: any) => {
-      handleAudioRef(e.activePayload[0].payload);
-      setHoverState({
-        hoverPosition: e.chartX,
-        hoverTime: e.activePayload[0].payload.begin,
-        activeLabel: e.activeLabel,
-      });
-      setIsMouseDown(true);
-    },
-    [handleAudioRef, setHoverState]
-  );
-
-  const handleMouseMove: CategoricalChartFunc = useCallback(
-    (nextState: CategoricalChartState) => {
-      const e = nextState as {
-        activeLabel: any;
-        chartX: any;
-        activePayload: { payload: any }[];
-      };
-      if (e && e.activeLabel && isMouseDown) {
-        setHoverState({
-          hoverPosition: e.chartX,
-          hoverTime: e.activePayload[0].payload.begin,
-          activeLabel: e.activeLabel,
-        });
-        handleAudioRef(e.activePayload[0].payload);
-      }
-    },
-    [isMouseDown, handleAudioRef, setHoverState]
-  );
-
-  const handleMouseUp: CategoricalChartFunc = useCallback(
-    (e: any) => {
-      if (isMouseDown) {
-        const timeValue = e.activePayload[0].payload.begin;
-        const newPage = findPage(timeValue);
-        const newTocIndex = findTocIndex(newPage);
-        newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-        newPage > 0 && setPage(newPage);
-
-        handleAudioRef(e.activePayload[0].payload);
-
-        calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
-          ({ start, end }) => {
-            setpageStartTime(start);
-            setpageEndTime(end);
-          }
-        );
-        setIsMouseDown(false);
-      }
-    },
-    [
-      isMouseDown,
-      findPage,
-      findTocIndex,
-      tocIndex,
-      setTocIndex,
-      setPage,
-      handleAudioRef,
-      gridMode,
-      pageInfo,
-      pages,
-    ]
-  );
-
   useEffect(() => {
     if (divRef.current === null) {
       return;
     }
     const div = divRef.current;
 
-    const handleMouseDown = (event: TouchEvent) => {
+    const getOffsetX = (event: MouseEvent | TouchEvent) => {
+      return event instanceof MouseEvent
+        ? event.offsetX
+        : event.targetTouches[0].clientX - div.offsetLeft;
+    };
+
+    const handleMouseDown = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
-      const offsetX = event.targetTouches[0].clientX - div.offsetLeft;
+      const offsetX = getOffsetX(event);
       console.log("touchstart", offsetX);
       const audioValue = (offsetX / div.offsetWidth) * maxX;
 
@@ -238,12 +178,12 @@ const ArousalGraph = ({
       setIsMouseDown(true);
     };
 
-    const handleMouseMove = (event: TouchEvent) => {
+    const handleMouseMove = (event: MouseEvent | TouchEvent) => {
       if (!isMouseDown) {
         return;
       }
 
-      const offsetX = event.targetTouches[0].clientX - div.offsetLeft;
+      const offsetX = getOffsetX(event);
       const audioValue = (offsetX / div.offsetWidth) * maxX;
 
       handleAudioRef(audioValue);
@@ -254,7 +194,7 @@ const ArousalGraph = ({
       });
     };
 
-    const handleMouseUp = (event: TouchEvent) => {
+    const handleMouseUp = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
       if (!isMouseDown) {
         return;
@@ -281,10 +221,22 @@ const ArousalGraph = ({
     div.addEventListener("touchmove", handleMouseMove);
     div.addEventListener("touchend", handleMouseUp);
 
+    div.addEventListener("mousedown", handleMouseDown);
+    div.addEventListener("mousemove", handleMouseMove);
+    div.addEventListener("mouseup", handleMouseUp);
+
+    window.onmouseup = () => {
+      setIsMouseDown(false);
+    };
+
     return () => {
       div.removeEventListener("touchstart", handleMouseDown);
       div.removeEventListener("touchmove", handleMouseMove);
       div.removeEventListener("touchend", handleMouseUp);
+
+      div.removeEventListener("mousedown", handleMouseDown);
+      div.removeEventListener("mousemove", handleMouseMove);
+      div.removeEventListener("mouseup", handleMouseUp);
     };
   }, [
     isMouseDown,
@@ -331,12 +283,7 @@ const ArousalGraph = ({
   return (
     <div className="relative w-full" ref={divRef}>
       <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
-        <LineChart
-          data={processedData}
-          onMouseMove={handleMouseMove}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-        >
+        <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="begin"
@@ -384,12 +331,7 @@ const ArousalGraph = ({
         height={GRAPH_HEIGHT}
         style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
       >
-        <LineChart
-          data={processedData}
-          onMouseMove={handleMouseMove}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-        >
+        <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <YAxis hide domain={[minYneg, maxYneg]} />
           <Line
