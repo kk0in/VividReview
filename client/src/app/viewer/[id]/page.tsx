@@ -866,7 +866,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const projectId = params.id;
   const { query, type } = useRecoilValue(searchQueryState); // Recoil에서 검색어와 타입 가져오기
   const [searchId, setSearchId] = useState<string | null>(null);
-  const [sortedPages, setSortedPages] = useState<any[]>([]);
   const [queryResult, setQueryResult] = useState(null);
   const [rawImages, setRawImages] = useState<string[]>([]); 
   const [annotatedImages, setAnnotatedImages] = useState<{image: string, dimensions: [number, number]}[]>([]); 
@@ -877,7 +876,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
   const [pdfData, setPdfData] = useRecoilState(pdfDataState);
-  const [uploadStatus, setUploadStatus] = useState("");
   const [page, setPage] = useRecoilState(pdfPageState);
   const [pageInfo, setPageInfo] = useState({});
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
@@ -898,7 +896,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [selectedSearchType, setSelectedSearchType] = useState<string>(''); 
   const [seletedSearchQuery, setSelectedSearchQuery] = useState<string>(''); 
   const [pageList, setPageList] = useState([]);
-  const [hasOpenedModal, setHasOpenedModal] = useState(false); // 모달이 이미 열렸는지 확인하기 위한 상태
   const [previousQuery, setPreviousQuery] = useState<string | null>(null);
   const setInputText = useSetRecoilState(inputTextState);
   const setSearchQuery = useSetRecoilState(searchQueryState); // Recoil 상태 업데이트 함수
@@ -1384,13 +1381,6 @@ export default function Page({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetchKeywordSearchSets();
   }, [projectId]);
-
-  const getOffsetXForCircle = useCallback(() => {
-    if (progressRef.current === null) return 0;
-    const progress = progressRef.current;
-
-    return progress.offsetWidth * (progress.value / progress.max);
-  }, [progressRef.current?.value, audioRef.current?.currentTime]);
 
   return (
     <div className="h-full flex flex-col">
