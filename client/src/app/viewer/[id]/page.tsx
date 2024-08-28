@@ -913,6 +913,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const progressRef = useRef<HTMLProgressElement>(null);
   const toc = useRecoilValue(tocState);
 
+  const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
+
   const handleAudioRef = (data: any) => {
     if (Number.isFinite(data?.begin)) {
       audioRef.current!.currentTime = data.begin;
@@ -1207,6 +1209,11 @@ export default function Page({ params }: { params: { id: string } }) {
     // setShowPieChart(false); // 토글 버튼 클릭 시 Pie 차트 표시 방지
   };
 
+  useEffect(() => {
+    // selectedPages가 비어 있으면 버튼을 비활성화하고, 비어 있지 않으면 활성화
+    setIsSaveButtonDisabled(selectedPages.size === 0);
+  }, [selectedPages]);
+
   const handleSaveSearchSet = async () => {
     try {
       const selectedPageList = Array.from(selectedPages).map(String);
@@ -1485,8 +1492,11 @@ export default function Page({ params }: { params: { id: string } }) {
                       {type.charAt(0).toUpperCase() + type.slice(1)} Search Result for "{queryText}"
                     </h2>
                     <button
-                      className="px-4 py-2 bg-gray-400 text-black rounded hover:bg-gray-500"
+                      className={`px-4 py-2 text-white rounded ${
+                        isSaveButtonDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700'
+                      }`}
                       onClick={handleSaveSearchSet}
+                      disabled={isSaveButtonDisabled}
                     >
                       Make a Search Set
                     </button>
