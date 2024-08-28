@@ -115,6 +115,7 @@ const ArousalGraph = ({
     setSelectedPositives((prevState) => {
       const newState = [...prevState];
       newState[index] = !newState[index];
+      if (newState.every((v) => !v)) return prevState;
       return newState;
     });
   };
@@ -123,6 +124,7 @@ const ArousalGraph = ({
     setSelectedNegatives((prevState) => {
       const newState = [...prevState];
       newState[index] = !newState[index];
+      if (newState.every((v) => !v)) return prevState;
       return newState;
     });
   };
