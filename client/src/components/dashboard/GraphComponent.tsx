@@ -212,7 +212,7 @@ export const HorizontalLine = ({
   color: string;
   y: number;
 }) => {
-  return <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={3} />;
+  return <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={4} />;
 };
 
 export const CustomLegend = (props: any) => {
