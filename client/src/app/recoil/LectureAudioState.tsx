@@ -1,6 +1,6 @@
 import { atom } from "recoil";
 
-export enum PlayerState {
+export enum PlayerStateType {
   PLAYING,
   PAUSED,
   IDLE,
@@ -12,9 +12,9 @@ export enum PlayerRequestType {
   NONE,
 };
 
-export const playerState = atom<PlayerState>({
+export const playerState = atom<PlayerStateType>({
   key: "playerState",
-  default: PlayerState.PAUSED,
+  default: PlayerStateType.PAUSED,
 });
 
 export const playerRequestState = atom<PlayerRequestType>({

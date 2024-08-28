@@ -14,7 +14,7 @@ import SearchModal from "@/components/dashboard/SearchModal";
 import { useSearchParams } from "next/navigation";
 import {
   playerState,
-  PlayerState,
+  PlayerStateType,
   playerRequestState,
   PlayerRequestType,
 } from "@/app/recoil/LectureAudioState";
@@ -485,7 +485,7 @@ function ReviewPage({
       const handleAudio = () => {
         if (audio.currentTime > timeline.end) {
           console.log("Time is up");
-          setPlayerState(PlayerState.IDLE);
+          setPlayerState(PlayerStateType.IDLE);
           return;
         }
 
@@ -769,7 +769,7 @@ function ReviewPage({
     const audio = audioRef.current;
 
     switch (currentPlayerState) {
-      case PlayerState.PLAYING: {
+      case PlayerStateType.PLAYING: {
         console.log("PLAYING", timeline, audio.currentTime);
         if (audio.currentTime > timeline.end) {
           audio.currentTime = timeline.start;
@@ -778,13 +778,13 @@ function ReviewPage({
         break;
       }
 
-      case PlayerState.PAUSED: {
+      case PlayerStateType.PAUSED: {
         console.log("PAUSED", timeline, audio.currentTime);
         audio.pause();
         break;
       }
 
-      case PlayerState.IDLE: {
+      case PlayerStateType.IDLE: {
         console.log("IDLE");
         audio.pause();
         break;

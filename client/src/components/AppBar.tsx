@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState, searchQueryState, inputTextState, searchTypeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
-import { PlayerState, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
+import { PlayerStateType, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -50,12 +50,12 @@ function ReviewAppBar() {
   };
 
   const handlePlay = () => {
-    setLecturePlayer(PlayerState.PLAYING);
+    setLecturePlayer(PlayerStateType.PLAYING);
     activeIcon(1);
   };
 
   const handlePause = () => {
-    setLecturePlayer(PlayerState.PAUSED);
+    setLecturePlayer(PlayerStateType.PAUSED);
     activeIcon(1);
   };
 
@@ -66,7 +66,7 @@ function ReviewAppBar() {
 
   const icons = [
     { name: 'backward', icon: FaStepBackward, action: handleBackward },
-    (lecturePlayerState === PlayerState.PLAYING ?
+    (lecturePlayerState === PlayerStateType.PLAYING ?
       { name: 'pause', icon: FaPause, action: handlePause } :
       { name: 'play', icon: FaPlay, action: handlePlay }
     ),
