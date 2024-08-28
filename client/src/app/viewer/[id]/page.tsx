@@ -837,10 +837,10 @@ function ReviewPage({
   return (
     <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "200/50"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} mt-4 ml-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "200/50"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} mt-4 py-1 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>
@@ -905,6 +905,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
   const [circlePosition, setCirclePosition] = useState(0);
+  const [isOnSearching, setOnSearching] = useState(false);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -1224,6 +1225,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const handleSearch = async () => {
     if (query.trim() === "") return;
     try {
+      console.log('start search');
+      setOnSearching(true);
       const result = await searchQuery(projectId, query, type);
       setSearchId(result.search_id); // 검색 ID를 저장
       setSelectedSearchId(null); // 선택된 search_id 초기화
@@ -1231,6 +1234,8 @@ export default function Page({ params }: { params: { id: string } }) {
       setSearchQuery((prevState) => ({ ...prevState, query: '' }));
       setPreviousQuery(query);
       setQueryText(query);
+      console.log('end search');
+      setOnSearching(false);
     } catch (error) {
       console.error("Error during search:", error);
     }
@@ -1367,7 +1372,17 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <AppBar onUndo={handleUndo} onRedo={handleRedo} /> */}
+      {isOnSearching && (
+        <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
+          <svg className="animate-spin h-24 w-24 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div className="mt-5 text-xl text-white pointer-events-none">
+            Searching...
+          </div>
+        </div>
+      )}
       {isError && (
         <div className="mx-auto my-auto">
           <div className="flex flex-col">
