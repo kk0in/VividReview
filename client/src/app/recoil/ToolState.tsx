@@ -32,3 +32,8 @@ export const searchTypeState = atom<string>({
   key: 'searchTypeState',
   default: 'semantic', // 초기 값
 });
+
+export const isSaveClickedState = atom<boolean>({
+  key: 'isSaveClickedState', // unique ID (with respect to other atoms/selectors)
+  default: false, // default value (aka initial value)
+});

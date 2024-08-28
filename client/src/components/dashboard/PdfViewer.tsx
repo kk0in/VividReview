@@ -7,8 +7,8 @@ declare global {
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { useRecoilValue, useRecoilState } from "recoil";
-import { toolState, recordingState, gridModeState } from "@/app/recoil/ToolState";
+import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
+import { toolState, recordingState, gridModeState, isSaveClickedState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState } from "@/app/recoil/ViewerState";
 import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
@@ -72,6 +72,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const pageTimeline = useRef<{pageNum: number, start: number, end: number}[]>([]);
   const pageStart = useRef<number>(0);
   const pageTrack = useRef<number>(0);
+
+  const setIsSaveClicked = useSetRecoilState(isSaveClickedState);
 
   const width = 700;
   const height = 600;
@@ -544,6 +546,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
       await saveAnnotatedPdf(projectId, drawings);
       console.log("Annotated PDF saved successfully");
+      
+      // Update the Recoil state to enable the useQuery call
+      setIsSaveClicked(true);
+
     } catch (error) {
       console.error("Failed to save annotated PDF:", error);
     };

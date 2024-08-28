@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Fragment, useCallback } from "react
 import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
-import { gridModeState, searchQueryState, inputTextState, searchTypeState } from "@/app/recoil/ToolState";
+import { gridModeState, searchQueryState, inputTextState, searchTypeState, isSaveClickedState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
@@ -922,7 +922,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const toc = useRecoilValue(tocState);
 
   const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
-
+  const isSaveClicked = useRecoilValue(isSaveClickedState);
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
@@ -1152,7 +1152,7 @@ export default function Page({ params }: { params: { id: string } }) {
     ["getAnnotatedImages", params.id],
     () => getAnnotatedImages(params.id),
     {
-      enabled: true, // 항상 호출
+      enabled: isSaveClicked,
       onSuccess: (data) => {
         setAnnotatedImages(data);
       },
