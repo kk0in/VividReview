@@ -146,21 +146,22 @@ const ArousalGraph = ({
     }
   }, [hoverState.activeLabel, findPage]);
 
-  useEffect(() => {
-    const page_ = findPage(hoverState.activeLabel);
-    if (page_) {
-      setCurrentXTick(page_);
-    }
+  // This line creaets a bug where the pageStartTime and pageEndTime are not updated
+  // useEffect(() => {
+  //   const page_ = findPage(hoverState.activeLabel);
+  //   if (page_) {
+  //     setCurrentXTick(page_);
+  //   }
 
-    if (setpageStartTime && setpageEndTime) {
-      calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
-        ({ start, end }) => {
-          setpageStartTime(start);
-          setpageEndTime(end);
-        }
-      );
-    }
-  }, [hoverState]);
+  //   if (setpageStartTime && setpageEndTime) {
+  //     calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
+  //       ({ start, end }) => {
+  //         setpageStartTime(start);
+  //         setpageEndTime(end);
+  //       }
+  //     );
+  //   }
+  // }, [hoverState]);
 
   useEffect(() => {
     if (divRef.current === null) {
