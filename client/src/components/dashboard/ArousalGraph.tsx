@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, use } from "react";
-import { useRecoilValue } from "recoil";
+import { useRecoilState, useRecoilValue } from "recoil";
 import {
   LineChart,
   Line,
@@ -29,28 +29,35 @@ import {
   useTableOfContentsMap,
   calculateStartAndEnd,
 } from "../../utils/graph";
+import {
+  calibratePrecision,
+  findPage,
+  findTimeRange,
+} from "../../utils/lecture";
+import {
+  audioDurationState,
+  navigationState,
+  NavigationStateType,
+  progressValueState,
+} from "@/app/recoil/LectureAudioState";
+import {
+  pdfPageState,
+  tocIndexState,
+  tocState,
+} from "@/app/recoil/ViewerState";
 
 const GRAPH_HEIGHT = 150;
 const X_AXIS_HEIGHT = 20;
 
 const ArousalGraph = ({
   data,
-  handleAudioRef,
   positiveEmotion,
   negativeEmotion,
-  page,
   pages,
   pageInfo,
   progressRef,
   tableOfContents,
   graphWidth,
-  findPage,
-  findTocIndex,
-  tocIndex,
-  hoverState,
-  setHoverState,
-  setTocIndex,
-  setPage,
   images,
   missedAndImportantParts,
   pageStartTime,
@@ -59,7 +66,6 @@ const ArousalGraph = ({
   setpageEndTime,
 }: {
   data: any;
-  handleAudioRef: any;
   positiveEmotion: string[];
   negativeEmotion: string[];
   page: number;
@@ -68,13 +74,6 @@ const ArousalGraph = ({
   progressRef: any;
   tableOfContents: any;
   graphWidth: number;
-  findPage: any;
-  findTocIndex: any;
-  tocIndex: any;
-  hoverState: any;
-  setHoverState: any;
-  setTocIndex: any;
-  setPage: any;
   images: any;
   missedAndImportantParts: any;
   pageStartTime: number;
@@ -113,7 +112,14 @@ const ArousalGraph = ({
   } = useMinMaxValues(processedData);
 
   const [currentXTick, setCurrentXTick] = useState(0);
-  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [circlePosition, setCirclePosition] = useState(0);
+  const [progressValue, setProgressValue] = useRecoilState(progressValueState);
+  const audioDuration = useRecoilValue(audioDurationState);
+  const [currentNavigation, setCurrentNavigation] =
+    useRecoilState(navigationState);
+  const toc = useRecoilValue(tocState);
+  const tocIndex = useRecoilValue(tocIndexState);
+  const page = useRecoilValue(pdfPageState);
 
   const divRef = React.useRef<HTMLDivElement>(null);
 
@@ -136,32 +142,40 @@ const ArousalGraph = ({
   };
 
   const calculateScalingFactor = useCallback(
-    (data: number) => (graphWidth * data) / maxX,
-    [graphWidth, maxX]
+    (data: number) => {
+      if (divRef.current === null) {
+        return 0;
+      }
+      const div = divRef.current;
+      return (div.offsetWidth * data) / maxX + 5;
+    },
+    [divRef.current?.offsetWidth, maxX]
   );
 
   useEffect(() => {
-    if (page) {
-      setCurrentXTick(page);
+    if (progressRef.current !== null) {
+      const progress = progressRef.current;
+      progress.value = progressValue;
+      setCirclePosition((progressValue / audioDuration) * progress.offsetWidth);
     }
-  }, [hoverState.activeLabel, findPage]);
 
-  // This line creaets a bug where the pageStartTime and pageEndTime are not updated
-  // useEffect(() => {
-  //   const page_ = findPage(hoverState.activeLabel);
-  //   if (page_) {
-  //     setCurrentXTick(page_);
-  //   }
+    const page_ =
+      currentNavigation === NavigationStateType.IN_NAVIGATION
+        ? findPage(progressValue, pageInfo)
+        : page;
 
-  //   if (setpageStartTime && setpageEndTime) {
-  //     calculateStartAndEnd(page_, gridMode, pageInfo, pages).then(
-  //       ({ start, end }) => {
-  //         setpageStartTime(start);
-  //         setpageEndTime(end);
-  //       }
-  //     );
-  //   }
-  // }, [hoverState]);
+    setCurrentXTick(page_);
+    const timeRange = findTimeRange(page_, pageInfo, gridMode, toc, tocIndex);
+    setpageStartTime(timeRange.start);
+    setpageEndTime(timeRange.end);
+  }, [
+    progressValue,
+    audioDuration,
+    gridMode,
+    toc,
+    tocIndex,
+    currentNavigation,
+  ]);
 
   useEffect(() => {
     if (divRef.current === null) {
@@ -175,58 +189,39 @@ const ArousalGraph = ({
         : event.targetTouches[0].clientX - div.parentElement!.offsetLeft;
     };
 
+    const getAudioValue = (offsetX: number) => {
+      const temp = (offsetX / div.offsetWidth) * audioDuration;
+      return calibratePrecision(temp);
+    };
+
     const handleMouseDown = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
       const offsetX = getOffsetX(event);
-      console.log("touchstart", offsetX);
-      const audioValue = (offsetX / div.offsetWidth) * maxX;
+      const audioValue = getAudioValue(offsetX);
+      console.log("touchstart", audioValue);
 
-      handleAudioRef(audioValue);
-      setHoverState({
-        hoverPosition: offsetX,
-        hoverTime: audioValue,
-        activeLabel: audioValue,
-      });
-      setIsMouseDown(true);
+      setProgressValue(audioValue);
+      setCurrentNavigation(NavigationStateType.IN_NAVIGATION);
     };
 
     const handleMouseMove = (event: MouseEvent | TouchEvent) => {
-      if (!isMouseDown) {
+      if (currentNavigation !== NavigationStateType.IN_NAVIGATION) {
         return;
       }
 
       const offsetX = getOffsetX(event);
-      const audioValue = (offsetX / div.offsetWidth) * maxX;
-
-      handleAudioRef(audioValue);
-      setHoverState({
-        hoverPosition: offsetX,
-        hoverTime: audioValue,
-        activeLabel: audioValue,
-      });
+      const audioValue = getAudioValue(offsetX);
+      setProgressValue(audioValue);
     };
 
     const handleMouseUp = (event: MouseEvent | TouchEvent) => {
       event.preventDefault();
-      if (!isMouseDown) {
+      if (currentNavigation !== NavigationStateType.IN_NAVIGATION) {
         return;
       }
 
-      const offsetX = hoverState.hoverPosition;
-      console.log("touchend", offsetX);
-      const audioValue = (offsetX / div.offsetWidth) * maxX;
-      const newPage = findPage(audioValue);
-      const newTocIndex = findTocIndex(newPage);
-      newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-      newPage > 0 && setPage(newPage);
-
-      calculateStartAndEnd(newPage, gridMode, pageInfo, pages).then(
-        ({ start, end }) => {
-          setpageStartTime(start);
-          setpageEndTime(end);
-        }
-      );
-      setIsMouseDown(false);
+      console.log("touchend", progressValue);
+      setCurrentNavigation(NavigationStateType.NAVIGATION_COMPLETE);
     };
 
     div.addEventListener("touchstart", handleMouseDown);
@@ -238,7 +233,7 @@ const ArousalGraph = ({
     div.addEventListener("mouseup", handleMouseUp);
 
     window.onmouseup = () => {
-      setIsMouseDown(false);
+      setCurrentNavigation(NavigationStateType.NONE);
     };
 
     return () => {
@@ -251,21 +246,18 @@ const ArousalGraph = ({
       div.removeEventListener("mouseup", handleMouseUp);
     };
   }, [
-    isMouseDown,
-    findPage,
-    findTocIndex,
-    tocIndex,
-    setTocIndex,
-    setPage,
-    handleAudioRef,
+    currentNavigation,
+    audioDuration,
     gridMode,
+    toc,
+    tocIndex,
     pageInfo,
     pages,
     page,
   ]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative flex flex-col items-center w-full">
       <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -296,17 +288,11 @@ const ArousalGraph = ({
               />
             }
           />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={
-                <CurrentPositionLine
-                  x={hoverState.hoverPosition}
-                  y={20}
-                  x_axis={0}
-                />
-              }
-            />
-          )}
+          <Customized
+            component={
+              <CurrentPositionLine x={circlePosition + 5} y={20} x_axis={0} />
+            }
+          />
           {missedAndImportantParts?.missed.map((part: any, index: number) => {
             return (
               <Customized
@@ -351,17 +337,11 @@ const ArousalGraph = ({
               />
             }
           />
-          {hoverState.hoverPosition !== null && (
-            <Customized
-              component={
-                <CurrentPositionLine
-                  x={hoverState.hoverPosition}
-                  y={0}
-                  x_axis={70}
-                />
-              }
-            />
-          )}
+          <Customized
+            component={
+              <CurrentPositionLine x={circlePosition + 5} y={0} x_axis={70} />
+            }
+          />
           <XAxis
             dataKey="begin"
             ticks={ticks_}
@@ -372,7 +352,7 @@ const ArousalGraph = ({
                 currentXTick={currentXTick}
                 tableOfContentsMap={tableOfContentsMap}
                 graphWidth={graphWidth}
-                findPage={findPage}
+                pageInfo={pageInfo}
                 images={images}
               />
             )}
@@ -407,8 +387,18 @@ const ArousalGraph = ({
           handleNegativeToggle={handleNegativeToggle}
         />
       </ResponsiveContainer>
-      <div className="absolute inset-0 w-full h-[300px]" ref={divRef}>
+      <div className="relative w-[calc(100%-10px)] h-4">
+        <progress className="absolute w-full h-4" ref={progressRef} />
+        <div
+          style={{ left: `calc(${circlePosition}px - 0.5rem` }}
+          className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}
+          draggable={false}
+        />
       </div>
+      <div
+        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-full`}
+        ref={divRef}
+      ></div>
     </div>
   );
 };

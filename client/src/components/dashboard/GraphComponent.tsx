@@ -1,3 +1,4 @@
+import { findPage } from "@/utils/lecture";
 import React, { useState } from "react";
 import {
   Rectangle,
@@ -140,7 +141,7 @@ export const CustomXAxisTick = ({
   currentXTick,
   tableOfContentsMap,
   graphWidth,
-  findPage,
+  pageInfo,
   images,
 }: {
   x: number;
@@ -149,11 +150,11 @@ export const CustomXAxisTick = ({
   currentXTick: number;
   tableOfContentsMap: any;
   graphWidth: number;
-  findPage: any;
+  pageInfo: any;
   images: any;
 }) => {
   const titleSubtitle = tableOfContentsMap[currentXTick];
-  const pageNumber = findPage(payload.value);
+  const pageNumber = findPage(payload.value, pageInfo);
 
   if (titleSubtitle && pageNumber === currentXTick) {
     const { subtitle } = titleSubtitle;
