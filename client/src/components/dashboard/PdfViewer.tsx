@@ -1,7 +1,7 @@
 declare global {
   interface WindowEventMap {
-    undoCanvas: CustomEvent<CanvasLayer[]>;
-    redoCanvas: CustomEvent<CanvasLayer[]>;
+    undoCanvas: CustomEvent<HistoryType>;
+    redoCanvas: CustomEvent<HistoryType>;
   }
 }
 
@@ -9,7 +9,7 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState, isSaveClickedState } from "@/app/recoil/ToolState";
-import { historyState, redoStackState } from "@/app/recoil/HistoryState";
+import { getNewHistoryId, historyState, HistoryType, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState } from "@/app/recoil/ViewerState";
 import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState, Prompt } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo, getRawImages } from "@/utils/api";
@@ -361,7 +361,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:idx+1, projectId:projectId, pageNumber:pageNumber}];
       })
       localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
-      setHistory((prev) => [...prev, drawingsRef.current]);
+      setHistory((prev) => [...prev, {pageNumber: pageNumber, layers: drawingsRef.current, id: getNewHistoryId()}]);
     };
     
     const erase = (event: MouseEvent | TouchEvent) => {
@@ -479,13 +479,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   useEffect(() => {
-    const handleUndoCanvas = (event: {detail: CanvasLayer[]}) => {
+    const handleUndoCanvas = (event: CustomEvent<HistoryType>) => {
       console.log("handleUndoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
       if (!context || !canvas) return;
 
-      const canvasLayers = event.detail;
+      const canvasLayers = event.detail ? event.detail.layers : [];
       drawingsRef.current = canvasLayers;
       if (drawingsRef.current === null) drawingsRef.current = [];
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
@@ -497,13 +497,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
     };
 
-    const handleRedoCanvas = (event: CustomEvent<CanvasLayer[]>) => {
+    const handleRedoCanvas = (event: CustomEvent<HistoryType>) => {
       console.log("handleRedoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
-      if (!context || !canvas) return;
+      if (!context || !canvas || !event.detail) return;
 
-      const canvasLayers = event.detail;
+      const canvasLayers = event.detail.layers;
       drawingsRef.current = canvasLayers;
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -809,7 +809,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
               drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:layer.id, projectId:projectId, pageNumber:pageNumber}];
             }
           }
-          setHistory((prev) => [...prev, drawingsRef.current]);
+          setHistory((prev) => [...prev, {pageNumber: pageNumber, layers: drawingsRef.current, id: getNewHistoryId()}]);
 
           return;
         }

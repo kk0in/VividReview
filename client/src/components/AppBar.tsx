@@ -22,6 +22,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { toolState, recordingState, gridModeState, searchQueryState, inputTextState, searchTypeState } from '@/app/recoil/ToolState';
 import { historyState, redoStackState } from '@/app/recoil/HistoryState';
 import { PlayerStateType, playerState, playerRequestState, PlayerRequestType } from '@/app/recoil/LectureAudioState';
+import { pdfPageState } from '@/app/recoil/ViewerState';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -101,6 +102,7 @@ export default function AppBar() {
   const [history, setHistory] = useRecoilState(historyState);
   const [redoStack, setRedoStack] = useRecoilState(redoStackState);
   const [gridMode, setGridMode] = useRecoilState(gridModeState);
+  const [pageNumber, setPageNumber] = useRecoilState(pdfPageState);
   const isReviewMode = useSearchParams().get('mode') === 'review';
   const [inputText, setInputText] = useRecoilState(inputTextState); // 입력된 텍스트 상태
   const [searchType, setSearchType] = useRecoilState(searchTypeState); // 검색 타입 상태
@@ -158,19 +160,24 @@ export default function AppBar() {
   };
 
   const handleUndo = () => {
-    if (history.length === 0) return;
-    const previous = history[history.length - 2];
-    setRedoStack((prev) => [...prev, history[history.length-1]]);
-    setHistory((prev) => prev.slice(0, -1));
+    const thisPageHistory = history.filter((item) => item.pageNumber === pageNumber);
+    console.log("history", history);
+    console.log("thispagehistory", thisPageHistory);
+    if (thisPageHistory.length === 0) return;
+    const previous = thisPageHistory[thisPageHistory.length - 2];
+    const current = thisPageHistory[thisPageHistory.length - 1];
+    setRedoStack((prev) => [...prev, current]);
+    setHistory((prev) => prev.filter((item) => item.id !== current.id));
     const event = new CustomEvent('undoCanvas', { detail: previous });
     window.dispatchEvent(event);
   };
 
   const handleRedo = () => {
-    if (redoStack.length === 0) return;
-    const next = redoStack[redoStack.length - 1];
+    const thisPageRedoStack = redoStack.filter((item) => item.pageNumber === pageNumber);
+    if (thisPageRedoStack.length === 0) return;
+    const next = thisPageRedoStack[thisPageRedoStack.length - 1];
     setHistory((prev) => [...prev, next]);
-    setRedoStack((prev) => prev.slice(0, -1));
+    setRedoStack((prev) => prev.filter((item) => item.id !== next.id));
     const event = new CustomEvent('redoCanvas', { detail: next });
     window.dispatchEvent(event);
   };
