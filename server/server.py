@@ -876,38 +876,56 @@ def match_paragraphs_2(script_content, first_sentences):
                 print(f"Error occurred at page {page}")
     return matched_paragraphs
 
-def find_best_match(script_content, sentence):
-    # Initialize the SequenceMatcher with the script content and the sentence
-    matcher = SequenceMatcher(None, script_content, sentence)
-    match = matcher.find_longest_match(0, len(script_content), 0, len(sentence))
-    
-    if match.size > 0:
-        return match.a  # Start index of the match in the script content
-    else:
-        return -1  # No match found
+# Function to remove the first word from a sentence
+def remove_first_word(sentence):
+    words = sentence.split()
+    return ' '.join(words[1:])
 
-# Function to find start indices
+# Function to find the best match using difflib
+def find_best_match(script_content, sentence, min_index=0):
+    matcher = SequenceMatcher(None, script_content, sentence)
+    match = matcher.find_longest_match(min_index, len(script_content), 0, len(sentence))
+    if match.size > 0:
+        return match.a  # Return the start index of the match
+    return -1  # No match found
+
+# Function to find start indices with a fallback strategy
 def find_start_indices(script_content, first_sentences):
     start_indices = {}
     page_numbers = sorted(first_sentences.keys(), key=int)
+    last_index = 0  # Keep track of the last found index to ensure we find subsequent matches after this
+
+    script_content_lower = script_content.lower()
 
     for page in page_numbers:
         current_sentence = first_sentences[page]
-        start_index = script_content.find(current_sentence)
+        current_sentence_lower = current_sentence.lower()
+
+        # Attempt 1: Direct search after last_index
+        start_index = script_content_lower.find(current_sentence_lower)
+        
+        # Attempt 2: Search after removing the first word
         if start_index == -1:
-            start_index = find_best_match(script_content, current_sentence)
+            modified_sentence = remove_first_word(current_sentence_lower)
+            start_index = script_content_lower.find(modified_sentence)
+        
+        # Attempt 3: Fallback to best match if still not found
+        if start_index == -1:
+            start_index = find_best_match(script_content_lower, current_sentence_lower, min_index=last_index)
+        
+        
         start_indices[page] = start_index
+        last_index = start_index  # Update last_index to the current start_index
     
     return start_indices
+
 
 # Match the paragraphs to the first sentences
 def match_paragraphs_3(script_content, first_sentences):
     # Step 1: Find all start indices
     start_indices = find_start_indices(script_content, first_sentences)
-    
     # Step 2: Sort the pages by start index
     sorted_pages = sorted(start_indices, key=lambda page: start_indices[page])
-    
     # Step 3: Create the matched paragraphs
     matched_paragraphs = {}
     for i, page in enumerate(sorted_pages):
@@ -918,10 +936,12 @@ def match_paragraphs_3(script_content, first_sentences):
         else:
             end_index = len(script_content)  # Last page
         
-        matched_paragraphs[page] = script_content[start_index:end_index].strip()
+        matched_paragraphs[str(i+1)] = script_content[start_index:end_index].strip()
 
-        print(page, start_index, end_index)
-    
+        # print(page, start_index, end_index)
+        print(str(i+1), start_index, end_index)
+ 
+
     return matched_paragraphs
 
 def calculate_similarity(data, query):
@@ -1127,8 +1147,13 @@ def timestamp_for_bbox(project_id, word_timestamp):
         with open(bbox_path, "r") as file:
             bboxes = json.load(file)
 
+        if "bboxes" not in bboxes:
+            continue
+
         updated_bboxes = []
         for item in bboxes["bboxes"]:
+            if "bbox" not in item:
+                continue
             bbox = item["bbox"]
 
             if bbox and isinstance(bbox[0], list):
@@ -1532,7 +1557,7 @@ async def activate_review(project_id: int):
     with open(metadata_file_path, "w") as file:
         json.dump(data, file)
 
-    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}?mode=review"})
+    return JSONResponse(content={"id": project_id, "redirect_url": f"/viewer/{project_id}?mode=review"})
 
 
 @app.get("/api/get_lasso_answer/{project_id}/{page_num}/{lasso_id}", status_code=200)
@@ -2072,7 +2097,12 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
 
     # Add annotations from the annotated PDF to the original PDF
     annotated_image_path = os.path.join(IMAGE, str(project_id), "annotated")
+    annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
     os.makedirs(annotated_image_path, exist_ok=True)
+    os.makedirs(drawings_dir, exist_ok=True)
+
+    ocr_results = {}
     for page_num in range(len(annotated_pdf)):
         annotated_page = annotated_pdf.load_page(page_num)
         annotation_image = decode_base64_image(data.annotations[page_num])
@@ -2081,6 +2111,12 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         pdf_image = annotated_page.get_pixmap()  # 페이지를 이미지로 변환
         pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
         annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
+
+        image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
+        annotation_image_resized.save(image_path)
+        remove_transparency(image_path)
+        text = detect_handwritten_text(image_path)
+        ocr_results[str(page_num + 1)] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -2094,6 +2130,10 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         # Insert the annotated page image into the original PDF
         annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
+    
+    with open(annnotation_path, "w") as json_file:
+        json.dump(ocr_results, json_file, indent=4)
+    
     annotated_pdf.save(annotated_pdf_path)
 
     original_pdf.close()
