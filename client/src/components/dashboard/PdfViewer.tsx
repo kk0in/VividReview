@@ -1110,21 +1110,27 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           }}
         />
         <div className="flex w-full items-center h-10 z-[2]">
-          <button className="w-1/2 mr-5 text-right" onClick={goToPreviousPage} disabled={pageNumber <= 1} >
-            Previous
-          </button>
-          <button
-            onClick={goToNextPage}
-            disabled={
-              gridMode === 0 ? pageNumber >= numPages :
-              gridMode === 1 ? tocIndex.section >= toc.length - 1 :
-              tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
-            }>
-            Next
-          </button>
-          <button className="grow text-right mr-5" onClick={handleSave} >
-            Save
-          </button>
+          <div className="w-1/2 mr-5 text-right">
+            <button onClick={goToPreviousPage} disabled={pageNumber <= 1} >
+              Previous
+            </button>
+          </div>
+          <div>
+            <button
+              onClick={goToNextPage}
+              disabled={
+                gridMode === 0 ? pageNumber >= numPages :
+                gridMode === 1 ? tocIndex.section >= toc.length - 1 :
+                tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
+              }>
+              Next
+            </button>
+          </div>
+          <div className="grow text-right mr-5">
+            <button onClick={handleSave} >
+              Save
+            </button>
+          </div>
         </div>
         {clickedLasso !== null && isReviewMode && (
           <PromptList/>
