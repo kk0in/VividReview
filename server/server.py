@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import Any, List, Union
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 import re
 import clip
@@ -345,7 +346,7 @@ def keyword_api_request(script_segment):
     ]
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -755,6 +756,53 @@ def match_paragraphs_2(script_content, first_sentences):
                 print(f"Error occurred at page {page}")
     return matched_paragraphs
 
+def find_best_match(script_content, sentence):
+    # Initialize the SequenceMatcher with the script content and the sentence
+    matcher = SequenceMatcher(None, script_content, sentence)
+    match = matcher.find_longest_match(0, len(script_content), 0, len(sentence))
+    
+    if match.size > 0:
+        return match.a  # Start index of the match in the script content
+    else:
+        return -1  # No match found
+
+# Function to find start indices
+def find_start_indices(script_content, first_sentences):
+    start_indices = {}
+    page_numbers = sorted(first_sentences.keys(), key=int)
+
+    for page in page_numbers:
+        current_sentence = first_sentences[page]
+        start_index = script_content.find(current_sentence)
+        if start_index == -1:
+            start_index = find_best_match(script_content, current_sentence)
+        start_indices[page] = start_index
+    
+    return start_indices
+
+# Match the paragraphs to the first sentences
+def match_paragraphs_3(script_content, first_sentences):
+    # Step 1: Find all start indices
+    start_indices = find_start_indices(script_content, first_sentences)
+    
+    # Step 2: Sort the pages by start index
+    sorted_pages = sorted(start_indices, key=lambda page: start_indices[page])
+    
+    # Step 3: Create the matched paragraphs
+    matched_paragraphs = {}
+    for i, page in enumerate(sorted_pages):
+        start_index = start_indices[page]
+        if i < len(sorted_pages) - 1:
+            next_page = sorted_pages[i + 1]
+            end_index = start_indices[next_page]
+        else:
+            end_index = len(script_content)  # Last page
+        
+        matched_paragraphs[page] = script_content[start_index:end_index].strip()
+
+        print(page, start_index, end_index)
+    
+    return matched_paragraphs
 
 def calculate_similarity(data, query):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -930,6 +978,7 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
             gpt_start = output["pages"][para_id]["gpt_timestamp"].get("start")
             gpt_end = output["pages"][para_id]["gpt_timestamp"].get("end")
             user_end = output["pages"][prev_page]["user_timestamp"].get("end")
+
             if gpt_start is not None and gpt_end is not None and user_end is not None:
                 duration = gpt_end - gpt_start
                 diff = user_end - gpt_start
@@ -1320,7 +1369,7 @@ async def activate_review(project_id: int):
         json.dump(first_sentences, json_file, indent=4)
 
     # 단락 매칭
-    matched_paragraphs = match_paragraphs_1(script_content, first_sentences)
+    matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
     with open(matched_file_path, "w") as json_file:
         json.dump(matched_paragraphs, json_file, indent=4)
     print("Completed - Making matched_paragraphs file")
