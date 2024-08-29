@@ -9,6 +9,7 @@ import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraph
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import Image from "next/image";
 import ArousalGraph from "@/components/dashboard/ArousalGraph";
 import SearchModal from "@/components/dashboard/SearchModal";
 import { useSearchParams } from "next/navigation";
@@ -1254,7 +1255,7 @@ export default function Page({ params }: { params: { id: string } }) {
                         key={page}
                         className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
                       >
-                        <img
+                        <Image
                           src={annotatedImages[page - 1].image} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
                           alt={`Page ${page}`}
                           className="rounded-md mb-2"

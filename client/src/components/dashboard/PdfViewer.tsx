@@ -11,7 +11,7 @@ import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState, isSaveClickedState } from "@/app/recoil/ToolState";
 import { historyState, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState } from "@/app/recoil/ViewerState";
-import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
+import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState, Prompt } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo, getRawImages } from "@/utils/api";
 import "./Lasso.css";
 import { useSearchParams } from "next/navigation";
@@ -35,6 +35,18 @@ export type CanvasLayer = {
   id: number;
   projectId: string;
   pageNumber: number;
+}
+
+type Lasso = {
+  prompts: Prompt[],
+  image?: string | null,
+  boundingBox: {
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  },
+  lassoId: number | null
 }
 
 const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
@@ -1114,7 +1126,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             Save
           </button>
         </div>
-        {clickedLasso !== null && (
+        {clickedLasso !== null && isReviewMode && (
           <PromptList/>
         )}
       </div>
