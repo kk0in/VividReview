@@ -4,8 +4,6 @@ import {
   Rectangle,
 } from "recharts";
 
-const GRAPH_HEIGHT = 200;
-const X_AXIS_HEIGHT = 20;
 
 export const ToggleSwitch = ({
   label,
@@ -89,16 +87,18 @@ export const CustomToggleSwitch = ({
   handleNegativeToggle: (index: number) => void;
 }) => {
   return (
-    <div>
+    <div
+      style={{
+        height: "20%",
+        width: "90%",
+        marginTop: 10,
+      }}  
+    >
       <div
         style={{
           display: "flex",
           justifyContent: "center",
-          height: 20,
-          marginTop: 15,
-          paddingTop: 10,
-          backgroundColor: "#E5E7EB",
-          borderWidth: 0,
+          height: "50%",
         }}
       >
         {positiveEmotion.map((label, index) => (
@@ -115,8 +115,7 @@ export const CustomToggleSwitch = ({
         style={{
           display: "flex",
           justifyContent: "center",
-          height: 20,
-          backgroundColor: "#E5E7EB",
+          height: "50%",
           borderWidth: 0,
         }}
       >
@@ -190,12 +189,12 @@ export const CustomXAxisTick = ({
   return null;
 };
 
-export const CurrentPositionLine = ({ x, y, x_axis }: { x: number; y: number; x_axis: number}) => (
+export const CurrentPositionLine = ({ x, y1, y2 }: { x: number; y1: number; y2: number}) => (
   <line
     x1={x}
-    y1={y}
+    y1={y1}
     x2={x}
-    y2={GRAPH_HEIGHT-x_axis}
+    y2={y2}
     stroke="#008014"
     strokeWidth={3} // Reduced thickness
     opacity={0.5} // Added opacity for transparency
@@ -225,8 +224,7 @@ export const CustomLegend = (props: any) => {
       style={{
         display: "flex",
         justifyContent: "center",
-        marginBottom: 5,
-        height: 10,
+        height: 17,
       }}
     >
       {payload.map((entry: any, index: number) => (
@@ -284,19 +282,19 @@ export const CustomRectangle = ({
   pageStartTime,
   pageEndTime,
   y,
-  x_axis,
+  y2,
 }: {
   pageStartTime: number;
   pageEndTime: number;
   y: number;
-  x_axis: number;
+  y2: number;
 }) => {
   return (
     <Rectangle
       x={pageStartTime}
       y={y || 0}
       width={pageEndTime - pageStartTime}
-      height={GRAPH_HEIGHT - x_axis} // Use 100 to fill the entire height
+      height={y2}
       fill="rgba(0,0,0,0.3)"
     />
   );
