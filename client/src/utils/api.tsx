@@ -116,6 +116,12 @@ export async function getMatchParagraphs({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function getTranscription({queryKey}: {queryKey: string[]}) {
+  const [_key, project_id] = queryKey;
+  const response = await axios.get(SERVER_ENDPOINT+`api/get_transcription/${project_id}`);
+  return response.data;
+}
+
 export async function getPageInfo({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_page_info/${project_id}`);

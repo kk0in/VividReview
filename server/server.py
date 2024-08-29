@@ -215,11 +215,12 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
 
     script = script.strip()
 
+    with open(timestamp_path, "w") as output_file:
+        json.dump(transcript_word.words, output_file, indent=4)
+
     with open(transcription_path, "w") as output_file:
         json.dump(script, output_file, indent=4)
 
-    with open(timestamp_path, "w") as output_file:
-        json.dump(transcript_word.words, output_file, indent=4)
 
 
 def issue_id():
@@ -470,7 +471,7 @@ async def create_bbox_and_keyword(
         #     "original": script_segment
         # }
 
-        keyword_path = os.path.join(keyword_path, f"{page_number}_spm.json")
+        keyword_path = os.path.join(keyword_dir, f"{page_number}_spm.json")
         with open(keyword_path, "w") as json_file:
             json.dump(script_data, json_file, indent=4)
 
@@ -566,8 +567,8 @@ async def prosodic_analysis(project_id):
         exp_scores = [math.exp(score) for score in scores]
         sum_exp_scores = sum(exp_scores)
 
-    for item, exp_score in zip(segment["emotions"], exp_scores):
-        item["relative_score"] = exp_score / sum_exp_scores
+        for item, exp_score in zip(segment["emotions"], exp_scores):
+            item["relative_score"] = exp_score / sum_exp_scores
 
     with open(prosody_file_path, "w") as file:
         json.dump(data, file, indent=4)
@@ -851,7 +852,7 @@ def get_pdf_text_and_image(project_id, pdf_path):
         return text, crop_images
 
 def find_important_parts(data):
-    positve_emotion = ['Excitement', 'Enthusiasm', 'Interest', 'Amusement', 'Joy']
+    positve_emotion = ['Excitement', 'Interest', 'Amusement', 'Joy']
     negative_emotion = ['Calmness', 'Boredom', 'Tiredness']
 
     prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
@@ -906,6 +907,7 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     output = {}
     missed_parts = []
     offset = 0
+    output["pages"] = {}
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
         gpt_start_time = word_timestamp[offset]["start"]
@@ -919,29 +921,27 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
             "annotation": annotation,
             "gpt_timestamp": {"start": gpt_start_time, "end": gpt_end_time},
             "user_timestamp": {
-                "start": real_timestamp[para_id]["start"],
-                "end": real_timestamp[para_id]["end"],
+                "start": real_timestamp.get(para_id, {}).get("start"),
+                "end": real_timestamp.get(para_id, {}).get("end"),
             },
         }
         if para_id != "1":
             prev_page = str(int(para_id) - 1)
-            if (
-                (
-                    output[prev_page]["user_timestamp"]["end"]
-                    - output[para_id]["gpt_timestamp"]["start"]
-                )
-                / (
-                    output[para_id]["gpt_timestamp"]["end"]
-                    - output[para_id]["gpt_timestamp"]["start"]
-                )
-            ) > miss_threshold:
-                missed_parts.append(
-                    [
-                        output[para_id]["gpt_timestamp"]["start"],
-                        output[prev_page]["user_timestamp"]["end"],
-                    ]
-                )
-
+            gpt_start = output["pages"][para_id]["gpt_timestamp"].get("start")
+            gpt_end = output["pages"][para_id]["gpt_timestamp"].get("end")
+            user_end = output["pages"][prev_page]["user_timestamp"].get("end")
+            if gpt_start is not None and gpt_end is not None and user_end is not None:
+                duration = gpt_end - gpt_start
+                diff = user_end - gpt_start
+                
+                if duration != 0 and (diff / duration) > miss_threshold:
+                    missed_parts.append(
+                        [
+                            gpt_start,
+                            user_end,
+                        ]
+                    )
+                    
         offset += len(words)
 
     output["missed_parts"] = missed_parts
@@ -1277,8 +1277,9 @@ async def activate_review(project_id: int):
     """
 
     metadata_file_path = os.path.join(META_DATA, f"{project_id}_metadata.json")
-    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
+    image_directory = os.path.join(IMAGE, str(project_id), 'raw')
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+    matched_file_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
 
     page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
@@ -1286,7 +1287,7 @@ async def activate_review(project_id: int):
     os.makedirs(bbox_dir, exist_ok=True)
     os.makedirs(keyword_dir, exist_ok=True)
 
-    with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), "r") as file:
+    with open(os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
 
     image_paths = sorted(
@@ -1311,6 +1312,7 @@ async def activate_review(project_id: int):
         first_sentences = await create_spm(script_content, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
+    print("Completed - Phase 1: temporally match the script content to the images")
 
     # 결과 저장
     first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
@@ -1319,6 +1321,10 @@ async def activate_review(project_id: int):
 
     # 단락 매칭
     matched_paragraphs = match_paragraphs_1(script_content, first_sentences)
+    with open(matched_file_path, "w") as json_file:
+        json.dump(matched_paragraphs, json_file, indent=4)
+    print("Completed - Making matched_paragraphs file")
+
 
     # Phase 2: spatially match the script content to the images
     try:
@@ -1328,6 +1334,9 @@ async def activate_review(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
+    print("Completed - Phase 2: spatially match the script content to the images")
+
+
     # Phase 3: Prosodic Analysis
     try:
         await prosodic_analysis(project_id)
@@ -1335,15 +1344,17 @@ async def activate_review(project_id: int):
         raise HTTPException(
             status_code=500, detail=f"Error during prosodic analysis: {e}"
         )
+    print("Completed - Phase 3: Prosodic Analysis")
 
     # Time Stamping for matched paragraphs (temporal)
     output = create_page_info(project_id, matched_paragraphs, word_timestamp)
-
     with open(page_info_path, "w") as json_file:
         json.dump(output, json_file, indent=4)
+    print("Completed - Making page_info file")
 
     # Time Stamping for bbox (spatial)
     timestamp_for_bbox(project_id, word_timestamp)
+    print("Completed - Timestamping on bbox files")
 
     # Update metadata file to enable review mode
     with open(metadata_file_path, "r") as f:
@@ -1624,6 +1635,27 @@ async def get_matched_paragraphs(project_id: int):
 
     return matched_data
 
+@app.get("/api/get_transcription/{project_id}", status_code=200)
+async def get_transcription(project_id: int):
+    """
+    생성된 transcription 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+
+    if not os.path.exists(transcription_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(transcription_path, "r") as transcription_file:
+            transcription_data = json.load(transcription_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading transcription file: {e}"
+        )
+
+    return transcription_data
 
 @app.get("/api/get_bbox/{project_id}", status_code=200)
 async def get_bbox(project_id: int, page_num: int):
@@ -1742,8 +1774,8 @@ async def get_prosody(project_id: int):
             interval = WINDOW_SIZE
             result_filtered = df.iloc[WINDOW_SIZE - 1 :: interval].copy()
 
-            result_filtered["begin"] = df.iloc[0::interval]["begin"].values
-            result_filtered["end"] = df["end"].iloc[WINDOW_SIZE - 1 :: interval].values
+            result_filtered["begin"] = df.iloc[0::interval]["begin"].values[:len(result_filtered)]
+            result_filtered["end"] = df["end"].iloc[WINDOW_SIZE - 1 :: interval].values[:len(result_filtered)]
 
             for col in columns_to_roll:
                 result_filtered[col] = rolling_means.iloc[WINDOW_SIZE - 1 :: interval][
@@ -1946,7 +1978,6 @@ async def get_project():
     print("Getting project list")
 
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith(".json")]
-    print(metadata_list)
     project_list = []
 
     for metadata in metadata_list:
