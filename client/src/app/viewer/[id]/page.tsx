@@ -17,6 +17,11 @@ import {
   PlayerStateType,
   playerRequestState,
   PlayerRequestType,
+  progressValueState,
+  navigationState,
+  audioTimeState,
+  NavigationStateType,
+  audioDurationState,
 } from "@/app/recoil/LectureAudioState";
 import {
   focusedLassoState,
@@ -34,6 +39,7 @@ Chart.register(ArcElement, Tooltip, Legend);
 import {
   ToggleSwitch
 } from "@/components/dashboard/GraphComponent"
+import { calibratePrecision, findPage, findTimeRange, findTocIndex } from "@/utils/lecture";
 
 interface SubSectionTitleProps {
   sectionIndex: number;
@@ -313,14 +319,9 @@ function ReviewPage({
   pageInfo,
   pages,
   setPage,
-  setPageInfo,
-  setHoverState,
   setPages,
   tocIndex,
   setTocIndex,
-  setCirclePosition,
-  setPageStartTime,
-  setPageEndTime,
 }: {
   projectId: string;
   spotlightRef: React.RefObject<HTMLCanvasElement>;
@@ -330,14 +331,9 @@ function ReviewPage({
   pageInfo: any;
   pages: number[];
   setPage: (page: number) => void;
-  setPageInfo: (pageInfo: any) => void;
   setPages: (pages: any) => void;
-  setHoverState: (hoverState: any) => void;
   tocIndex: any;
   setTocIndex: (tocIndex: any) => void;
-  setCirclePosition: React.Dispatch<React.SetStateAction<number>>;
-  setPageStartTime: React.Dispatch<React.SetStateAction<number>>;
-  setPageEndTime: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const gridMode = useRecoilValue(gridModeState);
   const toc = useRecoilValue(tocState);
@@ -347,48 +343,20 @@ function ReviewPage({
   const [audioSource, setAudioSource] = useState<string>("");
   const [playerRequest, setPlayerRequest] = useRecoilState(playerRequestState);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
-  const [isMouseDown, setIsMouseDown] = useState(false);
   const [scripts, setScripts] = useState<IScript[]>([]);
   const [timeline, setTimeline] = useState<{ start: number; end: number }>({
     start: 0,
     end: 0,
   });
-  const [lastOffsetX, setLastOffsetX] = useState(0);
   const [bboxList, setBboxList] = useState<any[]>([]);
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
   const [scriptMode, setScriptMode] = useRecoilState(scriptModeState);
-
-  const findPage = (time: number): number => {
-    if (pageInfo === null) { return 0; }
-
-    for (const [key, value] of Object.entries<{ start: number; end: number }>(
-      pageInfo
-    )) {
-      if (time >= value.start && time < value.end) {
-        return parseInt(key);
-      }
-    }
-
-    return 0;
-  };
-
-  const findTocIndex = (page: number) => {
-    for (let i = 0; i < toc.length; i++) {
-      const section = toc[i];
-      for (let j = 0; j < section.subsections.length; j++) {
-        const subsection = section.subsections[j];
-        if (subsection.page[subsection.page.length - 1] >= page) {
-          console.log("Found ToC index:", page, i, j);
-          return { section: i, subsection: j };
-        }
-      }
-    }
-
-    console.log("No ToC index found for page: ", page);
-    return null;
-  };
+  const [currentNavigation, setNavigation] = useRecoilState(navigationState);
+  const currentAudioTime = useRecoilValue(audioTimeState);
+  const setProgressValue = useSetRecoilState(progressValueState);
+  const setAudioDuration = useSetRecoilState(audioDurationState);
 
   const fetchMatchedParagraphs = async () => {
     try {
@@ -473,296 +441,118 @@ function ReviewPage({
     audio.onloadedmetadata = () => {
       console.log("Audio is loaded", audio.duration);
       progress.max = audio.duration;
+      setAudioDuration(audio.duration);
     };
   }, [audioSource]);
 
   useEffect(() => {
-    if (audioRef.current === null || progressRef.current === null) { return; }
+    if (audioRef.current === null ) { return; }
     const audio = audioRef.current;
-    const progress = progressRef.current;
-
-    audio.ontimeupdate = () => {
-      const handleAudio = () => {
-        if (audio.currentTime > timeline.end) {
-          console.log("Time is up");
-          setPlayerState(PlayerStateType.IDLE);
-          return;
-        }
-
-        if (Object.keys(pageInfo).length > page && page > 0) {
-          const getTimeline = (page: number) => {
-            return Object.entries<{
-              start: number;
-              end: number;
-            }>(pageInfo)[page - 1][1];
-          };
-          
-          const currentPageTimeline = getTimeline(page);
-
-          if (!audio.paused && audio.currentTime > currentPageTimeline.end) {
-            const newPage = findPage(audio.currentTime);
-            const newTocIndex = findTocIndex(newPage);
-
-            (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
-            setPage(newPage);
-          }
-        }
+    const handleAudio = () => {
+      if (currentAudioTime > timeline.end) {
+        console.log("Time is up", currentAudioTime, timeline.end);
+        setPlayerState(PlayerStateType.PAUSED);
+        return;
       }
 
-      const handleProgressBar = () => {
-        if (!isMouseDown) {
-          progress.value = audio.currentTime;
-          setCirclePosition(audio.currentTime / audio.duration * progress.offsetWidth);
-          setHoverState({
-            hoverPosition: progress.value / progress.max * progress.offsetWidth + 5,
-            hoverTime: progress.value,
-            activeLabel: progress.value,
-          });
-        }
-      };
+      const currentPageTimeline = pageInfo[page];
+      if (currentPageTimeline) {
+        if (!audio.paused && currentAudioTime > currentPageTimeline.end) {
+          const newPage = findPage(currentAudioTime, pageInfo);
+          const newTocIndex = findTocIndex(newPage, toc);
 
-      const handleHighlightBox = () => {
-        if (!isMouseDown && !audio.paused) {
-          // console.log(audio.currentTime);
-          // console.log(bboxList[0]);
-          // console.log(bboxIndex.current);
-          let changeIndexFlag = false;
-          for (let i = 0; i < bboxList.length; i++) {
-            if (
-              audio.currentTime >= bboxList[i].start &&
-              audio.currentTime < bboxList[i].end
-            ) {
-              if (i !== bboxIndex.current) {
-                bboxIndex.current = i;
-                changeIndexFlag = true;
-              }
-              break;
+          (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+          setPage(newPage);
+        }
+      }
+    }
+
+    const handleHighlightBox = () => {
+      if (currentNavigation === NavigationStateType.NONE && !audio.paused) {
+        // console.log(audio.currentTime);
+        // console.log(bboxList[0]);
+        // console.log(bboxIndex.current);
+        let changeIndexFlag = false;
+        for (let i = 0; i < bboxList.length; i++) {
+          if (
+            currentAudioTime >= bboxList[i].start &&
+            currentAudioTime < bboxList[i].end
+          ) {
+            if (i !== bboxIndex.current) {
+              bboxIndex.current = i;
+              changeIndexFlag = true;
             }
+            break;
           }
-          if (!changeIndexFlag) return;
-
-          const bbox = bboxList[bboxIndex.current].bbox;
-          const canvas = spotlightRef.current;
-          const ctx = canvas?.getContext("2d");
-          if (!canvas || !ctx) return;
-
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // 중심점 계산
-          const centerX =
-            ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
-          const centerY =
-            ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
-
-          // 그라디언트 생성
-          const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; 
-          const gradient = ctx.createRadialGradient(
-            centerX,
-            centerY,
-            0,
-            centerX,
-            centerY,
-            maxRadius
-          );
-
-          // 그라디언트 색상 단계 설정
-          gradient.addColorStop(0, "rgba(0, 0, 0, 0)"); // 중심부 투명
-          gradient.addColorStop(0.7, "rgba(0, 0, 0, 0.3)"); // 중심에서 조금 떨어진 부분
-          gradient.addColorStop(0.9, "rgba(0, 0, 0, 0.5)"); // 중심에서 조금 떨어진 부분
-          gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)"); // 외곽부는 어두운 명암
-          // ctx.fillStyle = gradient;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.clearRect(
-            bbox[0] / pdfWidth.current * canvas.width,
-            bbox[1] / pdfHeight.current * canvas.width,
-            (bbox[2]*3) / pdfWidth.current * canvas.width,
-            (bbox[3]*3) / pdfHeight.current * canvas.height);  
-          // ctx.clearRect(
-          // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
-          // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
-          // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
-          // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
-          setInterval(() => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }, 5000);
         }
-      };
+        if (!changeIndexFlag) return;
 
-      handleAudio();
-      handleProgressBar();
-      handleHighlightBox();
-    };
-  }, [audioRef.current?.currentTime, isMouseDown, gridMode, page, pageInfo, currentPlayerState, findPage]);
+        const bbox = bboxList[bboxIndex.current].bbox;
+        const canvas = spotlightRef.current;
+        const ctx = canvas?.getContext("2d");
+        if (!canvas || !ctx) return;
 
-  useEffect(() => {
-    if (progressRef.current === null || audioRef.current === null) {
-      return;
-    }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const progress = progressRef.current;
-    const audio = audioRef.current;
+        // 중심점 계산
+        const centerX =
+          ((bbox[0] + bbox[2] / 2) / pdfWidth.current) * canvas.width;
+        const centerY =
+          ((bbox[1] + bbox[3] / 2) / pdfHeight.current) * canvas.height;
 
-    const getOffsetX = (event: MouseEvent | TouchEvent) => {
-      const offsetX = event instanceof MouseEvent ? event.offsetX : event.targetTouches[0].clientX - progress.parentElement!.offsetLeft;
-      setLastOffsetX(offsetX);
-      return offsetX;
-    }
+        // 그라디언트 생성
+        const maxRadius = Math.max(canvas.width, canvas.height) / 1.2; 
+        const gradient = ctx.createRadialGradient(
+          centerX,
+          centerY,
+          0,
+          centerX,
+          centerY,
+          maxRadius
+        );
 
-    const getNewProgressValue = (offsetX : number) => {
-      return offsetX / progress.offsetWidth * audio.duration;
-    };
-
-    const handleMouseDown = (event: MouseEvent | TouchEvent) => {
-      event.preventDefault();
-      const offsetX = getOffsetX(event);
-      console.log("mousedown", offsetX);
-      progress.value = getNewProgressValue(offsetX);
-      setCirclePosition(offsetX);
-      setIsMouseDown(true);
-      setHoverState({
-        hoverPosition: offsetX + 5,
-        hoverTime: progress.value,
-        activeLabel: progress.value,
-      });
-    };
-
-    const handleMouseMove = (event: MouseEvent | TouchEvent) => {
-      if (isMouseDown && progress) {
-        const offsetX = getOffsetX(event);
-        progress.value = getNewProgressValue(offsetX);
-        setCirclePosition(offsetX);
-        setHoverState({
-          hoverPosition: offsetX + 5,
-          hoverTime: progress.value,
-          activeLabel: progress.value,
-        });
+        // 그라디언트 색상 단계 설정
+        gradient.addColorStop(0, "rgba(0, 0, 0, 0)"); // 중심부 투명
+        gradient.addColorStop(0.7, "rgba(0, 0, 0, 0.3)"); // 중심에서 조금 떨어진 부분
+        gradient.addColorStop(0.9, "rgba(0, 0, 0, 0.5)"); // 중심에서 조금 떨어진 부분
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)"); // 외곽부는 어두운 명암
+        // ctx.fillStyle = gradient;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(
+          bbox[0] / pdfWidth.current * canvas.width,
+          bbox[1] / pdfHeight.current * canvas.width,
+          (bbox[2]*3) / pdfWidth.current * canvas.width,
+          (bbox[3]*3) / pdfHeight.current * canvas.height);  
+        // ctx.clearRect(
+        // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
+        // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
+        // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
+        // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
+        setInterval(() => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }, 5000);
       }
-    }
-
-    const handleMouseUp = (event: MouseEvent | TouchEvent) => {
-      event.preventDefault();
-      if (isMouseDown) {
-        const offsetX = lastOffsetX;
-        console.log("mouseup", progress.offsetWidth, offsetX);
-        const timeValue = getNewProgressValue(offsetX);
-        const newPage = findPage(timeValue);
-        const newTocIndex = findTocIndex(newPage);
-        newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
-        newPage > 0 && setPage(newPage);
-
-        audio.currentTime = timeValue;
-        setCirclePosition(offsetX);
-        setHoverState({
-          hoverPosition: offsetX + 5,
-          hoverTime: timeValue,
-          activeLabel: timeValue,
-        });
-        setIsMouseDown(false);
-      }
-    }
-
-    // For mouse events
-    progress.addEventListener("mousedown", handleMouseDown);
-    progress.addEventListener("mousemove", handleMouseMove);
-    progress.addEventListener("mouseup", handleMouseUp);
-
-    // For touch events
-    progress.addEventListener("touchstart", handleMouseDown);
-    progress.addEventListener("touchmove", handleMouseMove);
-    progress.addEventListener("touchend", handleMouseUp);
-
-    window.onmouseup = () => {
-      setIsMouseDown(false);
     };
+
+    audio.addEventListener("timeupdate", handleAudio);
+    audio.addEventListener("timeupdate", handleHighlightBox);
 
     return () => {
-      // For mouse events
-      progress.removeEventListener("mousedown", handleMouseDown);
-      progress.removeEventListener("mousemove", handleMouseMove);
-      progress.removeEventListener("mouseup", handleMouseUp);
-
-      // For touch events
-      progress.removeEventListener("touchstart", handleMouseDown);
-      progress.removeEventListener("touchmove", handleMouseMove);
-      progress.removeEventListener("touchend", handleMouseUp);
-    }
-  }, [isMouseDown, lastOffsetX]);
+      audio.removeEventListener("timeupdate", handleAudio);
+      audio.removeEventListener("timeupdate", handleHighlightBox);
+    };
+  }, [currentAudioTime, gridMode, page, pageInfo]);
 
   useEffect(() => {
-    const newTimeline = { start: 0, end: 0 };
-
-    switch (gridMode) {
-      case 0: {
-        const value = Object.entries<{ start: number; end: number }>(pageInfo)[
-          page - 1
-        ];
-
-        if (value) {
-          newTimeline.start = value[1].start;
-          newTimeline.end = value[1].end;
-        }
-        break;
-      }
-
-      case 1: {
-        const section = toc[tocIndex.section];
-        const startSubSection = section.subsections[0];
-        const endSubSection =
-          section.subsections[section.subsections.length - 1];
-        const startPage = startSubSection.page[0];
-        const endPage = endSubSection.page[endSubSection.page.length - 1];
-
-        const startValue = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[startPage - 1];
-        const endValue = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[endPage - 1];
-
-        if (startValue && endValue) {
-          newTimeline.start = startValue[1].start;
-          newTimeline.end = endValue[1].end;
-        }
-        break;
-      }
-
-      case 2: {
-        const section = toc[tocIndex.section];
-        const subsection = section.subsections[tocIndex.subsection];
-        const startPage = subsection.page[0];
-        const endPage = subsection.page[subsection.page.length - 1];
-
-        const startValue = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[startPage - 1];
-        const endValue = Object.entries<{ start: number; end: number }>(
-          pageInfo
-        )[endPage - 1];
-
-        if (startValue && endValue) {
-          newTimeline.start = startValue[1].start;
-          newTimeline.end = endValue[1].end;
-        }
-        break;
-      }
-    }
-
-    console.log("newTimeline", newTimeline, audioRef.current!.currentTime);
-    if (
-      parseFloat(audioRef.current!.currentTime.toFixed(5)) < parseFloat(newTimeline.start.toFixed(5)) ||
-      parseFloat(audioRef.current!.currentTime.toFixed(5)) >= parseFloat(newTimeline.end.toFixed(5))
-    )  {
-      audioRef.current!.currentTime = newTimeline.start;
-      setHoverState({
-        hoverTime: newTimeline.start,
-        activeLabel: newTimeline.start,
-      });
-      setPageStartTime(newTimeline.start);
-      setPageEndTime(newTimeline.end);
+    const newTimeline = findTimeRange(page, pageInfo, gridMode, toc, tocIndex);
+    console.log("newTimeline", newTimeline, page);
+    if (currentNavigation === NavigationStateType.PAGE_CHANGED) {
+      setProgressValue(newTimeline.start);
+      setNavigation(NavigationStateType.NAVIGATION_COMPLETE);
     }
     setTimeline(newTimeline);
-  }, [pageInfo, page, gridMode]);
+  }, [pageInfo, page, gridMode, currentNavigation]);
 
   useEffect(() => {
     if (audioRef.current === null) { return; }
@@ -770,23 +560,22 @@ function ReviewPage({
 
     switch (currentPlayerState) {
       case PlayerStateType.PLAYING: {
-        console.log("PLAYING", timeline, audio.currentTime);
-        if (audio.currentTime > timeline.end) {
-          audio.currentTime = timeline.start;
-        }
+        console.log("PLAYING", timeline);
         audio.play();
         break;
       }
 
       case PlayerStateType.PAUSED: {
-        console.log("PAUSED", timeline, audio.currentTime);
+        console.log("PAUSED", timeline);
+        if (currentAudioTime > timeline.end) {
+          audio.currentTime = timeline.start;
+        }
         audio.pause();
         break;
       }
 
       case PlayerStateType.IDLE: {
         console.log("IDLE");
-        audio.pause();
         break;
       }
     }
@@ -880,15 +669,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [pageInfo, setPageInfo] = useState({});
   const [tocIndex, setTocIndex] = useRecoilState(tocIndexState);
 
-  const [hoverState, setHoverState] = useState<{
-    hoverPosition: number | null;
-    hoverTime: number | null;
-    activeLabel: number | null;
-  }>({
-    hoverPosition: null,
-    hoverTime: null,
-    activeLabel: null,
-  });
   const [threeStarPages, setThreeStarPages] = useState<any[]>([]);
   const [twoStarPages, setTwoStarPages] = useState<any[]>([]);
   const [oneStarPages, setOneStarPages] = useState<any[]>([]);
@@ -912,8 +692,10 @@ export default function Page({ params }: { params: { id: string } }) {
   const [scriptPages, setScriptPages] = useState<string[]>([]);
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
-  const [circlePosition, setCirclePosition] = useState(0);
   const [isOnSearching, setOnSearching] = useState(false);
+  const setCurrentAudioTime = useSetRecoilState(audioTimeState); 
+  const [progressValue, setProgressValue] = useRecoilState(progressValueState);
+  const [currentNavigation, setCurrentNavigation] = useRecoilState(navigationState);
 
   // const [history, setHistory] = useState<string[]>([]);
   // const [redoStack, setRedoStack] = useState<string[]>([]);
@@ -926,12 +708,6 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const [pageStartTime, setpageStartTime] = useState(0);
   const [pageEndTime, setpageEndTime] = useState(100);
-
-  const handleAudioRef = (data: any) => {
-    if (Number.isFinite(data)) {
-      audioRef.current!.currentTime = data;
-    }
-  };
 
   const [prosodyData, setProsodyData] = useState<any>(null);
   const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
@@ -965,6 +741,38 @@ export default function Page({ params }: { params: { id: string } }) {
   useEffect(() => {
     refetch();
   }, []);
+  
+  useEffect(() => {
+    if (currentNavigation === NavigationStateType.NAVIGATION_COMPLETE && audioRef.current !== null) {
+      const audio = audioRef.current;
+      audio.currentTime = progressValue;
+      setCurrentNavigation(NavigationStateType.NONE);
+      
+      const newPage = findPage(progressValue, pageInfo);
+      const newTocIndex = findTocIndex(newPage, toc);
+      newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+      newPage > 0 && setPage(newPage);
+    }
+  }, [progressValue, currentNavigation]);
+
+  useEffect(() => {
+    if (audioRef.current === null) {
+      return;
+    }
+
+    const audio = audioRef.current;
+    const handleAudioTimeUpdate = () => {
+      const audioValue = calibratePrecision(audio.currentTime);
+      setCurrentAudioTime(audioValue);
+      (currentNavigation === NavigationStateType.NONE) && setProgressValue(audioValue);
+    };
+
+    audio.addEventListener("timeupdate", handleAudioTimeUpdate);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleAudioTimeUpdate);
+    };
+  }, [audioRef.current?.currentTime, currentNavigation]);
 
   useEffect(() => {
     if (data?.project?.done) {
@@ -1042,38 +850,6 @@ export default function Page({ params }: { params: { id: string } }) {
     }catch(error){
       console.error("Failed to fetch missed data:", error);
     }
-  };
-
-  const findPage = (time: number): number => {
-    if (pageInfo === null) {
-      return 0;
-    }
-
-    for (const [key, value] of Object.entries<{ start: number; end: number }>(
-      pageInfo
-    )) {
-      if (time >= value.start && time < value.end) {
-        return parseInt(key);
-      }
-    }
-
-    return 0;
-  };
-
-  const findTocIndex = (page: number) => {
-    console.log("toc", toc);
-    for (let i = 0; i < toc.length; i++) {
-      const section = toc[i];
-      for (let j = 0; j < section.subsections.length; j++) {
-        const subsection = section.subsections[j];
-        if (subsection.page[subsection.page.length - 1] >= page) {
-          return { section: i, subsection: j };
-        }
-      }
-    }
-
-    console.log("No ToC index found for page: ", page);
-    return null;
   };
 
   useEffect(() => {
@@ -1893,7 +1669,6 @@ export default function Page({ params }: { params: { id: string } }) {
               <div className="flex flex-col bg-gray-200 items-center" ref={containerRef}>
                 <ArousalGraph
                   data={prosodyData}
-                  handleAudioRef={handleAudioRef}
                   positiveEmotion={positiveEmotion}
                   negativeEmotion={negativeEmotion}
                   page={page}
@@ -1902,13 +1677,6 @@ export default function Page({ params }: { params: { id: string } }) {
                   progressRef={progressRef}
                   tableOfContents={tableOfContents}
                   graphWidth={graphWidth}
-                  findPage={findPage}
-                  findTocIndex={findTocIndex}
-                  tocIndex={tocIndex}
-                  hoverState={hoverState}
-                  setHoverState={setHoverState}
-                  setTocIndex={setTocIndex}
-                  setPage={setPage}
                   images={rawImages}
                   missedAndImportantParts={missedAndImportantParts}
                   pageStartTime={pageStartTime}
@@ -1917,12 +1685,6 @@ export default function Page({ params }: { params: { id: string } }) {
                   setpageEndTime={setpageEndTime}
                 />
                 <audio ref={audioRef} />
-                <div className="relative w-[calc(100%-10px)] h-4">
-                  <progress className="absolute w-full h-4" ref={progressRef} />
-                  <div style={{left:`calc(${circlePosition}px - 0.5rem`}} 
-                    className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}
-                    draggable={false} />
-                </div>
               </div>
             )}
           </div>
@@ -1936,14 +1698,9 @@ export default function Page({ params }: { params: { id: string } }) {
               pageInfo={pageInfo}
               pages={pages}
               setPage={setPage}
-              setPageInfo={setPageInfo}
               setPages={setPages}
-              setHoverState={setHoverState}
               tocIndex={tocIndex}
               setTocIndex={setTocIndex}
-              setCirclePosition={setCirclePosition}
-              setPageStartTime={setpageStartTime}
-              setPageEndTime={setpageEndTime}
             />
           )}
         </div>

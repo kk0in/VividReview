@@ -16,6 +16,8 @@ import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, ge
 import "./Lasso.css";
 import { useSearchParams } from "next/navigation";
 import ImagePage from "./ImagePage";
+import { navigationState, NavigationStateType } from "@/app/recoil/LectureAudioState";
+import { findTocIndex } from "@/utils/lecture";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -61,6 +63,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   const [pdfImages, setPdfImages] = useRecoilState(pdfImagesState);
   const [, setScriptMode] = useRecoilState(scriptModeState);
+  const setNavigationState = useSetRecoilState(navigationState);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -100,26 +103,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     fetchPdfImages();
   }, [projectId, setPdfImages]);
 
-  const findToCIndex = useCallback((page: number) => {
-    for (let i = 0; i < toc.length; i++) {
-      const section = toc[i];
-      for (let j = 0; j < section.subsections.length; j++) {
-        const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
-          return { section: i, subsection: j };
-        }
-      }
-    }
-
-    console.log("No ToC index found for page: ", page);
-    return null;
-  }, [toc])
-
   const goToNextPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.min(pageNumber + 1, numPages);
-        const tocIndex = findToCIndex(newPageNumber);
+        const tocIndex = findTocIndex(newPageNumber, toc);
         if (tocIndex) {
           setTocIndexState(tocIndex);
         }
@@ -146,13 +134,14 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+    setNavigationState(NavigationStateType.PAGE_CHANGED);
+  }, [gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
   const goToPreviousPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.max(pageNumber - 1, 1);
-        const tocIndex = findToCIndex(newPageNumber); 
+        const tocIndex = findTocIndex(newPageNumber, toc); 
         if (tocIndex) {
           setTocIndexState(tocIndex); 
         }
@@ -180,7 +169,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+    setNavigationState(NavigationStateType.PAGE_CHANGED);
+  }, [gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
