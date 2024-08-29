@@ -34,6 +34,7 @@ from pdf2image import convert_from_path
 from PIL import Image
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer, util
+import time
 
 app = FastAPI()
 logging.basicConfig(filename="info.log", level=logging.DEBUG)
@@ -72,7 +73,9 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
+
 WINDOW_SIZE = 3
+MAX_ATTEMPTS = 3
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(ANNOTATED_PDF, exist_ok=True)
@@ -95,6 +98,79 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb
 confidence_threshold = 0.5
 miss_threshold = 0.5
 
+def fill_missing_pages(toc_data, total_pages):
+    """
+    누락된 페이지를 확인하고, 적절한 위치에 포함시키는 함수.
+
+    :param toc_data: 생성된 TOC 데이터 (JSON 형식)
+    :param total_pages: PDF 파일의 전체 페이지 수
+    :return: 누락된 페이지가 포함된 TOC 데이터
+    """
+
+    # 모든 페이지 번호를 추출
+    included_pages = set()
+    for section in toc_data["table_of_contents"]:
+        for subsection in section["subsections"]:
+            included_pages.update(subsection["page"])
+
+    # 누락된 페이지를 찾기
+    missing_pages = sorted(set(range(1, total_pages + 1)) - included_pages)
+
+    # 첫 페이지와 마지막 페이지 처리
+    if 1 in missing_pages:
+        toc_data["table_of_contents"][0]["subsections"][0]["page"].insert(0, 1)
+        missing_pages.remove(1)
+
+    if total_pages in missing_pages:
+        toc_data["table_of_contents"][-1]["subsections"][-1]["page"].append(total_pages)
+        missing_pages.remove(total_pages)
+
+    # 나머지 누락된 페이지를 적절한 위치에 포함시키기
+    for missing_page in missing_pages:
+        placed = False
+
+        # 각 섹션 및 하위 섹션 간에서 누락된 페이지를 삽입할 위치 찾기
+        for section in toc_data["table_of_contents"]:
+            subsections = section["subsections"]
+
+            for j in range(len(subsections)):
+                current_pages = subsections[j]["page"]
+
+                if j < len(subsections) - 1:
+                    next_pages = subsections[j + 1]["page"]
+
+                    # 현재 subsection과 다음 subsection 사이에 누락된 페이지가 있는 경우
+                    if current_pages[-1] < missing_page < next_pages[0]:
+                        if len(current_pages) <= len(next_pages):
+                            current_pages.append(missing_page)
+                            current_pages.sort()
+                        else:
+                            next_pages.insert(0, missing_page)
+                        placed = True
+                        break
+
+            if placed:
+                break
+
+        # main section 간에 누락된 페이지가 있는지 확인
+        if not placed:
+            for i in range(len(toc_data["table_of_contents"]) - 1):
+                current_section = toc_data["table_of_contents"][i]
+                next_section = toc_data["table_of_contents"][i + 1]
+
+                current_pages = current_section["subsections"][-1]["page"]
+                next_pages = next_section["subsections"][0]["page"]
+
+                if current_pages[-1] < missing_page < next_pages[0]:
+                    if len(current_pages) <= len(next_pages):
+                        current_pages.append(missing_page)
+                        current_pages.sort()
+                    else:
+                        next_pages.insert(0, missing_page)
+                    placed = True
+                    break
+
+    return toc_data
 
 def detect_handwritten_text(image_path):
     # Google Cloud Vision 클라이언트 설정
@@ -358,10 +434,34 @@ def keyword_api_request(script_segment):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    return response.json()
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data_bbox = response.json()
+
+            # 정상 응답인지 확인
+            if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
+                script_text = response_data_bbox["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print(f"Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 def bbox_api_request(script_segment, encoded_image):
@@ -408,10 +508,34 @@ def bbox_api_request(script_segment, encoded_image):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    return response.json()
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data_bbox = response.json()
+
+            # 정상 응답인지 확인
+            if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
+                script_text = response_data_bbox["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print(f"Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 async def create_bbox_and_keyword(
@@ -420,49 +544,18 @@ async def create_bbox_and_keyword(
     for i, encoded_image in enumerate(encoded_images):
         page_number = str(i + 1)
         script_segment = matched_paragraphs[page_number]
+
         response_data_bbox = bbox_api_request(script_segment, encoded_image)
 
-        # Process the response data for bbox
-        if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
-            script_text = response_data_bbox["choices"][0]["message"]["content"]
-            # Convert the script text to JSON format
-            try:
-                script_data = json.loads(script_text)
-            except json.JSONDecodeError as e:
-                print(f"Error decoding JSON for page {page_number}: {e}")
-                script_data = {"error": "Failed to decode JSON"}
-        else:
-            print(
-                f"Error: 'choices' key not found in the response for page {page_number}"
-            )
-            script_data = {"error": "Failed to retrieve scripts"}
-        # Save the script data as a JSON file
         bbox_path = os.path.join(bbox_dir, f"{page_number}_spm.json")
         with open(bbox_path, "w") as json_file:
-            json.dump(script_data, json_file, indent=4)
+            json.dump(response_data_bbox, json_file, indent=4)
 
         response_data_keyword = keyword_api_request(script_segment)
 
-        # Process the response data for keyword
-        if (
-            "choices" in response_data_keyword
-            and len(response_data_keyword["choices"]) > 0
-        ):
-            script_text = response_data_keyword["choices"][0]["message"]["content"]
-
-            # Convert the script text to JSON format
-            try:
-                script_data = json.loads(script_text)
-                script_data = filter_script_data(script_data)
-                script_data["original"] = script_segment
-            except json.JSONDecodeError as e:
-                print(f"Error decoding JSON for page {page_number}: {e}")
-                script_data = {"error": "Failed to decode JSON"}
-        else:
-            print(
-                f"Error: 'choices' key not found in the response for page {page_number}"
-            )
-            script_data = {"error": "Failed to retrieve scripts"}
+        keyword_path = os.path.join(keyword_dir, f"{page_number}_spm.json")
+        with open(keyword_path, "w") as json_file:
+            json.dump(response_data_keyword, json_file, indent=4)
 
         ## 하나로 저장하고 싶으면 나중에 수정
         # final_data = {
@@ -471,11 +564,6 @@ async def create_bbox_and_keyword(
         #     "formal": keyword_data.get("formal", ""),
         #     "original": script_segment
         # }
-
-        keyword_path = os.path.join(keyword_dir, f"{page_number}_spm.json")
-        with open(keyword_path, "w") as json_file:
-            json.dump(script_data, json_file, indent=4)
-
 
 async def create_spm(script_content, encoded_images):
     headers = {
@@ -513,24 +601,34 @@ async def create_spm(script_content, encoded_images):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    response_data = response.json()
-
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        script_text = response_data["choices"][0]["message"]["content"]
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            script_data = json.loads(script_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            script_data = {"error": "Failed to decode JSON"}
-    else:
-        print("Error: 'choices' key not found in the response")
-        print(response_data)
-        script_data = {"error": "Failed to retrieve scripts"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data = response.json()
 
-    return script_data
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                script_text = response_data["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print("Error: 'choices' key not found in the response")
+                print(response_data)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 async def prosodic_analysis(project_id):
@@ -608,27 +706,39 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-
-    # Get the response
-    response_data = response.json()
-
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        # 요약된 스크립트 내용 파싱
-        result_text = response_data["choices"][0]["message"]["content"]
-
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            result_data = json.loads(result_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            result_data = {"error": "Failed to decode JSON"}
-    else:
-        print("Error: 'choices' key not found in the response")
-        result_data = {"error": "Failed to retrieve summary"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
 
-    return result_data
+            # Get the response
+            response_data = response.json()
+
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                # 요약된 스크립트 내용 파싱
+                result_text = response_data["choices"][0]["message"]["content"]
+
+                try:
+                    result_data = json.loads(result_text)
+                    return result_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+                    result_data = {"error": "Failed to decode JSON"}
+            else:
+                print("Error: 'choices' key not found in the response")
+                result_data = {"error": "Failed to retrieve summary"}
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve summary after 3 attempts"}
 
 
 async def transform_lasso_answer(lasso_answer, transform_type):
@@ -674,24 +784,34 @@ async def transform_lasso_answer(lasso_answer, transform_type):
         "max_tokens": 2000,
     }
 
-    # GPT-4 API 호출
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            # GPT-4 API 호출
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data = response.json()
+
+            # 응답에서 변환된 결과 추출
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                transformed_result = response_data["choices"][0]["message"]["content"]
+                return {
+                    "caption": lasso_answer.get("caption", "untitled"),
+                    "result": transformed_result,
+                }
+            else:
+                print("Error: 'choices' key not found in the response")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    raise HTTPException(
+        status_code=500, detail="Error processing transform with GPT-4 after 3 attempts"
     )
-    response_data = response.json()
-
-    # 응답에서 변환된 결과 추출
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        transformed_result = response_data["choices"][0]["message"]["content"]
-        return {
-            "caption": lasso_answer.get("caption", "untitled"),
-            "result": transformed_result,
-        }
-    else:
-        raise HTTPException(
-            status_code=500, detail="Error processing transform with GPT-4"
-        )
-
 
 def match_paragraphs_1(script_content, first_sentences):
     matched_paragraphs = {}
@@ -2247,12 +2367,16 @@ async def upload_project(
         image_path = os.path.join(image_dir, f"page_{i + 1:04}.png")
         image.save(image_path, "PNG")
 
+    total_pages = len(images)
     # OpenAI GPT API를 호출하여 목차 생성
     try:
         toc_data = await create_toc(id, image_dir)
     except Exception as e:
         print(f"Error creating TOC: {e}")
         toc_data = {"error": "Failed to retrieve TOC"}
+
+    if "table_of_contents" in toc_data:
+        toc_data = fill_missing_pages(toc_data, total_pages)
 
     # 생성된 목차를 JSON 파일로 저장
     toc_json_path = os.path.join(TOC, f"{id}_toc.json")
@@ -2268,7 +2392,6 @@ async def upload_project(
     return JSONResponse(
         content={"id": id, "redirect_url": f"/viewer/{id}?mode=default"}
     )
-
 
 async def create_toc(project_id: int, image_dir: str):
     # Encode images to base64
@@ -2321,29 +2444,39 @@ async def create_toc(project_id: int, image_dir: str):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-
-    # Get the response
-    response_data = response.json()
-
-    # Check if 'choices' key exists in the response
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        # Parse the table of contents from the response
-        toc_text = response_data["choices"][0]["message"]["content"]
-
-        # Convert the TOC text to JSON format
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            toc_data = json.loads(toc_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            toc_data = {"error": "Failed to decode JSON"}
-    else:
-        print("Error: 'choices' key not found in the response")
-        toc_data = {"error": "Failed to retrieve TOC"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
 
-    return toc_data
+            # Get the response
+            response_data = response.json()
+
+            # Check if 'choices' key exists in the response
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                # Parse the table of contents from the response
+                toc_text = response_data["choices"][0]["message"]["content"]
+
+                # Convert the TOC text to JSON format
+                try:
+                    toc_data = json.loads(toc_text)
+                    return toc_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print("Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve TOC after 3 attempts"}
 
 
 ###### 아래는 테스트용 코드이니 무시하셔도 됩니다. ######
