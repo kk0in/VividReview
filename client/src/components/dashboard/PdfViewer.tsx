@@ -483,9 +483,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log("handleUndoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
-      if (!context || !canvas || !event.detail) return;
+      if (!context || !canvas) return;
 
-      const canvasLayers = event.detail.layers;
+      const canvasLayers = event.detail ? event.detail.layers : [];
       drawingsRef.current = canvasLayers;
       if (drawingsRef.current === null) drawingsRef.current = [];
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
