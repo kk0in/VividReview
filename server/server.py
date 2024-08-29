@@ -623,6 +623,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
             print(f"Error decoding JSON: {e}")
             result_data = {"error": "Failed to decode JSON"}
     else:
+        print(response_data)
         print("Error: 'choices' key not found in the response")
         result_data = {"error": "Failed to retrieve summary"}
 
@@ -1113,31 +1114,6 @@ class AddPromptData(BaseModel):
     lasso_id: int
     prompt_text: str
 
-@app.post("/api/add_lasso_prompt/")
-async def add_lasso_prompt(data: AddPromptData):
-    """
-    특정 Lasso ID에 대한 프롬프트 텍스트를 추가하는 API 엔드포인트입니다.
-
-    :param project_id: 프로젝트 ID
-    :param page_num: 페이지 번호
-    :param lasso_id: Lasso ID
-    :param prompt_text: 추가할 프롬프트 텍스트
-    """
-
-    lasso_path = os.path.join(LASSO, str(data.project_id), str(data.page_num), str(data.lasso_id))
-    if not os.path.exists(lasso_path):
-        raise HTTPException(status_code=404, detail="Lasso ID not found")
-
-    info_json_path = os.path.join(lasso_path, "info.json")
-    with open(info_json_path, "r") as json_file:
-        lasso_info = json.load(json_file)
-        lasso_info["prompts"].append(data.prompt_text)
-
-    with open(info_json_path, "w") as json_file:
-        json.dump(lasso_info, json_file, indent=4)
-
-    return {"message": "Prompt text added successfully"}
-
 
 @app.get("/api/get_lassos_on_page/{project_id}/{page_num}")
 async def get_lassos_on_page(project_id: int, page_num: int):
@@ -1203,7 +1179,10 @@ async def lasso_query(data: Lasso_Query_Data):
 
     if cur_lasso_id is None:
         caption = lasso_answer.get("caption", "untitled")
-        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url, "prompts": ["summarize", "translate to korean"]}
+        prompts = ["summarize", "translate to korean"]
+        if prompt_text not in prompts:
+            prompts.append(prompt_text)
+        lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url, "prompts": prompts}
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
