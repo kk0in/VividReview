@@ -26,7 +26,7 @@ const ImagePage = (props: {projectId: string, pageNumber: number, className?: st
   if (gridMode === 0) {
     return (
       <Image
-        className={props.className}
+        className={`pdf-next-image ${props.className}`}
         src={pdfImages[pageNumber-1].image}
         width={pdfImages[pageNumber-1].dimensions[0]}
         height={pdfImages[pageNumber-1].dimensions[1]}
@@ -39,6 +39,7 @@ const ImagePage = (props: {projectId: string, pageNumber: number, className?: st
     return (
       <div className={`${props.className} w-fit h-fit`} style={{position: "relative"}}>
         <Image
+          className={"pdf-next-image"}
           src={pdfImages[pageNumber-1].image}
           width={pdfImages[pageNumber-1].dimensions[0]}
           height={pdfImages[pageNumber-1].dimensions[1]}

@@ -442,7 +442,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }, [gridMode, makeNewCanvas, pageNumber, projectId]);
 
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
-    const pdfImage: HTMLCanvasElement | null = document.querySelector('.react-pdf__Page canvas');
+    console.log("getting Image");
+    const pdfImage: HTMLImageElement | null = document.querySelector('.pdf-next-image');
     if (!pdfImage) return "";
     const canvas = canvasRef.current;
     if (!canvas){
@@ -976,7 +977,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
       e.preventDefault();
-      const image = clickedLasso.image ?? getImage(clickedLasso.boundingBox);
+      console.log("clickedLasso", clickedLasso);
+      const image = (clickedLasso.image && (clickedLasso.image !== null)) ? clickedLasso.image : getImage(clickedLasso.boundingBox);
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       setReloadFlag((prev) => !prev);
@@ -995,8 +997,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const newLasso = {...clickedLasso};
       newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
       setClickedLasso(newLasso);
-
-      addLassoPrompt(projectId, pageNumber, clickedLasso.lassoId, newPrompt);
       
       setAddPrompt(false);
       setNewPrompt("");
