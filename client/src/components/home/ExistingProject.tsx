@@ -19,6 +19,10 @@ const ExistingProject: React.FC = () => {
   const setPdfData = useSetRecoilState(pdfDataState);
   const [activationAvailable, setActivationAvailable] = useState([]);
 
+  useEffect(() => {
+    document.documentElement.requestFullscreen();
+  }, [document]);
+
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
     onSuccess: (data) => {

@@ -1,6 +1,7 @@
 "use client";
 import { useDropzone } from "react-dropzone";
 import { DocumentIcon, DocumentTextIcon } from "@heroicons/react/24/solid";
+import { useEffect } from "react";
 
 interface FileUploadProps {
   onFileUploaded: (file: File) => void;
@@ -23,6 +24,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
       },
       maxFiles: 1
     });
+
+  useEffect(() => {
+    document.documentElement.requestFullscreen();
+  }, [document]);
 
   return (
     <div {...getRootProps()} className="w-full h-full px-6 py-12">
