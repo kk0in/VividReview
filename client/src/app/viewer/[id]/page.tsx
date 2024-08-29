@@ -1233,7 +1233,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 ))}
             </div>
           </div>
-          <div className="flex-auto h-full bg-slate-900 p-4 text-white">
+          <div className="flex-auto h-full w-3/5 bg-slate-900 p-4 text-white">
             <PdfViewer
               scale={1.5}
               projectId={params.id}
