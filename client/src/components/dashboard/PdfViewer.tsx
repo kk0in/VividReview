@@ -419,6 +419,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawingsRef.current = [];
+    setClickedLasso(null);
     document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
     if (gridMode !== 0) return;
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
