@@ -1062,81 +1062,84 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div className="flex justify-center">
-      <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
-        <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
-          {pageComponents}
+    <>
+      <div className="flex justify-center">
+        <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
+          <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
+            {pageComponents}
+          </div>
+          <canvas
+            ref={canvasRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 1,
+              pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
+            }}
+          />
+          <canvas
+            ref={spotlightRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 3,
+              pointerEvents: "none",
+            }}
+          />
+          <canvas
+            ref={focusedLassoRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 1,
+              pointerEvents:'none',
+            }}
+          />
+        
+          {clickedLasso !== null && isReviewMode && (
+            <PromptList/>
+          )}
         </div>
-        <canvas
-          ref={canvasRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
-          }}
-        />
-        <canvas
-          ref={spotlightRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 3,
-            pointerEvents: "none",
-          }}
-        />
-        <canvas
-          ref={focusedLassoRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            pointerEvents:'none',
-          }}
-        />
-        <div className="flex w-full items-center h-10 z-[2]">
-          <div className="w-1/2 mr-5 text-right">
-            <button onClick={goToPreviousPage} disabled={pageNumber <= 1} >
-              Previous
-            </button>
-          </div>
-          <div>
-            <button
-              onClick={goToNextPage}
-              disabled={
-                gridMode === 0 ? pageNumber >= numPages :
-                gridMode === 1 ? tocIndex.section >= toc.length - 1 :
-                tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
-              }>
-              Next
-            </button>
-          </div>
-          <div className="grow text-right mr-5">
-            <button onClick={handleSave} >
-              Save
-            </button>
-          </div>
-        </div>
-        {clickedLasso !== null && isReviewMode && (
-          <PromptList/>
-        )}
       </div>
-    </div>
+      <div className="flex w-full items-center h-10 z-[2]">
+        <div className="w-1/2 mr-5 text-right">
+          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} >
+            Previous
+          </button>
+        </div>
+        <div>
+          <button
+            onClick={goToNextPage}
+            disabled={
+              gridMode === 0 ? pageNumber >= numPages :
+              gridMode === 1 ? tocIndex.section >= toc.length - 1 :
+              tocIndex.section >= toc.length - 1 && tocIndex.subsection >= toc[tocIndex.section].subsections.length - 1
+            }>
+            Next
+          </button>
+        </div>
+        <div className="grow text-right mr-5">
+          <button onClick={handleSave} >
+            Save
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 
