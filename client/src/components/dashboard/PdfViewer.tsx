@@ -1,7 +1,7 @@
 declare global {
   interface WindowEventMap {
-    undoCanvas: CustomEvent<CanvasLayer[]>;
-    redoCanvas: CustomEvent<CanvasLayer[]>;
+    undoCanvas: CustomEvent<HistoryType>;
+    redoCanvas: CustomEvent<HistoryType>;
   }
 }
 
@@ -9,13 +9,15 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState, isSaveClickedState } from "@/app/recoil/ToolState";
-import { historyState, redoStackState } from "@/app/recoil/HistoryState";
+import { getNewHistoryId, historyState, HistoryType, redoStackState } from "@/app/recoil/HistoryState";
 import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState } from "@/app/recoil/ViewerState";
-import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState } from "@/app/recoil/LassoState";
+import { defaultPrompts, focusedLassoState, reloadFlagState, activePromptState, Prompt } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, addLassoPrompt, getLassoInfo, getRawImages } from "@/utils/api";
 import "./Lasso.css";
 import { useSearchParams } from "next/navigation";
 import ImagePage from "./ImagePage";
+import { navigationState, NavigationStateType } from "@/app/recoil/LectureAudioState";
+import { findTocIndex } from "@/utils/lecture";
 // import { layer } from "@fortawesome/fontawesome-svg-core";
 
 pdfjs.GlobalWorkerOptions.workerSrc = '//cdn.jsdelivr.net/npm/pdfjs-dist@2.6.347/build/pdf.worker.js';
@@ -33,6 +35,18 @@ export type CanvasLayer = {
   id: number;
   projectId: string;
   pageNumber: number;
+}
+
+type Lasso = {
+  prompts: Prompt[],
+  image?: string | null,
+  boundingBox: {
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  },
+  lassoId: number | null
 }
 
 const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
@@ -61,6 +75,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const [reloadFlag, setReloadFlag] = useRecoilState(reloadFlagState);
   const [pdfImages, setPdfImages] = useRecoilState(pdfImagesState);
   const [, setScriptMode] = useRecoilState(scriptModeState);
+  const setNavigationState = useSetRecoilState(navigationState);
   
   const lassoExists = useRef(false);
   const isLassoDrawing = useRef(false);
@@ -100,26 +115,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     fetchPdfImages();
   }, [projectId, setPdfImages]);
 
-  const findToCIndex = useCallback((page: number) => {
-    for (let i = 0; i < toc.length; i++) {
-      const section = toc[i];
-      for (let j = 0; j < section.subsections.length; j++) {
-        const subsection = section.subsections[j];
-        if (subsection.page.includes(page)) {
-          return { section: i, subsection: j };
-        }
-      }
-    }
-
-    console.log("No ToC index found for page: ", page);
-    return null;
-  }, [toc])
-
   const goToNextPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.min(pageNumber + 1, numPages);
-        const tocIndex = findToCIndex(newPageNumber);
+        const tocIndex = findTocIndex(newPageNumber, toc);
         if (tocIndex) {
           setTocIndexState(tocIndex);
         }
@@ -146,13 +146,14 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+    setNavigationState(NavigationStateType.PAGE_CHANGED);
+  }, [gridMode, numPages, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
   const goToPreviousPage = useCallback(() => {
     switch (gridMode) {
       case 0: {
         const newPageNumber = Math.max(pageNumber - 1, 1);
-        const tocIndex = findToCIndex(newPageNumber); 
+        const tocIndex = findTocIndex(newPageNumber, toc); 
         if (tocIndex) {
           setTocIndexState(tocIndex); 
         }
@@ -180,7 +181,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         break;
       }
     }
-  }, [findToCIndex, gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
+    setNavigationState(NavigationStateType.PAGE_CHANGED);
+  }, [gridMode, pageNumber, setPageNumber, setTocIndexState, toc, tocIndex]);
 
   const makeNewCanvas = useCallback(() => {
     const newCanvas = document.createElement("canvas");
@@ -359,7 +361,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:idx+1, projectId:projectId, pageNumber:pageNumber}];
       })
       localStorage.setItem(`numLayers_${projectId}_${pageNumber}`, String(drawingsRef.current.length));
-      setHistory((prev) => [...prev, drawingsRef.current]);
+      setHistory((prev) => [...prev, {pageNumber: pageNumber, layers: drawingsRef.current, id: getNewHistoryId()}]);
     };
     
     const erase = (event: MouseEvent | TouchEvent) => {
@@ -417,6 +419,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawingsRef.current = [];
+    setClickedLasso(null);
     document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
     if (gridMode !== 0) return;
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
@@ -439,7 +442,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }, [gridMode, makeNewCanvas, pageNumber, projectId]);
 
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
-    const pdfImage: HTMLCanvasElement | null = document.querySelector('.react-pdf__Page canvas');
+    console.log("getting Image");
+    const pdfImage: HTMLImageElement | null = document.querySelector('.pdf-next-image');
     if (!pdfImage) return "";
     const canvas = canvasRef.current;
     if (!canvas){
@@ -477,13 +481,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   useEffect(() => {
-    const handleUndoCanvas = (event: {detail: CanvasLayer[]}) => {
+    const handleUndoCanvas = (event: CustomEvent<HistoryType>) => {
       console.log("handleUndoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
       if (!context || !canvas) return;
 
-      const canvasLayers = event.detail;
+      const canvasLayers = event.detail ? event.detail.layers : [];
       drawingsRef.current = canvasLayers;
       if (drawingsRef.current === null) drawingsRef.current = [];
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
@@ -495,13 +499,13 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       }
     };
 
-    const handleRedoCanvas = (event: CustomEvent<CanvasLayer[]>) => {
+    const handleRedoCanvas = (event: CustomEvent<HistoryType>) => {
       console.log("handleRedoCanvas");
       const canvas = canvasRef.current;
       const context = canvas?.getContext("2d");
-      if (!context || !canvas) return;
+      if (!context || !canvas || !event.detail) return;
 
-      const canvasLayers = event.detail;
+      const canvasLayers = event.detail.layers;
       drawingsRef.current = canvasLayers;
       document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -807,7 +811,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
               drawingsRef.current = [...drawingsRef.current, {canvas:layer.canvas, id:layer.id, projectId:projectId, pageNumber:pageNumber}];
             }
           }
-          setHistory((prev) => [...prev, drawingsRef.current]);
+          setHistory((prev) => [...prev, {pageNumber: pageNumber, layers: drawingsRef.current, id: getNewHistoryId()}]);
 
           return;
         }
@@ -933,7 +937,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       for (let i = 0; i < length; i++) {
         pageComponents.push(
           <ImagePage
-            className="mr-4 mb-10"
+            className={"flex mr-4 mb-10 items-center justify-center " + (startIndex + i === pageNumber ? "border-4 border-blue-500" : "")}
             key={i}
             projectId={projectId}
             pageNumber={startIndex + i}
@@ -950,7 +954,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       for (const page of subsection.page) {
         pageComponents.push(
           <ImagePage
-            className="mr-4 mb-10"
+            className={"flex mr-4 mb-10 items-center justify-center " + (page === pageNumber ? "border-4 border-blue-500" : "")}
             key={page}
             projectId={projectId}
             pageNumber={page}
@@ -973,7 +977,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
     const handlePrompt = (prompt: string, idx: number) => async (e: React.MouseEvent) => {
       e.preventDefault();
-      const image = clickedLasso.image ?? getImage(clickedLasso.boundingBox);
+      console.log("clickedLasso", clickedLasso);
+      const image = (clickedLasso.image && (clickedLasso.image !== null)) ? clickedLasso.image : getImage(clickedLasso.boundingBox);
       console.log(image);
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       setReloadFlag((prev) => !prev);
@@ -992,8 +997,6 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const newLasso = {...clickedLasso};
       newLasso.prompts = [...newLasso.prompts, {prompt: newPrompt, answers: []}];
       setClickedLasso(newLasso);
-
-      addLassoPrompt(projectId, pageNumber, clickedLasso.lassoId, newPrompt);
       
       setAddPrompt(false);
       setNewPrompt("");
@@ -1060,57 +1063,67 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div className="flex justify-center">
-      <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
-        <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
-          {pageComponents}
+    <>
+      <div className="flex justify-center">
+        <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
+          <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
+            {pageComponents}
+          </div>
+          <canvas
+            ref={canvasRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 1,
+              pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
+            }}
+          />
+          <canvas
+            ref={spotlightRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 3,
+              pointerEvents: "none",
+            }}
+          />
+          <canvas
+            ref={focusedLassoRef}
+            width={width}
+            height={height}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 1,
+              pointerEvents:'none',
+            }}
+          />
+        
+          {clickedLasso !== null && isReviewMode && (
+            <PromptList/>
+          )}
         </div>
-        <canvas
-          ref={canvasRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
-          }}
-        />
-        <canvas
-          ref={spotlightRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 3,
-            pointerEvents: "none",
-          }}
-        />
-        <canvas
-          ref={focusedLassoRef}
-          width={width}
-          height={height}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            pointerEvents:'none',
-          }}
-        />
-        <div className="flex w-full items-center h-10 z-[2]">
-          <button className="w-1/2 mr-5 text-right" onClick={goToPreviousPage} disabled={pageNumber <= 1} >
+      </div>
+      <div className="flex w-full items-center h-10 z-[2]">
+        <div className="w-1/2 mr-5 text-right">
+          <button onClick={goToPreviousPage} disabled={pageNumber <= 1} >
             Previous
           </button>
+        </div>
+        <div>
           <button
             onClick={goToNextPage}
             disabled={
@@ -1120,15 +1133,14 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             }>
             Next
           </button>
-          <button className="grow text-right mr-5" onClick={handleSave} >
+        </div>
+        <div className="grow text-right mr-5">
+          <button onClick={handleSave} >
             Save
           </button>
         </div>
-        {clickedLasso !== null && (
-          <PromptList/>
-        )}
       </div>
-    </div>
+    </>
   );
 };
 

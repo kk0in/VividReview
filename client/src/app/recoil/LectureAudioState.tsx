@@ -1,6 +1,6 @@
 import { atom } from "recoil";
 
-export enum PlayerState {
+export enum PlayerStateType {
   PLAYING,
   PAUSED,
   IDLE,
@@ -12,12 +12,39 @@ export enum PlayerRequestType {
   NONE,
 };
 
-export const playerState = atom<PlayerState>({
+export enum NavigationStateType {
+  IN_NAVIGATION,
+  NAVIGATION_COMPLETE,
+  PAGE_CHANGED,
+  NONE
+};
+
+export const playerState = atom<PlayerStateType>({
   key: "playerState",
-  default: PlayerState.PAUSED,
+  default: PlayerStateType.PAUSED,
 });
 
 export const playerRequestState = atom<PlayerRequestType>({
   key: "playerRequestState",
   default: PlayerRequestType.NONE,
+});
+
+export const audioTimeState = atom<number>({
+  key: "audioState",
+  default: 0,
+});
+
+export const audioDurationState = atom<number>({
+  key: "audioDurationState",
+  default: 0,
+});
+
+export const progressValueState = atom<number>({
+  key: "progressValueState",
+  default: 0,
+});
+
+export const navigationState = atom<NavigationStateType>({
+  key: "navigationState",
+  default: NavigationStateType.NONE,
 });

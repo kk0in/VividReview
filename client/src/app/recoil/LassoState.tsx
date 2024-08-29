@@ -1,6 +1,6 @@
 import { atom } from 'recoil';
 
-type Prompt = {
+export type Prompt = {
   prompt: string;
   answers: string[];
 }

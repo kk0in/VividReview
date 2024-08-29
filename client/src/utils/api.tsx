@@ -299,17 +299,6 @@ export async function lassoPrompts(projectId: string, pageNumber: number, lassoI
   }
 }
 
-export async function addLassoPrompt(projectId: string, pageNumber: number, lassoId: number | null, prompt: string) {
-  const response = await axios.post(`${SERVER_ENDPOINT}api/add_lasso_prompt/`, {
-    project_id: projectId,
-    page_num: pageNumber,
-    lasso_id: lassoId,
-    prompt_text: prompt
-  });
-
-  return response.data;
-}
-
 export async function getLassosOnPage(projectId: string, pageNumber: number) {
   try {
     const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
