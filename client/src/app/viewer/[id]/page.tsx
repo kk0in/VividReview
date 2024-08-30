@@ -694,7 +694,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
   const [isOnSearching, setOnSearching] = useState(false);
-  const [isSearchingFailed, setSearchingFailed] = useState(false);
   const setCurrentAudioTime = useSetRecoilState(audioTimeState); 
   const [progressValue, setProgressValue] = useRecoilState(progressValueState);
   const [currentNavigation, setCurrentNavigation] = useRecoilState(navigationState);
@@ -1035,11 +1034,9 @@ export default function Page({ params }: { params: { id: string } }) {
       setOnSearching(false);
     } catch (error) {
       console.error("Error during search:", error);
+      alert("Searching is failed. Please click save button first.");
+      setSearchQuery((prevState) => ({ ...prevState, query: '' }));
       setOnSearching(false);
-      setSearchingFailed(true);
-      setTimeout(() => {
-        setSearchingFailed(false);
-      }, 3000);
     }
   };
 
@@ -1175,13 +1172,6 @@ export default function Page({ params }: { params: { id: string } }) {
           </svg>
           <div className="mt-5 text-xl text-white pointer-events-none">
             Searching...
-          </div>
-        </div>
-      )}
-      {isSearchingFailed && (
-        <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
-          <div className="mt-5 text-xl text-white pointer-events-none">
-            Searching is failed. Please click save button first.
           </div>
         </div>
       )}
