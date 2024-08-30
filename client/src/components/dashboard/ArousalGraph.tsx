@@ -148,7 +148,7 @@ const ArousalGraph = ({
       if (graphWidth === null) {
         return 0;
       }
-      return (graphWidth * data) / maxX + 5;
+      return ((graphWidth - 10) * data) / maxX + 5;
     },
     [graphWidth, maxX]
   );
@@ -258,7 +258,7 @@ const ArousalGraph = ({
   ]);
 
   return (
-    <div className="w-full h-full flex flex-col items-center">
+    <div className="relative w-full h-full flex flex-col items-center">
       <ResponsiveContainer width="100%" height="40%">
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -394,7 +394,7 @@ const ArousalGraph = ({
         />
       </div>
       <div
-        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-full`}
+        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-[80%]`}
         ref={divRef}
       ></div>
       <CustomToggleSwitch
