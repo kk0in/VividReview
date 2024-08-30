@@ -5,7 +5,7 @@ import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState, isSaveClickedState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState, processingState, ProcessingType } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -695,7 +695,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [scriptPages, setScriptPages] = useState<string[]>([]);
   const [pdfTextPages, setPdfTextPages] = useState<string[]>([]);
   const [annotationPages, setAnnotationPages] = useState<string[]>([]);
-  const [isOnSearching, setOnSearching] = useState(false);
+  const [currentProcessing, setProcessing] = useRecoilState(processingState);
   const setCurrentAudioTime = useSetRecoilState(audioTimeState); 
   const [progressValue, setProgressValue] = useRecoilState(progressValueState);
   const [currentNavigation, setCurrentNavigation] = useRecoilState(navigationState);
@@ -1026,7 +1026,7 @@ export default function Page({ params }: { params: { id: string } }) {
     if (query.trim() === "") return;
     try {
       console.log('start search');
-      setOnSearching(true);
+      setProcessing({type: ProcessingType.SEARCHING, message: "Searching..."});
       const result = await searchQuery(projectId, query, type);
       setSearchId(result.search_id); // 검색 ID를 저장
       setSelectedSearchId(null); // 선택된 search_id 초기화
@@ -1035,12 +1035,12 @@ export default function Page({ params }: { params: { id: string } }) {
       setPreviousQuery(query);
       setQueryText(query);
       console.log('end search');
-      setOnSearching(false);
+      setProcessing({type: ProcessingType.NONE, message: ""});
     } catch (error) {
       console.error("Error during search:", error);
       alert("Searching is failed. Please click save button first.");
       setSearchQuery((prevState) => ({ ...prevState, query: '' }));
-      setOnSearching(false);
+      setProcessing({type: ProcessingType.NONE, message: ""});
     }
   };
 
@@ -1171,14 +1171,14 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-      {isOnSearching && (
+      {currentProcessing.type !== ProcessingType.NONE && (
         <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
           <svg className="animate-spin h-24 w-24 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <div className="mt-5 text-xl text-white pointer-events-none">
-            Searching...
+            {currentProcessing.message}
           </div>
         </div>
       )}

@@ -15,6 +15,13 @@ export interface IToCIndex {
   subsection: number;
 }
 
+export enum ProcessingType {
+  SEARCHING,
+  SAVING_RECORDING,
+  SAVING_ANNOTATED_PDF,
+  NONE,
+}
+
 export const pdfPageState = atom({
   key: "pdfPageState",
   default: 1,
@@ -43,4 +50,9 @@ export const pdfImagesState = atom<{image: string, dimensions: [number, number]}
 export const scriptModeState = atom<string>({
   key: "scriptModeState",
   default: "script",
+});
+
+export const processingState = atom<{type: ProcessingType, message: string}>({
+  key: "processingState",
+  default: {type: ProcessingType.NONE, message: ""},
 });
