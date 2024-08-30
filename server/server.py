@@ -1968,6 +1968,8 @@ class TimestampRecord(BaseModel):
     start: int
     end: int
 
+class AnnotationData(BaseModel):
+    annotations: List[str]
 
 @app.post("/api/save_recording/{project_id}", status_code=200)
 async def save_recording(
@@ -1981,6 +1983,17 @@ async def save_recording(
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
     drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
     os.makedirs(drawings_dir, exist_ok=True)
+
+    pdf_file = [
+        file
+        for file in os.listdir(PDF)
+        if file.startswith(f"{project_id}_") and file.endswith(".pdf")
+    ]
+    if not pdf_file:
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    if len(pdf_file) > 1:
+        raise HTTPException(status_code=500, detail="Multiple PDF files found")
+    original_pdf_path = os.path.join(PDF, pdf_file[0])
 
     # JSON 문자열을 파싱하여 TimestampRecord 리스트로 변환
     try:
@@ -2016,10 +2029,15 @@ async def save_recording(
     #     json.dump(annotation_image, json_file, indent=4)
 
     print("length of drawings: ", len(drawings_data))
+    annotated_pdf = fitz.open(original_pdf_path)
     ocr_results = {}
-    for i in range(len(drawings_data)):  # 절반만 순회
+    for i in range(len(drawings_data)):  
+        annotated_page = annotated_pdf.load_page(i)
+        pdf_image = annotated_page.get_pixmap()
+        pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
         image = decode_base64_image(drawings_data[i])
         image_path = os.path.join(drawings_dir, f"{i + 1}.png")
+        image_resized = image.resize((pdf_image_pil.width, pdf_image_pil.height))
         image.save(image_path)
         remove_transparency(image_path)
         text = detect_handwritten_text(image_path)
@@ -2048,9 +2066,6 @@ async def save_recording(
 
     return {"message": "Recording saved and STT processing started successfully"}
 
-
-class AnnotationData(BaseModel):
-    annotations: List[str]
 
 @app.post("/api/save_annotated_pdf/{project_id}", status_code=200)
 async def save_annotated_pdf(project_id: int, data: AnnotationData):
@@ -2097,11 +2112,11 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
         annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
 
-        # image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
-        # annotation_image_resized.save(image_path)
-        # remove_transparency(image_path)
-        # text = detect_handwritten_text(image_path)
-        # ocr_results[str(page_num + 1)] = text.strip()
+        image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
+        annotation_image_resized.save(image_path)
+        remove_transparency(image_path)
+        text = detect_handwritten_text(image_path)
+        ocr_results[str(page_num + 1)] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -2116,8 +2131,8 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
     
-    # with open(annnotation_path, "w") as json_file:
-    #     json.dump(ocr_results, json_file, indent=4)
+    with open(annnotation_path, "w") as json_file:
+        json.dump(ocr_results, json_file, indent=4)
     
     annotated_pdf.save(annotated_pdf_path)
 

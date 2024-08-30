@@ -31,7 +31,7 @@ const ImagePage = (props: {projectId: string, pageNumber: number, className?: st
         width={pdfImages[pageNumber-1].dimensions[0]}
         height={pdfImages[pageNumber-1].dimensions[1]}
         alt={`Page ${pageNumber}`}
-        style={{width: `${scale}%`, height: `${scale}%`}}
+        style={{width: `${scale}%`, height: `${scale}%`, pointerEvents: "none"}}
       />
     )
   } else {
