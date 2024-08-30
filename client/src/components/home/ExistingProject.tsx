@@ -4,7 +4,7 @@ import React, { useState, Fragment, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 
-import { getProjectList, deleteProject, getMatchParagraphs, activateReview } from "@/utils/api";
+import { getProjectList, deleteProject, getTranscription, activateReview } from "@/utils/api";
 import { ArrowUturnLeftIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSetRecoilState } from "recoil";
 import {
@@ -12,12 +12,15 @@ import {
 } from "@/app/recoil/DataState";
 import { Listbox, Dialog, Transition } from "@headlessui/react";
 import { ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
+import { useRouter } from "next/navigation";
 
 // render filter dropdowns and existing project list
 const ExistingProject: React.FC = () => {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const setPdfData = useSetRecoilState(pdfDataState);
   const [activationAvailable, setActivationAvailable] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     document.documentElement.requestFullscreen();
@@ -44,6 +47,23 @@ const ExistingProject: React.FC = () => {
     setProjectToDelete(projectId);
     deleteProjectMutation.mutate(projectId);
   };
+
+  // activate review mutation
+  const activateReviewMutation = useMutation(activateReview, {
+    onMutate: () => {
+      setIsModalOpen(true);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["projectList"]);
+      setIsModalOpen(false);
+      if (data.redirect_url) {
+        router.push(data.redirect_url);
+      }
+    },
+    onError: () => {
+      setIsModalOpen(false);
+    },
+  });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
@@ -74,7 +94,7 @@ const ExistingProject: React.FC = () => {
     setActivationAvailable([]);
     filteredProjects?.forEach(async (project: any) => {
       try {
-        const data = await getMatchParagraphs({ queryKey: ["getMatchParagraphs", project.id] });
+        const data = await getTranscription({ queryKey: ["getTranscription", project.id] });
         if (data) {
           activationAvailable.push(project.id);
           setActivationAvailable(activationAvailable);
@@ -280,11 +300,9 @@ const ExistingProject: React.FC = () => {
                                 ) : activationAvailable.includes(project.id) ? (
                                   <button
                                     className="rounded-md items-center justify-center text-white bg-blue-500 hover:bg-blue-600 px-2 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                                    onClick={() => {
-                                      activateReview(project.id);
-                                    }}
+                                    onClick={() => activateReviewMutation.mutate(project.id)}
                                   >
-                                    Activation
+                                    {activateReviewMutation.isLoading ? "Activating..." : "Activation"}
                                   </button>
                                 ) : (
                                   "NOT AVAILABLE"
@@ -324,6 +342,53 @@ const ExistingProject: React.FC = () => {
         </div>
       </div>
 
+      <Transition appear show={isModalOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-10"
+          onClose={() => setIsModalOpen(false)}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Activating Review Mode
+                  </Dialog.Title>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Please wait while the review mode is being activated...
+                    </p>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </>
   );
 };

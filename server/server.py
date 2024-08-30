@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import Any, List, Union
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 import re
 import clip
@@ -33,6 +34,7 @@ from pdf2image import convert_from_path
 from PIL import Image
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer, util
+import time
 
 app = FastAPI()
 logging.basicConfig(filename="info.log", level=logging.DEBUG)
@@ -71,7 +73,9 @@ LASSO = "./lasso"
 KEYWORD = "./keywords"
 CROP = "./crops"
 SIMILARITY = "./similarity"
+
 WINDOW_SIZE = 3
+MAX_ATTEMPTS = 3
 
 os.makedirs(PDF, exist_ok=True)
 os.makedirs(ANNOTATED_PDF, exist_ok=True)
@@ -94,6 +98,79 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb
 confidence_threshold = 0.5
 miss_threshold = 0.5
 
+def fill_missing_pages(toc_data, total_pages):
+    """
+    누락된 페이지를 확인하고, 적절한 위치에 포함시키는 함수.
+
+    :param toc_data: 생성된 TOC 데이터 (JSON 형식)
+    :param total_pages: PDF 파일의 전체 페이지 수
+    :return: 누락된 페이지가 포함된 TOC 데이터
+    """
+
+    # 모든 페이지 번호를 추출
+    included_pages = set()
+    for section in toc_data["table_of_contents"]:
+        for subsection in section["subsections"]:
+            included_pages.update(subsection["page"])
+
+    # 누락된 페이지를 찾기
+    missing_pages = sorted(set(range(1, total_pages + 1)) - included_pages)
+
+    # 첫 페이지와 마지막 페이지 처리
+    if 1 in missing_pages:
+        toc_data["table_of_contents"][0]["subsections"][0]["page"].insert(0, 1)
+        missing_pages.remove(1)
+
+    if total_pages in missing_pages:
+        toc_data["table_of_contents"][-1]["subsections"][-1]["page"].append(total_pages)
+        missing_pages.remove(total_pages)
+
+    # 나머지 누락된 페이지를 적절한 위치에 포함시키기
+    for missing_page in missing_pages:
+        placed = False
+
+        # 각 섹션 및 하위 섹션 간에서 누락된 페이지를 삽입할 위치 찾기
+        for section in toc_data["table_of_contents"]:
+            subsections = section["subsections"]
+
+            for j in range(len(subsections)):
+                current_pages = subsections[j]["page"]
+
+                if j < len(subsections) - 1:
+                    next_pages = subsections[j + 1]["page"]
+
+                    # 현재 subsection과 다음 subsection 사이에 누락된 페이지가 있는 경우
+                    if current_pages[-1] < missing_page < next_pages[0]:
+                        if len(current_pages) <= len(next_pages):
+                            current_pages.append(missing_page)
+                            current_pages.sort()
+                        else:
+                            next_pages.insert(0, missing_page)
+                        placed = True
+                        break
+
+            if placed:
+                break
+
+        # main section 간에 누락된 페이지가 있는지 확인
+        if not placed:
+            for i in range(len(toc_data["table_of_contents"]) - 1):
+                current_section = toc_data["table_of_contents"][i]
+                next_section = toc_data["table_of_contents"][i + 1]
+
+                current_pages = current_section["subsections"][-1]["page"]
+                next_pages = next_section["subsections"][0]["page"]
+
+                if current_pages[-1] < missing_page < next_pages[0]:
+                    if len(current_pages) <= len(next_pages):
+                        current_pages.append(missing_page)
+                        current_pages.sort()
+                    else:
+                        next_pages.insert(0, missing_page)
+                    placed = True
+                    break
+
+    return toc_data
 
 def detect_handwritten_text(image_path):
     # Google Cloud Vision 클라이언트 설정
@@ -215,11 +292,12 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
 
     script = script.strip()
 
+    with open(timestamp_path, "w") as output_file:
+        json.dump(transcript_word.words, output_file, indent=4)
+
     with open(transcription_path, "w") as output_file:
         json.dump(script, output_file, indent=4)
 
-    with open(timestamp_path, "w") as output_file:
-        json.dump(transcript_word.words, output_file, indent=4)
 
 
 def issue_id():
@@ -344,7 +422,7 @@ def keyword_api_request(script_segment):
     ]
 
     payload = {
-        "model": "gpt-4o",
+        "model": GPT_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -356,10 +434,34 @@ def keyword_api_request(script_segment):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    return response.json()
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data_bbox = response.json()
+
+            # 정상 응답인지 확인
+            if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
+                script_text = response_data_bbox["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print(f"Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 def bbox_api_request(script_segment, encoded_image):
@@ -406,10 +508,34 @@ def bbox_api_request(script_segment, encoded_image):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    return response.json()
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data_bbox = response.json()
+
+            # 정상 응답인지 확인
+            if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
+                script_text = response_data_bbox["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print(f"Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 async def create_bbox_and_keyword(
@@ -418,49 +544,18 @@ async def create_bbox_and_keyword(
     for i, encoded_image in enumerate(encoded_images):
         page_number = str(i + 1)
         script_segment = matched_paragraphs[page_number]
+
         response_data_bbox = bbox_api_request(script_segment, encoded_image)
 
-        # Process the response data for bbox
-        if "choices" in response_data_bbox and len(response_data_bbox["choices"]) > 0:
-            script_text = response_data_bbox["choices"][0]["message"]["content"]
-            # Convert the script text to JSON format
-            try:
-                script_data = json.loads(script_text)
-            except json.JSONDecodeError as e:
-                print(f"Error decoding JSON for page {page_number}: {e}")
-                script_data = {"error": "Failed to decode JSON"}
-        else:
-            print(
-                f"Error: 'choices' key not found in the response for page {page_number}"
-            )
-            script_data = {"error": "Failed to retrieve scripts"}
-        # Save the script data as a JSON file
         bbox_path = os.path.join(bbox_dir, f"{page_number}_spm.json")
         with open(bbox_path, "w") as json_file:
-            json.dump(script_data, json_file, indent=4)
+            json.dump(response_data_bbox, json_file, indent=4)
 
         response_data_keyword = keyword_api_request(script_segment)
 
-        # Process the response data for keyword
-        if (
-            "choices" in response_data_keyword
-            and len(response_data_keyword["choices"]) > 0
-        ):
-            script_text = response_data_keyword["choices"][0]["message"]["content"]
-
-            # Convert the script text to JSON format
-            try:
-                script_data = json.loads(script_text)
-                script_data = filter_script_data(script_data)
-                script_data["original"] = script_segment
-            except json.JSONDecodeError as e:
-                print(f"Error decoding JSON for page {page_number}: {e}")
-                script_data = {"error": "Failed to decode JSON"}
-        else:
-            print(
-                f"Error: 'choices' key not found in the response for page {page_number}"
-            )
-            script_data = {"error": "Failed to retrieve scripts"}
+        keyword_path = os.path.join(keyword_dir, f"{page_number}_spm.json")
+        with open(keyword_path, "w") as json_file:
+            json.dump(response_data_keyword, json_file, indent=4)
 
         ## 하나로 저장하고 싶으면 나중에 수정
         # final_data = {
@@ -469,11 +564,6 @@ async def create_bbox_and_keyword(
         #     "formal": keyword_data.get("formal", ""),
         #     "original": script_segment
         # }
-
-        keyword_path = os.path.join(keyword_path, f"{page_number}_spm.json")
-        with open(keyword_path, "w") as json_file:
-            json.dump(script_data, json_file, indent=4)
-
 
 async def create_spm(script_content, encoded_images):
     headers = {
@@ -511,24 +601,34 @@ async def create_spm(script_content, encoded_images):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-    response_data = response.json()
-
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        script_text = response_data["choices"][0]["message"]["content"]
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            script_data = json.loads(script_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            script_data = {"error": "Failed to decode JSON"}
-    else:
-        print("Error: 'choices' key not found in the response")
-        print(response_data)
-        script_data = {"error": "Failed to retrieve scripts"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data = response.json()
 
-    return script_data
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                script_text = response_data["choices"][0]["message"]["content"]
+                try:
+                    script_data = json.loads(script_text)
+                    return script_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print("Error: 'choices' key not found in the response")
+                print(response_data)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
 async def prosodic_analysis(project_id):
@@ -566,8 +666,8 @@ async def prosodic_analysis(project_id):
         exp_scores = [math.exp(score) for score in scores]
         sum_exp_scores = sum(exp_scores)
 
-    for item, exp_score in zip(segment["emotions"], exp_scores):
-        item["relative_score"] = exp_score / sum_exp_scores
+        for item, exp_score in zip(segment["emotions"], exp_scores):
+            item["relative_score"] = exp_score / sum_exp_scores
 
     with open(prosody_file_path, "w") as file:
         json.dump(data, file, indent=4)
@@ -606,28 +706,40 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-
-    # Get the response
-    response_data = response.json()
-
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        # 요약된 스크립트 내용 파싱
-        result_text = response_data["choices"][0]["message"]["content"]
-
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            result_data = json.loads(result_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            result_data = {"error": "Failed to decode JSON"}
-    else:
-        print(response_data)
-        print("Error: 'choices' key not found in the response")
-        result_data = {"error": "Failed to retrieve summary"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
 
-    return result_data
+            # Get the response
+            response_data = response.json()
+
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                # 요약된 스크립트 내용 파싱
+                result_text = response_data["choices"][0]["message"]["content"]
+
+                try:
+                    result_data = json.loads(result_text)
+                    return result_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+                    result_data = {"error": "Failed to decode JSON"}
+            else:
+                print("Error: 'choices' key not found in the response")
+                result_data = {"error": "Failed to retrieve summary"}
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve summary after 3 attempts"}
 
 
 async def transform_lasso_answer(lasso_answer, transform_type):
@@ -673,24 +785,34 @@ async def transform_lasso_answer(lasso_answer, transform_type):
         "max_tokens": 2000,
     }
 
-    # GPT-4 API 호출
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            # GPT-4 API 호출
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data = response.json()
+
+            # 응답에서 변환된 결과 추출
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                transformed_result = response_data["choices"][0]["message"]["content"]
+                return {
+                    "caption": lasso_answer.get("caption", "untitled"),
+                    "result": transformed_result,
+                }
+            else:
+                print("Error: 'choices' key not found in the response")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    raise HTTPException(
+        status_code=500, detail="Error processing transform with GPT-4 after 3 attempts"
     )
-    response_data = response.json()
-
-    # 응답에서 변환된 결과 추출
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        transformed_result = response_data["choices"][0]["message"]["content"]
-        return {
-            "caption": lasso_answer.get("caption", "untitled"),
-            "result": transformed_result,
-        }
-    else:
-        raise HTTPException(
-            status_code=500, detail="Error processing transform with GPT-4"
-        )
-
 
 def match_paragraphs_1(script_content, first_sentences):
     matched_paragraphs = {}
@@ -755,6 +877,73 @@ def match_paragraphs_2(script_content, first_sentences):
                 print(f"Error occurred at page {page}")
     return matched_paragraphs
 
+# Function to remove the first word from a sentence
+def remove_first_word(sentence):
+    words = sentence.split()
+    return ' '.join(words[1:])
+
+# Function to find the best match using difflib
+def find_best_match(script_content, sentence, min_index=0):
+    matcher = SequenceMatcher(None, script_content, sentence)
+    match = matcher.find_longest_match(min_index, len(script_content), 0, len(sentence))
+    if match.size > 0:
+        return match.a  # Return the start index of the match
+    return -1  # No match found
+
+# Function to find start indices with a fallback strategy
+def find_start_indices(script_content, first_sentences):
+    start_indices = {}
+    page_numbers = sorted(first_sentences.keys(), key=int)
+    last_index = 0  # Keep track of the last found index to ensure we find subsequent matches after this
+
+    script_content_lower = script_content.lower()
+
+    for page in page_numbers:
+        current_sentence = first_sentences[page]
+        current_sentence_lower = current_sentence.lower()
+
+        # Attempt 1: Direct search after last_index
+        start_index = script_content_lower.find(current_sentence_lower)
+        
+        # Attempt 2: Search after removing the first word
+        if start_index == -1:
+            modified_sentence = remove_first_word(current_sentence_lower)
+            start_index = script_content_lower.find(modified_sentence)
+        
+        # Attempt 3: Fallback to best match if still not found
+        if start_index == -1:
+            start_index = find_best_match(script_content_lower, current_sentence_lower, min_index=last_index)
+        
+        
+        start_indices[page] = start_index
+        last_index = start_index  # Update last_index to the current start_index
+    
+    return start_indices
+
+
+# Match the paragraphs to the first sentences
+def match_paragraphs_3(script_content, first_sentences):
+    # Step 1: Find all start indices
+    start_indices = find_start_indices(script_content, first_sentences)
+    # Step 2: Sort the pages by start index
+    sorted_pages = sorted(start_indices, key=lambda page: start_indices[page])
+    # Step 3: Create the matched paragraphs
+    matched_paragraphs = {}
+    for i, page in enumerate(sorted_pages):
+        start_index = start_indices[page]
+        if i < len(sorted_pages) - 1:
+            next_page = sorted_pages[i + 1]
+            end_index = start_indices[next_page]
+        else:
+            end_index = len(script_content)  # Last page
+        
+        matched_paragraphs[str(i+1)] = script_content[start_index:end_index].strip()
+
+        # print(page, start_index, end_index)
+        print(str(i+1), start_index, end_index)
+ 
+
+    return matched_paragraphs
 
 def calculate_similarity(data, query):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -852,7 +1041,7 @@ def get_pdf_text_and_image(project_id, pdf_path):
         return text, crop_images
 
 def find_important_parts(data):
-    positve_emotion = ['Excitement', 'Enthusiasm', 'Interest', 'Amusement', 'Joy']
+    positve_emotion = ['Excitement', 'Interest', 'Amusement', 'Joy']
     negative_emotion = ['Calmness', 'Boredom', 'Tiredness']
 
     prosodic_data = data[0]['results']['predictions'][0]['models']['prosody']['grouped_predictions'][0]['predictions']
@@ -907,6 +1096,7 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     output = {}
     missed_parts = []
     offset = 0
+    output["pages"] = {}
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
         gpt_start_time = word_timestamp[offset]["start"]
@@ -920,29 +1110,28 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
             "annotation": annotation,
             "gpt_timestamp": {"start": gpt_start_time, "end": gpt_end_time},
             "user_timestamp": {
-                "start": real_timestamp[para_id]["start"],
-                "end": real_timestamp[para_id]["end"],
+                "start": real_timestamp.get(para_id, {}).get("start"),
+                "end": real_timestamp.get(para_id, {}).get("end"),
             },
         }
         if para_id != "1":
             prev_page = str(int(para_id) - 1)
-            if (
-                (
-                    output[prev_page]["user_timestamp"]["end"]
-                    - output[para_id]["gpt_timestamp"]["start"]
-                )
-                / (
-                    output[para_id]["gpt_timestamp"]["end"]
-                    - output[para_id]["gpt_timestamp"]["start"]
-                )
-            ) > miss_threshold:
-                missed_parts.append(
-                    [
-                        output[para_id]["gpt_timestamp"]["start"],
-                        output[prev_page]["user_timestamp"]["end"],
-                    ]
-                )
+            gpt_start = output["pages"][para_id]["gpt_timestamp"].get("start")
+            gpt_end = output["pages"][para_id]["gpt_timestamp"].get("end")
+            user_end = output["pages"][prev_page]["user_timestamp"].get("end")
 
+            if gpt_start is not None and gpt_end is not None and user_end is not None:
+                duration = gpt_end - gpt_start
+                diff = user_end - gpt_start
+                
+                if duration != 0 and (diff / duration) > miss_threshold:
+                    missed_parts.append(
+                        [
+                            gpt_start,
+                            user_end,
+                        ]
+                    )
+                    
         offset += len(words)
 
     output["missed_parts"] = missed_parts
@@ -959,8 +1148,13 @@ def timestamp_for_bbox(project_id, word_timestamp):
         with open(bbox_path, "r") as file:
             bboxes = json.load(file)
 
+        if "bboxes" not in bboxes:
+            continue
+
         updated_bboxes = []
         for item in bboxes["bboxes"]:
+            if "bbox" not in item:
+                continue
             bbox = item["bbox"]
 
             if bbox and isinstance(bbox[0], list):
@@ -1256,8 +1450,9 @@ async def activate_review(project_id: int):
     """
 
     metadata_file_path = os.path.join(META_DATA, f"{project_id}_metadata.json")
-    image_directory = os.path.join(IMAGE, f"{str(project_id)}")
+    image_directory = os.path.join(IMAGE, str(project_id), 'raw')
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+    matched_file_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
 
     page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
@@ -1265,7 +1460,7 @@ async def activate_review(project_id: int):
     os.makedirs(bbox_dir, exist_ok=True)
     os.makedirs(keyword_dir, exist_ok=True)
 
-    with open(os.path.join(SCRIPT, f"{project_id}_timestamp.json"), "r") as file:
+    with open(os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
 
     image_paths = sorted(
@@ -1290,6 +1485,7 @@ async def activate_review(project_id: int):
         first_sentences = await create_spm(script_content, encoded_images)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
+    print("Completed - Phase 1: temporally match the script content to the images")
 
     # 결과 저장
     first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
@@ -1297,7 +1493,11 @@ async def activate_review(project_id: int):
         json.dump(first_sentences, json_file, indent=4)
 
     # 단락 매칭
-    matched_paragraphs = match_paragraphs_1(script_content, first_sentences)
+    matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
+    with open(matched_file_path, "w") as json_file:
+        json.dump(matched_paragraphs, json_file, indent=4)
+    print("Completed - Making matched_paragraphs file")
+
 
     # Phase 2: spatially match the script content to the images
     try:
@@ -1307,6 +1507,9 @@ async def activate_review(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
+    print("Completed - Phase 2: spatially match the script content to the images")
+
+
     # Phase 3: Prosodic Analysis
     try:
         await prosodic_analysis(project_id)
@@ -1314,15 +1517,17 @@ async def activate_review(project_id: int):
         raise HTTPException(
             status_code=500, detail=f"Error during prosodic analysis: {e}"
         )
+    print("Completed - Phase 3: Prosodic Analysis")
 
     # Time Stamping for matched paragraphs (temporal)
     output = create_page_info(project_id, matched_paragraphs, word_timestamp)
-
     with open(page_info_path, "w") as json_file:
         json.dump(output, json_file, indent=4)
+    print("Completed - Making page_info file")
 
     # Time Stamping for bbox (spatial)
     timestamp_for_bbox(project_id, word_timestamp)
+    print("Completed - Timestamping on bbox files")
 
     # Update metadata file to enable review mode
     with open(metadata_file_path, "r") as f:
@@ -1331,7 +1536,7 @@ async def activate_review(project_id: int):
     with open(metadata_file_path, "w") as file:
         json.dump(data, file)
 
-    return JSONResponse(content={"id": id, "redirect_url": f"/viewer/{id}?mode=review"})
+    return JSONResponse(content={"id": project_id, "redirect_url": f"/viewer/{project_id}?mode=review"})
 
 
 @app.get("/api/get_lasso_answer/{project_id}/{page_num}/{lasso_id}", status_code=200)
@@ -1603,6 +1808,27 @@ async def get_matched_paragraphs(project_id: int):
 
     return matched_data
 
+@app.get("/api/get_transcription/{project_id}", status_code=200)
+async def get_transcription(project_id: int):
+    """
+    생성된 transcription 파일을 가져오는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    """
+    transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
+
+    if not os.path.exists(transcription_path):
+        raise HTTPException(status_code=404, detail="Generated JSON files not found")
+
+    try:
+        with open(transcription_path, "r") as transcription_file:
+            transcription_data = json.load(transcription_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error reading transcription file: {e}"
+        )
+
+    return transcription_data
 
 @app.get("/api/get_bbox/{project_id}", status_code=200)
 async def get_bbox(project_id: int, page_num: int):
@@ -1721,8 +1947,8 @@ async def get_prosody(project_id: int):
             interval = WINDOW_SIZE
             result_filtered = df.iloc[WINDOW_SIZE - 1 :: interval].copy()
 
-            result_filtered["begin"] = df.iloc[0::interval]["begin"].values
-            result_filtered["end"] = df["end"].iloc[WINDOW_SIZE - 1 :: interval].values
+            result_filtered["begin"] = df.iloc[0::interval]["begin"].values[:len(result_filtered)]
+            result_filtered["end"] = df["end"].iloc[WINDOW_SIZE - 1 :: interval].values[:len(result_filtered)]
 
             for col in columns_to_roll:
                 result_filtered[col] = rolling_means.iloc[WINDOW_SIZE - 1 :: interval][
@@ -1850,7 +2076,12 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
 
     # Add annotations from the annotated PDF to the original PDF
     annotated_image_path = os.path.join(IMAGE, str(project_id), "annotated")
+    annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
+    drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
     os.makedirs(annotated_image_path, exist_ok=True)
+    os.makedirs(drawings_dir, exist_ok=True)
+
+    ocr_results = {}
     for page_num in range(len(annotated_pdf)):
         annotated_page = annotated_pdf.load_page(page_num)
         annotation_image = decode_base64_image(data.annotations[page_num])
@@ -1859,6 +2090,12 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         pdf_image = annotated_page.get_pixmap()  # 페이지를 이미지로 변환
         pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
         annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
+
+        image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
+        annotation_image_resized.save(image_path)
+        remove_transparency(image_path)
+        text = detect_handwritten_text(image_path)
+        ocr_results[str(page_num + 1)] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -1872,6 +2109,10 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         # Insert the annotated page image into the original PDF
         annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
+    
+    with open(annnotation_path, "w") as json_file:
+        json.dump(ocr_results, json_file, indent=4)
+    
     annotated_pdf.save(annotated_pdf_path)
 
     original_pdf.close()
@@ -1925,7 +2166,6 @@ async def get_project():
     print("Getting project list")
 
     metadata_list = [file for file in os.listdir(META_DATA) if file.endswith(".json")]
-    print(metadata_list)
     project_list = []
 
     for metadata in metadata_list:
@@ -2146,12 +2386,16 @@ async def upload_project(
         image_path = os.path.join(image_dir, f"page_{i + 1:04}.png")
         image.save(image_path, "PNG")
 
+    total_pages = len(images)
     # OpenAI GPT API를 호출하여 목차 생성
     try:
         toc_data = await create_toc(id, image_dir)
     except Exception as e:
         print(f"Error creating TOC: {e}")
         toc_data = {"error": "Failed to retrieve TOC"}
+
+    if "table_of_contents" in toc_data:
+        toc_data = fill_missing_pages(toc_data, total_pages)
 
     # 생성된 목차를 JSON 파일로 저장
     toc_json_path = os.path.join(TOC, f"{id}_toc.json")
@@ -2167,7 +2411,6 @@ async def upload_project(
     return JSONResponse(
         content={"id": id, "redirect_url": f"/viewer/{id}?mode=default"}
     )
-
 
 async def create_toc(project_id: int, image_dir: str):
     # Encode images to base64
@@ -2220,29 +2463,39 @@ async def create_toc(project_id: int, image_dir: str):
         "max_tokens": 2000,
     }
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-    )
-
-    # Get the response
-    response_data = response.json()
-
-    # Check if 'choices' key exists in the response
-    if "choices" in response_data and len(response_data["choices"]) > 0:
-        # Parse the table of contents from the response
-        toc_text = response_data["choices"][0]["message"]["content"]
-
-        # Convert the TOC text to JSON format
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
         try:
-            toc_data = json.loads(toc_text)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            toc_data = {"error": "Failed to decode JSON"}
-    else:
-        print("Error: 'choices' key not found in the response")
-        toc_data = {"error": "Failed to retrieve TOC"}
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
 
-    return toc_data
+            # Get the response
+            response_data = response.json()
+
+            # Check if 'choices' key exists in the response
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                # Parse the table of contents from the response
+                toc_text = response_data["choices"][0]["message"]["content"]
+
+                # Convert the TOC text to JSON format
+                try:
+                    toc_data = json.loads(toc_text)
+                    return toc_data  # 정상적으로 데이터를 반환
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+            else:
+                print("Error: 'choices' key not found in the response")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to retrieve TOC after 3 attempts"}
 
 
 ###### 아래는 테스트용 코드이니 무시하셔도 됩니다. ######
