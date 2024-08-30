@@ -21,7 +21,7 @@ const ImagePage = (props: {projectId: string, pageNumber: number, className?: st
     }
   }, [gridMode, pageNumber]);
 
-  if(!pdfImages[pageNumber-1]) return <></>;
+  if(!pdfImages || !pdfImages[pageNumber-1] || !pdfImages[pageNumber-1].dimensions || !pdfImages[pageNumber-1].image) return <></>;
 
   if (gridMode === 0) {
     return (
