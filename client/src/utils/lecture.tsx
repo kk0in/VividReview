@@ -34,7 +34,7 @@ export const findTocIndex = (page: number, toc: IToCSection[]) => {
 };
 
 export const calibratePrecision = (time: number) => {
-  return Number(time.toFixed(5));
+  return typeof time === "number" ? Number(time.toFixed(5)) : 0;
 };
 
 export const findTimeRange = (page: number, pageInfo: any, gridMode:number, toc: IToCSection[], tocIndex: IToCIndex) => {
