@@ -30,7 +30,7 @@ export default function SearchModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-gray-200 rounded-lg shadow-lg w-11/12 max-w-7xl h-full p-6 relative">
         <button
-          className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+          className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-3xl"
           onClick={onClose}
         >
           X
