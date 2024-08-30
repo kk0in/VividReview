@@ -164,10 +164,10 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
       return result;
     };
 
-    const processedHTML = text.replace(/- (.*?)(\n|$)/g, "• $1\n")
-                            .replace(/\n/g, "<br />")
-                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                            .replace(/  /g, "\u00a0\u00a0");
+    const processedHTML = text ? text.replace(/- (.*?)(\n|$)/g, "• $1\n")
+                                     .replace(/\n/g, "<br />")
+                                     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                                     .replace(/  /g, "\u00a0\u00a0") : "";
     return highlightKeywords(processedHTML, keywords);
   };
 
