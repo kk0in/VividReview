@@ -589,12 +589,14 @@ function ReviewPage({
 
     switch (playerRequest) {
       case PlayerRequestType.BACKWARD:
-        audioRef.current.currentTime -= 5;
+        setProgressValue(currentAudioTime - 5);
+        setNavigation(NavigationStateType.NAVIGATION_COMPLETE);
         setPlayerRequest(PlayerRequestType.NONE);
         break;
 
       case PlayerRequestType.FORWARD:
-        audioRef.current.currentTime += 5;
+        setProgressValue(currentAudioTime + 5);
+        setNavigation(NavigationStateType.NAVIGATION_COMPLETE);
         setPlayerRequest(PlayerRequestType.NONE);
         break;
     }
