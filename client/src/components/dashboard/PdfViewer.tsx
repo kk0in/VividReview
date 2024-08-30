@@ -937,7 +937,12 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       for (let i = 0; i < length; i++) {
         pageComponents.push(
           <ImagePage
-            className={"flex mr-4 mb-10 items-center justify-center " + (startIndex + i === pageNumber ? "border-4 border-blue-500" : "")}
+            className={
+              "flex mr-4 mb-10 items-center justify-center " +
+              (isReviewMode && startIndex + i === pageNumber
+                ? "border-4 border-blue-500"
+                : "")
+            }
             key={i}
             projectId={projectId}
             pageNumber={startIndex + i}
@@ -954,7 +959,12 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       for (const page of subsection.page) {
         pageComponents.push(
           <ImagePage
-            className={"flex mr-4 mb-10 items-center justify-center " + (page === pageNumber ? "border-4 border-blue-500" : "")}
+            className={
+              "flex mr-4 mb-10 items-center justify-center " +
+              (isReviewMode && page === pageNumber
+                ? "border-4 border-blue-500"
+                : "")
+            }
             key={page}
             projectId={projectId}
             pageNumber={page}
