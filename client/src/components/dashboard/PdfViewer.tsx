@@ -1100,7 +1100,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     <div className="flex w-full flex-col items-center">
       <div className="flex w-full justify-center">
         <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
-          <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
+          <div className={"overflow-y-auto w-fit shadow-2xl" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
             {pageComponents}
           </div>
           <canvas
@@ -1151,9 +1151,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           )}
         </div>
       </div>
-      <div className="relative w-[60vw] h-10 z-[2] text-sm">
+      <div className="relative w-[60vw] h-10 z-[2] text-sm mt-3 mb-5">
         <button
-          className="absolute right-[51%] w-28 justify-center h-8 flex items-center bg-gray-600 p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute right-[51%] w-28 justify-center h-10 flex items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
           onClick={goToPreviousPage}
           disabled={pageNumber <= 1}
         >
@@ -1161,7 +1161,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           Previous
         </button>
         <button
-          className="absolute left-[51%] flex w-28 justify-center h-8 items-center bg-gray-600 p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute left-[51%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
           onClick={goToNextPage}
           disabled={
             gridMode === 0
@@ -1177,7 +1177,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <FaArrowCircleRight className="w-fit h-4 ml-2" />
         </button>
         <button
-          className="absolute right-[5%] flex w-28 justify-center h-8 items-center bg-gray-600 p-2 my-1 rounded"
+          className="absolute right-[5%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded"
           onClick={handleSave}
         >
           <FaSave className="w-fit h-4 mr-2" />

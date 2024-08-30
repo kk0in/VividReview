@@ -112,11 +112,15 @@ function SectionTitle({ index, title, subsections }: SectionTitleProps) {
   );
 
   const className =
-    "hover:font-bold " + (index === tocIndex.section && "font-bold");
+    "flex hover:font-bold " + (index === tocIndex.section && "font-extrabold ");
+
+  const cardStyle = 
+        "px-3 py-2 rounded-lg text-xs " + (index === tocIndex.section ? " bg-slate-600 shadow-lg my-2 border-green-200 border-3 text-white" : " mb-[0.3rem] border-1 bg-white");
   return (
-    <li className="bg-gray-200 px-4 py-2 mb-1 rounded-2xl">
+    <li className={cardStyle}>
       <p className={className} onClick={handleSectionClick}>
-        {`${index + 1}. ${title}`}
+        <div>{index + 1}.</div>
+        <div className="pl-1">{title}</div>
       </p>
       {clicked && subsections && <div className="mt-3">{subTitleElements}</div>}
     </li>
@@ -142,8 +146,8 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   ];
 
   const subTabElements = subTabs.map((tab, idx) => {
-    const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
-      (idx === focusedTabIndex ? "bg-gray-300" : "bg-gray-300/50");
+    const className = "rounded-t-2xl w-fit pt-1 pb-1 px-3  " +
+      (idx === focusedTabIndex ? "font-bold bg-white" : "bg-gray-300");
 
     return (
       <div className={className} onClick={tab.onClick} key={"subtab-" + idx}>
@@ -190,11 +194,11 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
   });
 
   return (
-    <div className="relative rounded-b-2xl rounded-tr-2xl bg-gray-200 mx-4 p-3 z-10">
-      <div className="flex flex-row overflow-x-auto -mb-3">
+    <div className="relative bg-gray-200 mx-1 p-2 z-10">
+      <div className="flex flex-row overflow-x-auto ">
         {subTabElements}
       </div>
-      <div className="rounded-b-2xl rounded-t-2xl bg-gray-300 p-3">
+      <div className=" bg-white p-2 font-serif text-xs leading-5">
         {paragraph}
       </div>
     </div>
@@ -639,12 +643,12 @@ function ReviewPage({
   }, [gridMode, page, tocIndex]);
 
   return (
-    <div className="flex-none w-1/5 bg-gray-50 overflow-y-auto h-[calc(100vh-4rem)]">
+    <div className="flex-none w-1/5 bg-slate-100 overflow-y-auto h-[calc(100vh-4rem)]">
       <div className="flex -mb-3">
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "script" ? "200" : "100"} z-0 mt-4 ml-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
+        <div className={`rounded-t-2xl w-fit ${scriptMode === "script" ? "bg-slate-500 text-white font-bold" : "bg-gray-200"} z-0 mt-2 ml-1 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("script"); setFocusedLasso(null);}}>
           Script
         </div>
-        <div className={`rounded-t-2xl w-fit bg-gray-${scriptMode === "prompts" ? "200" : "100"} z-0 mt-4 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
+        <div className={`rounded-t-2xl w-fit ${scriptMode === "prompts" ? "bg-slate-500 text-white font-bold" : "bg-gray-200"} z-0 mt-2 pt-1 pb-4 px-4 font-bold`} onClick={() => {setScriptMode("prompts");}}>
           Prompts
         </div>
       </div>
@@ -1168,8 +1172,6 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchKeywordSearchSets();
   }, [projectId]);
 
-  // alert(typeof(semanticSearchSets));
-
   return (
     <div className="h-full flex flex-col">
       {currentProcessing.type !== ProcessingType.NONE && (
@@ -1207,7 +1209,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {tableOfContents && semanticSearchSets && keywordSearchSets && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
+          <div className="flex-none w-1/5 bg-slate-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
             <div className="mb-4 font-bold">Table of Contents</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
             <hr className="border-2 border-gray-300 my-4" />
@@ -1218,8 +1220,8 @@ export default function Page({ params }: { params: { id: string } }) {
                 .map(({ search_id, query }) => (
                   <div
                     key={search_id}
-                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
-                      selectedSearchId === search_id ? "font-bold" : ""
+                    className={`px-3 py-2 mb-1 rounded-lg ${
+                      selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
                     }`}
                     onClick={() => handleBoxClick(search_id, query, 'semantic')}
                   >
@@ -1235,8 +1237,8 @@ export default function Page({ params }: { params: { id: string } }) {
                 .map(({ search_id, query }) => (
                   <div
                     key={search_id}
-                    className={`bg-gray-200 px-4 py-2 mb-1 rounded-2xl ${
-                      selectedSearchId === search_id ? "font-bold" : ""
+                    className={`px-3 py-2 mb-1 rounded-lg ${
+                      selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
                     }`}
                     onClick={() => handleBoxClick(search_id, query, 'keyword')}
                   >
@@ -1245,7 +1247,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 ))}
             </div>
           </div>
-          <div className="flex-auto h-full w-3/5 bg-slate-900 p-4 text-white">
+          <div className="flex-auto h-full w-3/5 bg-slate-100 p-4 text-black">
             <PdfViewer
               scale={1.5}
               projectId={params.id}
@@ -1679,7 +1681,7 @@ export default function Page({ params }: { params: { id: string } }) {
             </SearchModal>
             {isReviewMode && (
               <div
-                className="bg-gray-200"
+                className="bg-white py-1 rounded-lg shadow-xl shadow-slate-200"
                 style={{ height: "25vh" }} // Custom height using inline style
                 ref={containerRef}
               >
