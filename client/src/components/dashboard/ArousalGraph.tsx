@@ -58,6 +58,7 @@ const ArousalGraph = ({
   progressRef,
   tableOfContents,
   graphWidth,
+  graphHeight,
   images,
   missedAndImportantParts,
   pageStartTime,
@@ -74,6 +75,7 @@ const ArousalGraph = ({
   progressRef: any;
   tableOfContents: any;
   graphWidth: number;
+  graphHeight: number;
   images: any;
   missedAndImportantParts: any;
   pageStartTime: number;
@@ -143,13 +145,12 @@ const ArousalGraph = ({
 
   const calculateScalingFactor = useCallback(
     (data: number) => {
-      if (divRef.current === null) {
+      if (graphWidth === null) {
         return 0;
       }
-      const div = divRef.current;
-      return (div.offsetWidth * data) / maxX + 5;
+      return ((graphWidth - 10) * data) / maxX + 5;
     },
-    [divRef.current?.offsetWidth, maxX]
+    [graphWidth, maxX]
   );
 
   useEffect(() => {
@@ -257,8 +258,8 @@ const ArousalGraph = ({
   ]);
 
   return (
-    <div className="relative flex flex-col items-center w-full">
-      <ResponsiveContainer width="100%" height={GRAPH_HEIGHT}>
+    <div className="relative w-full h-full flex flex-col items-center">
+      <ResponsiveContainer width="100%" height="40%">
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
@@ -271,6 +272,7 @@ const ArousalGraph = ({
             hide
           />
           <YAxis hide domain={[minYpos, maxYpos]} />
+          <Legend verticalAlign="top" content={<CustomLegend />} />
           <Line
             type="monotone"
             dataKey="positive_score"
@@ -283,14 +285,18 @@ const ArousalGraph = ({
               <CustomRectangle
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
-                y={20}
-                x_axis={0}
+                y={22}
+                y2={graphHeight * 0.4}
               />
             }
           />
           <Customized
             component={
-              <CurrentPositionLine x={circlePosition + 5} y={20} x_axis={0} />
+              <CurrentPositionLine
+                x={circlePosition + 5}
+                y1={22}
+                y2={graphHeight * 0.4}
+              />
             }
           />
           {missedAndImportantParts?.missed.map((part: any, index: number) => {
@@ -303,45 +309,17 @@ const ArousalGraph = ({
                     x1={calculateScalingFactor(part[0])}
                     x2={calculateScalingFactor(part[1])}
                     color={"red"}
-                    y={148}
+                    y={graphHeight * 0.4 - 2}
                   />
                 }
               />
             );
           })}
-          <Legend verticalAlign="top" content={<CustomLegend />} />
         </LineChart>
       </ResponsiveContainer>
-      <ResponsiveContainer
-        width="100%"
-        height={GRAPH_HEIGHT}
-        // style={{ borderTopWidth: 1, borderTopColor: "#bbb" }}
-      >
+      <ResponsiveContainer width="100%" height="40%">
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
-          <YAxis hide domain={[minYneg, maxYneg]} />
-          <Line
-            type="monotone"
-            dataKey="negative_score"
-            stroke="#82ca9d"
-            dot={<CustomDot threshold={per90YNeg} />}
-            isAnimationActive={false}
-          />
-          <Customized
-            component={
-              <CustomRectangle
-                pageStartTime={calculateScalingFactor(pageStartTime)}
-                pageEndTime={calculateScalingFactor(pageEndTime)}
-                y={0}
-                x_axis={70}
-              />
-            }
-          />
-          <Customized
-            component={
-              <CurrentPositionLine x={circlePosition + 5} y={0} x_axis={70} />
-            }
-          />
           <XAxis
             dataKey="begin"
             ticks={ticks_}
@@ -359,7 +337,34 @@ const ArousalGraph = ({
             tickLine={false}
             domain={[minX, maxX]}
             interval={0}
-            height={15}
+            height={17}
+          />
+          <YAxis hide domain={[minYneg, maxYneg]} />
+          <Line
+            type="monotone"
+            dataKey="negative_score"
+            stroke="#82ca9d"
+            dot={<CustomDot threshold={per90YNeg} />}
+            isAnimationActive={false}
+          />
+          <Customized
+            component={
+              <CustomRectangle
+                pageStartTime={calculateScalingFactor(pageStartTime)}
+                pageEndTime={calculateScalingFactor(pageEndTime)}
+                y={0}
+                y2={graphHeight * 0.4 - 31}
+              />
+            }
+          />
+          <Customized
+            component={
+              <CurrentPositionLine
+                x={circlePosition + 5}
+                y1={0}
+                y2={graphHeight * 0.4 - 31}
+              />
+            }
           />
           {missedAndImportantParts?.missed.map((part: any, index: number) => {
             return (
@@ -378,15 +383,8 @@ const ArousalGraph = ({
             );
           })}
         </LineChart>
-        <CustomToggleSwitch
-          positiveEmotion={positiveEmotion}
-          negativeEmotion={negativeEmotion}
-          selectedPositives={selectedPositives}
-          selectedNegatives={selectedNegatives}
-          handlePositiveToggle={handlePositiveToggle}
-          handleNegativeToggle={handleNegativeToggle}
-        />
       </ResponsiveContainer>
+
       <div className="relative w-[calc(100%-10px)] h-4">
         <progress className="absolute w-full h-4" ref={progressRef} />
         <div
@@ -396,9 +394,17 @@ const ArousalGraph = ({
         />
       </div>
       <div
-        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-full`}
+        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-[80%]`}
         ref={divRef}
       ></div>
+      <CustomToggleSwitch
+        positiveEmotion={positiveEmotion}
+        negativeEmotion={negativeEmotion}
+        selectedPositives={selectedPositives}
+        selectedNegatives={selectedNegatives}
+        handlePositiveToggle={handlePositiveToggle}
+        handleNegativeToggle={handleNegativeToggle}
+      />
     </div>
   );
 };

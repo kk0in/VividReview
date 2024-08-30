@@ -872,13 +872,15 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(0);
+  const [graphHeight, setGraphHeight] = useState(0);
 
   const setSize = () => {
     setTimeout(() => {
       if (!containerRef.current) return;
       console.log(containerRef.current.offsetWidth);
       setGraphWidth(containerRef.current.offsetWidth);
-    }, 200);
+      setGraphHeight(containerRef.current.offsetHeight);
+    }, 30);
   };
   useEffect(setSize, []);
 
@@ -1675,7 +1677,11 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div className="flex flex-col bg-gray-200 items-center" ref={containerRef}>
+              <div
+                className="bg-gray-200"
+                style={{ height: "25vh" }} // Custom height using inline style
+                ref={containerRef}
+              >
                 <ArousalGraph
                   data={prosodyData}
                   positiveEmotion={positiveEmotion}
@@ -1686,6 +1692,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   progressRef={progressRef}
                   tableOfContents={tableOfContents}
                   graphWidth={graphWidth}
+                  graphHeight={graphHeight}
                   images={rawImages}
                   missedAndImportantParts={missedAndImportantParts}
                   pageStartTime={pageStartTime}
