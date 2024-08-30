@@ -185,9 +185,17 @@ const ArousalGraph = ({
     const div = divRef.current;
 
     const getOffsetX = (event: MouseEvent | TouchEvent) => {
-      return event instanceof MouseEvent
+      const offsetX = event instanceof MouseEvent
         ? event.offsetX
         : event.targetTouches[0].clientX - div.parentElement!.offsetLeft;
+
+      if (offsetX < 0) {
+        return 0;
+      } else if (offsetX > div.offsetWidth) {
+        return div.offsetWidth;
+      }
+
+      return offsetX
     };
 
     const getAudioValue = (offsetX: number) => {
