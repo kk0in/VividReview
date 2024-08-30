@@ -365,7 +365,7 @@ function ReviewPage({
         queryKey: ["matchParagraphs", projectId],
       });
       setParagraphs(paragraphs);
-      console.log(paragraphs);
+      console.log("paragraphs:", paragraphs);
     } catch (error) {
       console.error("Failed to fetch paragraphs:", error);
     }
@@ -662,8 +662,8 @@ export default function Page({ params }: { params: { id: string } }) {
   const [rawImages, setRawImages] = useState<string[]>([]); 
   const [annotatedImages, setAnnotatedImages] = useState<{image: string, dimensions: [number, number]}[]>([]); 
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set()); // 선택된 페이지들
-  const [semanticSearchSets, setSemanticSearchSets] = useState([]);
-  const [keywordSearchSets, setKeywordSearchSets] = useState([]);
+  const [semanticSearchSets, setSemanticSearchSets] = useState<{search_id: number, query: string}[]>([]);
+  const [keywordSearchSets, setKeywordSearchSets] = useState<{search_id: number, query: string}[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [tableOfContents, setTableOfContents] = useRecoilState(tocState);
@@ -1136,10 +1136,11 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const fetchSemanticSearchSets = async () => {
     try {
-      const data = await getSemanticSearchSets({
+      const data : {search_id: number, query: string}[] = await getSemanticSearchSets({
         queryKey: ["getSemanticSearchSets", projectId],
       });
       setSemanticSearchSets(data);
+      console.log("semanticSearchSets:", semanticSearchSets);
     } catch (error) {
       console.error("Error fetching semantic search sets:", error);
     }
@@ -1151,7 +1152,7 @@ export default function Page({ params }: { params: { id: string } }) {
 
   const fetchKeywordSearchSets = async () => {
     try {
-      const data = await getKeywordSearchSets({
+      const data : {search_id: number, query: string}[] = await getKeywordSearchSets({
         queryKey: ["getKeywordSearchSets", projectId],
       });
       setKeywordSearchSets(data);
@@ -1163,6 +1164,8 @@ export default function Page({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetchKeywordSearchSets();
   }, [projectId]);
+
+  // alert(typeof(semanticSearchSets));
 
   return (
     <div className="h-full flex flex-col">
@@ -1199,7 +1202,7 @@ export default function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
       )}
-      {tableOfContents && (
+      {tableOfContents && semanticSearchSets && keywordSearchSets && (
         <div className="flex-grow flex flex-row">
           <div className="flex-none w-1/5 bg-gray-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
             <div className="mb-4 font-bold">Table of Contents</div>

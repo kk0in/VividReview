@@ -12,6 +12,7 @@ from io import BytesIO
 from typing import Any, List, Union
 from dotenv import load_dotenv
 from difflib import SequenceMatcher
+from PyPDF2 import PdfReader
 
 import re
 import clip
@@ -447,6 +448,8 @@ def keyword_api_request(script_segment):
                 script_text = response_data_bbox["choices"][0]["message"]["content"]
                 try:
                     script_data = json.loads(script_text)
+                    script_data = filter_script_data(script_data)
+                    script_data["original"] = script_segment
                     return script_data  # 정상적으로 데이터를 반환
                 except json.JSONDecodeError as e:
                     print(f"Error decoding JSON: {e}")
@@ -1681,7 +1684,7 @@ async def get_search_sets(project_id: int, search_type: str):
                 if "page_set" in data:
                     search_id = filename.split("_")[0]  # 파일 이름에서 search_id 추출
                     search_sets.append({
-                        "search_id": search_id,
+                        "search_id": int(search_id),
                         "query": data.get("query", ""),
                     })
 
@@ -2014,7 +2017,7 @@ async def save_recording(
 
     print("length of drawings: ", len(drawings_data))
     ocr_results = {}
-    for i in range(len(drawings_data) // 2):  # 절반만 순회
+    for i in range(len(drawings_data)):  # 절반만 순회
         image = decode_base64_image(drawings_data[i])
         image_path = os.path.join(drawings_dir, f"{i + 1}.png")
         image.save(image_path)
@@ -2068,6 +2071,9 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
 
+    print("Length of original_pdf: ", len(original_pdf))
+    print("Length of data.annotations: ", len(data.annotations))
+
     if len(original_pdf) != len(data.annotations):
         raise HTTPException(status_code=400, detail="Page count mismatch")
     
@@ -2091,11 +2097,11 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         pdf_image_pil = Image.frombytes("RGB", [pdf_image.width, pdf_image.height], pdf_image.samples)
         annotation_image_resized = annotation_image.resize((pdf_image_pil.width, pdf_image_pil.height))
 
-        image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
-        annotation_image_resized.save(image_path)
-        remove_transparency(image_path)
-        text = detect_handwritten_text(image_path)
-        ocr_results[str(page_num + 1)] = text.strip()
+        # image_path = os.path.join(drawings_dir, f"{page_num + 1}.png")
+        # annotation_image_resized.save(image_path)
+        # remove_transparency(image_path)
+        # text = detect_handwritten_text(image_path)
+        # ocr_results[str(page_num + 1)] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -2110,8 +2116,8 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
     
-    with open(annnotation_path, "w") as json_file:
-        json.dump(ocr_results, json_file, indent=4)
+    # with open(annnotation_path, "w") as json_file:
+    #     json.dump(ocr_results, json_file, indent=4)
     
     annotated_pdf.save(annotated_pdf_path)
 

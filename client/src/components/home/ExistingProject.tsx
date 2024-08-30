@@ -28,7 +28,9 @@ const ExistingProject: React.FC = () => {
 
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
+    enabled: true, // 항상 호출
     onSuccess: (data) => {
+      setFilteredProjects(data.projects);
       console.log(data);
     },
   });

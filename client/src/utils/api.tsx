@@ -32,6 +32,9 @@ export async function saveSearchSet(projectId: string, searchId: string, searchT
         params: {
           search_id: searchId,
         },
+        headers: {
+          "ngrok-skip-browser-warning": "69420",
+        }
       }
     );
   
@@ -45,7 +48,8 @@ export async function searchQuery(projectId: string, searchQuery: string, search
 
     const response = await axios.post(`${SERVER_ENDPOINT}api/search_query/${projectId}`, formData, {
         headers: {
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'multipart/form-data',
+            "ngrok-skip-browser-warning": "69420",
         }
     });
 
@@ -53,7 +57,11 @@ export async function searchQuery(projectId: string, searchQuery: string, search
 }
 
 export async function activateReview(projectId: string) {
-    const response = await axios.post(`${SERVER_ENDPOINT}api/activate_review/${projectId}`);
+    const response = await axios.post(`${SERVER_ENDPOINT}api/activate_review/${projectId}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
 
     return response.data;
 }
@@ -61,7 +69,8 @@ export async function activateReview(projectId: string) {
 export async function saveRecording(projectId: string, formData: FormData) {
     const response = await axios.post(SERVER_ENDPOINT + `api/save_recording/${projectId}`, formData, {
         headers: {
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'multipart/form-data',
+            "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -69,6 +78,9 @@ export async function saveRecording(projectId: string, formData: FormData) {
 
 export async function saveAnnotatedPdf(projectId: string, drawings: string[]) {
     const response = await axios.post(SERVER_ENDPOINT + `api/save_annotated_pdf/${projectId}`, {
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
+      },
       annotations: drawings
     });
 
@@ -76,7 +88,11 @@ export async function saveAnnotatedPdf(projectId: string, drawings: string[]) {
   }
 
 export async function getProjectList() {
-    const response = await axios.get(SERVER_ENDPOINT+'api/get_project');
+    const response = await axios.get(SERVER_ENDPOINT+'api/get_project', {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
@@ -88,43 +104,72 @@ export async function postProject({ metadata, file }) {
     formData.append('userName', metadata.userName);
     formData.append('file', file);
 
-    const response = await axios.post(SERVER_ENDPOINT+'api/upload_project', formData);
+    const response = await axios.post(SERVER_ENDPOINT+'api/upload_project', formData, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
 export async function getProject({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_project/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_project/${project_id}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
 export async function getPdf({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_pdf/${project_id}`, { responseType: 'blob' });
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_pdf/${project_id}`, { 
+      responseType: 'blob',
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
+      }
+    });
     return response.data;
 }
 
 export async function getTableOfContents({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_toc/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_toc/${project_id}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
 export async function getMatchParagraphs({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_matched_paragraphs/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_matched_paragraphs/${project_id}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
 export async function getTranscription({queryKey}: {queryKey: string[]}) {
   const [_key, project_id] = queryKey;
-  const response = await axios.get(SERVER_ENDPOINT+`api/get_transcription/${project_id}`);
+  const response = await axios.get(SERVER_ENDPOINT+`api/get_transcription/${project_id}`, {
+      headers: {
+          "ngrok-skip-browser-warning": "69420",
+      }
+  });
   return response.data;
 }
 
 export async function getPageInfo({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_page_info/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_page_info/${project_id}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
@@ -133,6 +178,9 @@ export async function getKeywords({queryKey}: {queryKey: string[]}) {
     const response = await axios.get(SERVER_ENDPOINT+`api/get_keyword/${project_id}`, {
         params: {
             page_num: page_num
+        },
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -144,6 +192,9 @@ export async function getSearchResult({queryKey}: {queryKey: string[]}) {
         params: {
             search_id: search_id,
             search_type: search_type
+        },
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -154,6 +205,9 @@ export async function getSemanticSearchSets({queryKey}: {queryKey: string[]}) {
     const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
         params: {
             search_type: 'semantic'
+        },
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -164,6 +218,9 @@ export async function getKeywordSearchSets({queryKey}: {queryKey: string[]}) {
     const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {
         params: {
             search_type: 'keyword'
+        },
+        headers: {
+          "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -174,6 +231,9 @@ export async function getBbox({queryKey}: {queryKey: string[]}) {
     const response = await axios.get(`${SERVER_ENDPOINT}api/get_bbox/${project_id}`, {
         params: {
             page_num: page_num
+        },
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
         }
     });
     return response.data;
@@ -182,7 +242,10 @@ export async function getBbox({queryKey}: {queryKey: string[]}) {
 export async function getRecording({ queryKey }: { queryKey: string[] }) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT + `api/get_recording/${project_id}`, {
-        responseType: 'blob' // 녹음 파일을 바이너리 데이터(blob)로 받아옵니다.
+        responseType: 'blob',
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
     });
 
     // URL.createObjectURL을 통해 blob을 다룰 수 있는 객체 URL을 만듭니다.
@@ -191,29 +254,14 @@ export async function getRecording({ queryKey }: { queryKey: string[] }) {
     return audioUrl;
 }
 
-
-export async function getKeypoint({queryKey}: {queryKey: string[]}) {
-    const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_keypoint/${project_id}`);
-    return response.data;
-}
-
-export async function getResult({queryKey}: {queryKey: string[]}) {
-    const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_result/${project_id}`);
-    return response.data;
-}
-
-export async function getCSV({queryKey}: {queryKey: string[]}) {
-    const [_key, project_id] = queryKey;
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_csv/${project_id}`, { responseType: 'blob' });
-    return response.data;
-}
-
 export async function getProsody({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     console.log(SERVER_ENDPOINT+`api/get_prosody/${project_id}`);
-    const response = await axios.get(SERVER_ENDPOINT+`api/get_prosody/${project_id}`);
+    const response = await axios.get(SERVER_ENDPOINT+`api/get_prosody/${project_id}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     console.log(response.data);
     return response.data;
 }
@@ -222,6 +270,9 @@ export async function getRawImages(projectId: string) {
   const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
       params: {
           image_type: 'raw'
+      },
+      headers: {
+          "ngrok-skip-browser-warning": "69420",
       }
   });
   return response.data; // {image: str, dimensions: [number, number]}[]
@@ -231,41 +282,35 @@ export async function getAnnotatedImages(projectId: string) {
   const response = await axios.get(`${SERVER_ENDPOINT}api/get_images/${projectId}`, {
       params: {
           image_type: 'annotated'
+      },
+      headers: {
+          "ngrok-skip-browser-warning": "69420",
       }
   });
     return response.data; // 이 데이터는 Base64로 인코딩된 이미지들의 배열입니다.
 }
 
 export async function getMissedAndImportantParts(projectId: string) {
-    const response_missed = await axios.get(`${SERVER_ENDPOINT}api/get_missed_parts/${projectId}`);
-    const response_important = await axios.get(`${SERVER_ENDPOINT}api/get_important_parts/${projectId}`);
+    const response_missed = await axios.get(`${SERVER_ENDPOINT}api/get_missed_parts/${projectId}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
+    const response_important = await axios.get(`${SERVER_ENDPOINT}api/get_important_parts/${projectId}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
 
     return {missed: response_missed.data, important: response_important.data};
 }
 
-export async function updateResult({project_id, result}: {project_id: string, result: any}) {
-    const response = await axios.options(SERVER_ENDPOINT+`api/update_result/${project_id}`, {data: result});
-    return response.data;
-}
-
-export async function getTestVideo() {
-    const response = await axios.get(SERVER_ENDPOINT+'test/download_video', { responseType: 'blob' });
-    return response.data;
-}
-
-export async function getTestCSV() {
-    const response = await axios.get(SERVER_ENDPOINT+'test/download_csv', { responseType: 'blob' });
-    return response.data;
-}
-
-export async function getTestKeypoint() {
-    const response = await axios.get(SERVER_ENDPOINT+'test/get_json');
-    return response.data;
-}
-
-
 export async function deleteProject(projectId: string) {
-    const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`);
+    const response = await axios.delete(`${SERVER_ENDPOINT}api/delete_project/${projectId}`, {
+        headers: {
+            "ngrok-skip-browser-warning": "69420",
+        }
+    });
     return response.data;
 }
 
@@ -276,7 +321,10 @@ export async function lassoQuery(projectId: string, pageNumber: number, prompt: 
     prompt_text: prompt,
     image_url: image,
     bbox: boundingBox,
-    cur_lasso_id: lassoId
+    cur_lasso_id: lassoId,
+    headers: {
+      "ngrok-skip-browser-warning": "69420",
+    }
   });
 
   return response.data;
@@ -289,6 +337,9 @@ export async function lassoPrompts(projectId: string, pageNumber: number, lassoI
         project_id: projectId,
         page_num: pageNumber,
         lasso_id: lassoId
+      },
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
       }
     });
 
@@ -301,8 +352,11 @@ export async function lassoPrompts(projectId: string, pageNumber: number, lassoI
 
 export async function getLassosOnPage(projectId: string, pageNumber: number) {
   try {
-    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`);
-
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lassos_on_page/${projectId}/${pageNumber}`, {
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
+      }
+    });
     return response.data;
   } catch (error) {
     console.log(error);
@@ -312,8 +366,11 @@ export async function getLassosOnPage(projectId: string, pageNumber: number) {
 
 export async function getLassoInfo(projectId: string, pageNumber: number, lassoId: number | null) {
   try {
-    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`);
-
+    const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_info/${projectId}/${pageNumber}/${lassoId}`, {
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
+      }
+    });
     return response.data;
   } catch (error) {
     console.log(error);
@@ -324,7 +381,10 @@ export async function getLassoInfo(projectId: string, pageNumber: number, lassoI
 export async function lassoTransform(projectId: string, pageNumber: number, lassoId: number | null, version: number, prompt: string, transformType: string) {
   const response = await axios.post(`${SERVER_ENDPOINT}api/lasso_transform/${projectId}/${pageNumber}/${lassoId}/${version}`, {
     prompt_text: prompt,
-    transform_type: transformType
+    transform_type: transformType,
+    headers: {
+      "ngrok-skip-browser-warning": "69420",
+    }
   });
 
   return response.data;
@@ -334,8 +394,12 @@ export async function getLassoAnswer(projectId: string, pageNumber: number, lass
   const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answer/${projectId}/${pageNumber}/${lassoId}`, {
     params: {
       prompt_text: prompt,
-      version: version
-  }});
+      version: version,
+    },
+    headers: {
+      "ngrok-skip-browser-warning": "69420",
+    }
+  });
 
   return response.data;
 }
@@ -344,7 +408,11 @@ export async function getLassoAnswers(projectId: string, pageNumber: number, las
   const response = await axios.get(`${SERVER_ENDPOINT}api/get_lasso_answers/${projectId}/${pageNumber}/${lassoId}`, {
     params: {
       prompt_text: prompt
-  }});
+    },
+    headers: {
+      "ngrok-skip-browser-warning": "69420",
+    }
+  });
 
   return response.data;
 }
