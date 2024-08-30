@@ -166,9 +166,8 @@ export const CustomXAxisTick = ({
       <g transform={`translate(${x},${y})`}>
         <image
           x={textAnchor == "end" ? -80 : 0}
-          y={-100}
-          width={100}
-          height={100}
+          y={"-75%"}
+          height={"60%"}
           href={images[currentXTick - 1]?.image} // `href` 속성을 사용하여 이미지 삽입
           opacity={0.5}
         />
