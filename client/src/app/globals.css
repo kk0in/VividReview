@@ -6,6 +6,8 @@ body {
   overflow: hidden;
   touch-action: none;
   overscroll-behavior: contain; 
+
+  font-size: small;
 }
 
 ::-webkit-scrollbar {

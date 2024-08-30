@@ -183,7 +183,7 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
 
     return (
       <Fragment key={page}>
-        <p className="font-bold text-lg">Page {script.page} -</p>
+        <p className="font-bold text-sm">Page {script.page} -</p>
         <p className="mb-2" dangerouslySetInnerHTML={{ __html: processedHTML }} />
       </Fragment>
     );
