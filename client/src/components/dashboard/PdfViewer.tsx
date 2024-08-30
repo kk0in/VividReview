@@ -420,6 +420,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawingsRef.current = [];
     setClickedLasso(null);
+    lassoExists.current = false;
     document.querySelectorAll(".multilayer-canvas").forEach((el) => el.remove());
     if (gridMode !== 0) return;
     const numLayers = localStorage.getItem(`numLayers_${projectId}_${pageNumber}`);
@@ -898,7 +899,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
 
 
   const isPointInPath = (box: {x1: NumberOrNull, y1: NumberOrNull, x2: NumberOrNull, y2: NumberOrNull}, x: number, y: number) => {
-    if (!box.x1 || !box.y1 || !box.x2 || !box.y2) return false;
+    if (box.x1 === null || box.y1 === null || box.x2 === null || box.y2 === null) return false;
     if (box.x1 > box.x2) {
       if (box.y1 > box.y2) {
         return (x >= box.x2 && x <= box.x1 && y >= box.y2 && y <= box.y1);
