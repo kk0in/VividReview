@@ -463,21 +463,31 @@ function ReviewPage({
       setAudioDuration(audio.duration);
     };
   }, [audioSource]);
+  
+  useEffect(() => {
+    const newTimeline = findTimeRange(page, pageInfo, gridMode, toc, tocIndex);
+    console.log("newTimeline", newTimeline, page);
+    if (currentNavigation === NavigationStateType.PAGE_CHANGED) {
+      setProgressValue(newTimeline.start);
+      setNavigation(NavigationStateType.NAVIGATION_COMPLETE);
+    }
+    setTimeline(newTimeline);
+  }, [pageInfo, page, gridMode, currentNavigation]);
 
   useEffect(() => {
     if (audioRef.current === null ) { return; }
     const audio = audioRef.current;
     const handleAudio = () => {
       if (currentAudioTime > timeline.end) {
-        console.log("Time is up", currentAudioTime, timeline.end);
+        console.log("Time is up", audio.currentTime, timeline.end);
         setPlayerState(PlayerStateType.PAUSED);
         return;
       }
 
       const currentPageTimeline = pageInfo[page];
       if (currentPageTimeline) {
-        if (!audio.paused && currentAudioTime > currentPageTimeline.end) {
-          const newPage = findPage(currentAudioTime, pageInfo);
+        if (!audio.paused && audio.currentTime > currentPageTimeline.end) {
+          const newPage = findPage(audio.currentTime, pageInfo);
           const newTocIndex = findTocIndex(newPage, toc);
 
           (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
@@ -562,17 +572,7 @@ function ReviewPage({
       audio.removeEventListener("timeupdate", handleAudio);
       audio.removeEventListener("timeupdate", handleHighlightBox);
     };
-  }, [currentAudioTime, gridMode, page, pageInfo]);
-
-  useEffect(() => {
-    const newTimeline = findTimeRange(page, pageInfo, gridMode, toc, tocIndex);
-    console.log("newTimeline", newTimeline, page);
-    if (currentNavigation === NavigationStateType.PAGE_CHANGED) {
-      setProgressValue(newTimeline.start);
-      setNavigation(NavigationStateType.NAVIGATION_COMPLETE);
-    }
-    setTimeline(newTimeline);
-  }, [pageInfo, page, gridMode, currentNavigation]);
+  }, [currentAudioTime, page, pageInfo]);
 
   useEffect(() => {
     if (audioRef.current === null) { return; }
