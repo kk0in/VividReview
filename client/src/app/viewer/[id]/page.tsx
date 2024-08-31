@@ -483,7 +483,10 @@ function ReviewPage({
     if (audioRef.current === null ) { return; }
     const audio = audioRef.current;
     const handleAudio = () => {
-      if (currentAudioTime > timeline.end) {
+      if (
+        currentNavigation !== NavigationStateType.PAGE_CHANGED &&
+        audio.currentTime > timeline.end
+      ) {
         console.log("Time is up", audio.currentTime, timeline.end);
         setPlayerState(PlayerStateType.PAUSED);
         return;
@@ -592,7 +595,7 @@ function ReviewPage({
 
       case PlayerStateType.PAUSED: {
         console.log("PAUSED", timeline);
-        if (currentAudioTime > timeline.end) {
+        if (audio.currentTime > timeline.end) {
           audio.currentTime = timeline.start;
         }
         audio.pause();
