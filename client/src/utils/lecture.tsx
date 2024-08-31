@@ -30,7 +30,7 @@ export const findTocIndex = (page: number, toc: IToCSection[]) => {
   }
 
   console.log("No ToC index found for page: ", page);
-  return null;
+  return {section: 0, subsection: 0};
 };
 
 export const calibratePrecision = (time: number) => {

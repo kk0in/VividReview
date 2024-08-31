@@ -498,7 +498,7 @@ function ReviewPage({
           const newPage = findPage(audio.currentTime, pageInfo);
           const newTocIndex = findTocIndex(newPage, toc);
 
-          (newTocIndex && newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
+          (newTocIndex !== tocIndex) && setTocIndex(newTocIndex);
           setPage(newPage);
         }
       }
@@ -759,9 +759,6 @@ export default function Page({ params }: { params: { id: string } }) {
   const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
   const isSaveClicked = useRecoilValue(isSaveClickedState);
 
-  const [pageStartTime, setpageStartTime] = useState(0);
-  const [pageEndTime, setpageEndTime] = useState(100);
-
   const [prosodyData, setProsodyData] = useState<any>(null);
   const [missedAndImportantParts, setMisssedAndImportantParts] = useState<any>(null);
   const [positiveEmotion, setpositiveEmotion] = useState([
@@ -803,7 +800,7 @@ export default function Page({ params }: { params: { id: string } }) {
       
       const newPage = findPage(progressValue, pageInfo);
       const newTocIndex = findTocIndex(newPage, toc);
-      newTocIndex && newTocIndex !== tocIndex && setTocIndex(newTocIndex);
+      newTocIndex !== tocIndex && setTocIndex(newTocIndex);
       newPage > 0 && setPage(newPage);
     }
   }, [progressValue, currentNavigation]);
@@ -1737,10 +1734,6 @@ export default function Page({ params }: { params: { id: string } }) {
                   graphHeight={graphHeight}
                   images={rawImages}
                   missedAndImportantParts={missedAndImportantParts}
-                  pageStartTime={pageStartTime}
-                  pageEndTime={pageEndTime}
-                  setpageStartTime={setpageStartTime}
-                  setpageEndTime={setpageEndTime}
                 />
                 <audio ref={audioRef} />
               </div>
