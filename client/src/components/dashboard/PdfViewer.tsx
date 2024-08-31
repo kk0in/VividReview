@@ -1015,7 +1015,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log("clickedLasso", clickedLasso);
       const image = (clickedLasso.image && (clickedLasso.image !== null)) ? clickedLasso.image : getImage(clickedLasso.boundingBox);
       console.log(image);
+      setProcessing({type: ProcessingType.LASSO_QUERYING, message: "Querying lasso..."});
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
+      setProcessing({type: ProcessingType.NONE, message: ""});
       setReloadFlag((prev) => !prev);
       setFocusedLasso(response.lasso_id);
       setScriptMode("prompts");
