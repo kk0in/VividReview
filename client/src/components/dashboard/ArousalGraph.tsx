@@ -394,7 +394,7 @@ const ArousalGraph = ({
       </ResponsiveContainer>
 
       <div className="relative w-[calc(100%-10px)] h-4">
-        <progress className="absolute w-full h-4" ref={progressRef} />
+        <progress className="absolute w-full h-4 " ref={progressRef} />
         <div
           style={{ left: `calc(${circlePosition}px - 0.5rem` }}
           className={`absolute rounded-full h-4 w-4 pointer-events-none bg-[#82ca9d]`}

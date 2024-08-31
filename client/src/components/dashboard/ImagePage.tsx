@@ -25,42 +25,48 @@ const ImagePage = (props: {projectId: string, pageNumber: number, className?: st
 
   if (gridMode === 0) {
     return (
-      <Image
-        className={`pdf-next-image ${props.className}`}
-        src={pdfImages[pageNumber-1].image}
-        width={pdfImages[pageNumber-1].dimensions[0]}
-        height={pdfImages[pageNumber-1].dimensions[1]}
-        alt={`Page ${pageNumber}`}
-        style={{width: `${scale}%`, height: `${scale}%`, pointerEvents: "none"}}
-      />
-    )
+      <div className={props.className ? props.className : ""}>
+        <Image
+          className={"pdf-next-image"}
+          src={pdfImages[pageNumber - 1].image}
+          width={pdfImages[pageNumber - 1].dimensions[0]}
+          height={pdfImages[pageNumber - 1].dimensions[1]}
+          alt={`Page ${pageNumber}`}
+          style={{
+            width: `${scale}%`,
+            height: `${scale}%`,
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    );
   } else {
     const numDrawings = localStorage.getItem(`numLayers_${props.projectId}_${pageNumber}`)
     return (
-      <div className={`${props.className} w-fit h-fit`} style={{position: "relative"}}>
+      <div className={"relative w-fit h-fit mx-1 mb-5"}>
         <Image
-          className={"pdf-next-image"}
+          className={props.className + " absolute pdf-next-image"}
           src={pdfImages[pageNumber-1].image}
           width={pdfImages[pageNumber-1].dimensions[0]}
           height={pdfImages[pageNumber-1].dimensions[1]}
           alt={`Page ${pageNumber}`}
-          style={{width: `${scale}%`, height: `${scale}%`, position: "absolute"}}
         />
         {numDrawings && Array.from(Array(parseInt(numDrawings)).keys()).map((i) => {
           const drawing = localStorage.getItem(`drawings_${props.projectId}_${pageNumber}_${i+1}`);
           if (!drawing) return <></>;
           return (
             <Image
+              className="absolute "
               key={i+1}
               src={drawing}
               width={pdfImages[pageNumber-1].dimensions[0]}
               height={pdfImages[pageNumber-1].dimensions[1]}
               alt={`Drawing ${i+1}`}
-              style={{width: `${scale}%`, height: `${scale}%`, position: "absolute"}}
             />
           )
         })}
         <canvas
+          className=""
           ref={dummyRef}
           id={`dummy-canvas-${pageNumber}`}
           width={pdfImages[pageNumber-1].dimensions[0]}
