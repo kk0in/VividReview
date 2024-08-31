@@ -33,6 +33,7 @@ import {
   calibratePrecision,
   findPage,
   findTimeRange,
+  findTocIndex,
 } from "../../utils/lecture";
 import {
   audioDurationState,
@@ -61,10 +62,6 @@ const ArousalGraph = ({
   graphHeight,
   images,
   missedAndImportantParts,
-  pageStartTime,
-  pageEndTime,
-  setpageStartTime,
-  setpageEndTime,
 }: {
   data: any;
   positiveEmotion: string[];
@@ -78,10 +75,6 @@ const ArousalGraph = ({
   graphHeight: number;
   images: any;
   missedAndImportantParts: any;
-  pageStartTime: number;
-  pageEndTime: number;
-  setpageStartTime: any;
-  setpageEndTime: any;
 }) => {
   const gridMode = useRecoilValue(gridModeState);
   const [selectedPositives, setSelectedPositives] = useState(
@@ -113,6 +106,8 @@ const ArousalGraph = ({
     per90YNeg,
   } = useMinMaxValues(processedData);
 
+  const [pageStartTime, setpageStartTime] = useState(0);
+  const [pageEndTime, setpageEndTime] = useState(100);
   const [currentXTick, setCurrentXTick] = useState(0);
   const [circlePosition, setCirclePosition] = useState(0);
   const [progressValue, setProgressValue] = useRecoilState(progressValueState);
@@ -160,13 +155,18 @@ const ArousalGraph = ({
       setCirclePosition((progressValue / audioDuration) * progress.offsetWidth);
     }
 
-    const page_ =
+    const targetPage =
       currentNavigation === NavigationStateType.IN_NAVIGATION
         ? findPage(progressValue, pageInfo)
         : page;
 
-    setCurrentXTick(page_);
-    const timeRange = findTimeRange(page_, pageInfo, gridMode, toc, tocIndex);
+    const targetTocIndex =
+      currentNavigation === NavigationStateType.IN_NAVIGATION
+        ? findTocIndex(targetPage, toc)
+        : tocIndex;
+
+    setCurrentXTick(targetPage);
+    const timeRange = findTimeRange(targetPage, pageInfo, gridMode, toc, targetTocIndex);
     setpageStartTime(timeRange.start);
     setpageEndTime(timeRange.end);
   }, [
@@ -257,7 +257,6 @@ const ArousalGraph = ({
   }, [
     currentNavigation,
     audioDuration,
-    gridMode,
     toc,
     tocIndex,
     pageInfo,
