@@ -1115,7 +1115,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <div
             className={
               "overflow-y-auto w-fit " +
-              (isReviewMode ? "h-[56vh] " : "h-[85vh] ") +
+              (isReviewMode ? "max-h-[56vh] " : "max-h-[85vh] ") +
               (gridMode !== 0 ? "grid grid-cols-2 justify-items-center" : "shadow-xl ")
             }
           >
