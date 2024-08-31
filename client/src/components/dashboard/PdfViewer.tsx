@@ -943,6 +943,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     case 0: {
       pageComponents.push(
         <ImagePage
+          className="shadow-2xl"
           key={pageNumber}
           projectId={projectId}
           pageNumber={pageNumber}
@@ -964,7 +965,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             className={
               "flex mr-4 mb-10 items-center justify-center " +
               (isReviewMode && startIndex + i === pageNumber
-                ? "border-4 border-blue-500"
+                ? "shadow-md border-4 border-blue-500"
                 : "")
             }
             key={i}
@@ -1099,8 +1100,18 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   return (
     <div className="flex w-full flex-col items-center">
       <div className="flex w-full justify-center">
-        <div className="relative flex flex-col w-full items-center" ref={viewerRef} style={{width: 1120}}>
-          <div className={"overflow-y-auto w-fit" + (isReviewMode ? " max-h-[65vh]" : " max-h-[85vh]") + (gridMode !== 0 ? " grid grid-cols-2" : "")}>
+        <div
+          className="relative flex flex-col w-full items-center"
+          ref={viewerRef}
+          style={{ width: 1120 }}
+        >
+          <div
+            className={
+              "overflow-y-auto w-fit " +
+              (isReviewMode ? "max-h-[56vh] " : "max-h-[85vh] ") +
+              (gridMode !== 0 ? "grid grid-cols-2 justify-items-center" : "shadow-xl ")
+            }
+          >
             {pageComponents}
           </div>
           <canvas
@@ -1108,13 +1119,19 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             width={width}
             height={height}
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
-              width: '100%',
-              height: '100%',
+              width: "100%",
+              height: "100%",
               zIndex: 1,
-              pointerEvents: selectedTool === "pencil" || selectedTool === "highlighter" || selectedTool === "eraser" || selectedTool === "spinner" ? 'auto' : 'none',
+              pointerEvents:
+                selectedTool === "pencil" ||
+                selectedTool === "highlighter" ||
+                selectedTool === "eraser" ||
+                selectedTool === "spinner"
+                  ? "auto"
+                  : "none",
             }}
           />
           <canvas
@@ -1122,11 +1139,11 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             width={width}
             height={height}
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
-              width: '100%',
-              height: '100%',
+              width: "100%",
+              height: "100%",
               zIndex: 3,
               pointerEvents: "none",
             }}
@@ -1136,24 +1153,22 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             width={width}
             height={height}
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
-              width: '100%',
-              height: '100%',
+              width: "100%",
+              height: "100%",
               zIndex: 1,
-              pointerEvents:'none',
+              pointerEvents: "none",
             }}
           />
-        
-          {clickedLasso !== null && isReviewMode && (
-            <PromptList/>
-          )}
+
+          {clickedLasso !== null && isReviewMode && <PromptList />}
         </div>
       </div>
-      <div className="relative w-[60vw] h-10 z-[2] text-sm">
+      <div className="relative w-[60vw] h-10 z-[2] text-sm mt-3 mb-5">
         <button
-          className="absolute right-[51%] w-28 justify-center h-8 flex items-center bg-gray-600 p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute right-[51%] w-28 justify-center h-10 flex items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
           onClick={goToPreviousPage}
           disabled={pageNumber <= 1}
         >
@@ -1161,7 +1176,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           Previous
         </button>
         <button
-          className="absolute left-[51%] flex w-28 justify-center h-8 items-center bg-gray-600 p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute left-[51%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
           onClick={goToNextPage}
           disabled={
             gridMode === 0
@@ -1177,7 +1192,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <FaArrowCircleRight className="w-fit h-4 ml-2" />
         </button>
         <button
-          className="absolute right-[5%] flex w-28 justify-center h-8 items-center bg-gray-600 p-2 my-1 rounded"
+          className="absolute right-[5%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded"
           onClick={handleSave}
         >
           <FaSave className="w-fit h-4 mr-2" />
