@@ -214,6 +214,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
   const reloadFlag = useRecoilValue(reloadFlagState);
+  const setProcessing = useSetRecoilState(processingState);
   const lassos = useRef<{lasso_id: number, name: string}[]>([]);
   const answers = useRef<string[]>([]);
   const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
@@ -252,12 +253,16 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
 
       try {
         console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
+        setProcessing({type: ProcessingType.LASSO_LOADING_ANSWER, message: "Loading answer..."});
         const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        setProcessing({type: ProcessingType.NONE, message: ""});
         console.log("fetched answers", response);
         answers.current = response.map((result: {caption: string, result: string}) => result.result);
         console.log("mapped answers", answers.current);
       } catch (e) {
         console.log("Failed to fetch answers:", e);
+        alert("Failed to load answers");
+        setProcessing({type: ProcessingType.NONE, message: ""});
         answers.current = [];
       }
       setRerenderFlag((prev) => !prev);
