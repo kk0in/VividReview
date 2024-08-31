@@ -47,50 +47,90 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
 
   return (
     <>
-      <div>
-        {showFlag ? preprocessText(props.answers[activePromptIndex[2]], []).map((line) => {return (<>{line}<br/></>)}) : ""}
+      <div className="px-2">
+        {showFlag
+          ? preprocessText(props.answers[activePromptIndex[2]], []).map(
+              (line) => {
+                return (
+                  <>
+                    {line}
+                    <br />
+                  </>
+                );
+              }
+            )
+          : ""}
       </div>
-      <div className="control-buttons" style={{display: "flex", alignItems: "center", position: "relative", margin: "7px", height: "35px"}}>
-        {activePromptIndex[2] > 0 && (
-          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] - 1])}
-            style={{marginRight: "auto", marginLeft: "0"}}
-          >
-            <TriangleLeftIcon size="medium"/>
-          </button>
-        )}
-        {props.answers.length > 0 && (
-          <div style={{position: "absolute", left: "50%", transform: "translateX(-50%)", marginTop: "3px", padding: "3px"}}>
-            {activePromptIndex[2]+1} / {props.answers.length}
-          </div>
-        )}
-        {activePromptIndex[2] < props.answers.length - 1 && (
-          <button onClick={() => setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], activePromptIndex[2] + 1])}
-            style={{marginLeft: "auto", marginRight: "0"}}
-          >
-            <TriangleRightIcon size="medium"/>
-          </button>
-        )}
+      <div className="relative grid grid-cols-3 items-center h-9">
+        <div className="flex flex-grow justify-start px-1">
+          {activePromptIndex[2] > 0 && (
+            <button
+              onClick={() =>
+                setActivePromptIndex([
+                  activePromptIndex[0],
+                  activePromptIndex[1],
+                  activePromptIndex[2] - 1,
+                ])
+              }
+            >
+              <TriangleLeftIcon size="medium" />
+            </button>
+          )}
+        </div>
+        <div className="flex justify-center">
+          {props.answers.length > 0 && (
+            <div>
+              {activePromptIndex[2] + 1} / {props.answers.length}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end">
+          {activePromptIndex[2] < props.answers.length - 1 && (
+            <button
+              onClick={() =>
+                setActivePromptIndex([
+                  activePromptIndex[0],
+                  activePromptIndex[1],
+                  activePromptIndex[2] + 1,
+                ])
+              }
+            >
+              <TriangleRightIcon size="medium" />
+            </button>
+          )}
+        </div>
       </div>
-      {showFlag && <div className="change-answers" style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
-        {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
-          return (
-            <>
-              <button onClick={async () => {
-                const response = await lassoTransform(props.projectId, props.page, props.focusedLasso, activePromptIndex[2]+1, props.prompts[activePromptIndex[1]], prompt);
-                console.log(response);
-                setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
-              }}
-                style={{border: "2px solid black", margin: "5px", padding: "3px", borderRadius: "3px"}}  
-              >
-                {prompt}
-              </button>
-            </>
-          )
-        })}
-      </div>
-      }
+      {showFlag && (
+        <div className="change-answers flex flex-row px-1 justify-items-center font-sans">
+          {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
+            return (
+                <button
+                  className="bg-slate-500 text-white grow rounded mx-0.5 px-2 py-1"
+                  onClick={async () => {
+                    const response = await lassoTransform(
+                      props.projectId,
+                      props.page,
+                      props.focusedLasso,
+                      activePromptIndex[2] + 1,
+                      props.prompts[activePromptIndex[1]],
+                      prompt
+                    );
+                    console.log(response);
+                    setActivePromptIndex([
+                      activePromptIndex[0],
+                      activePromptIndex[1],
+                      response.version - 1,
+                    ]);
+                  }}
+                >
+                  {prompt}
+                </button>
+            );
+          })}
+        </div>
+      )}
     </>
-  )
+  );
 }
 
 export default PromptDisplay;
