@@ -1017,8 +1017,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
       setReloadFlag((prev) => !prev);
       setFocusedLasso(response.lasso_id);
+      setClickedLasso({...clickedLasso, lassoId: response.lasso_id});
       setScriptMode("prompts");
-      setActivePromptIndex([activePromptIndex[0], idx, activePromptIndex[2]]);
+      setActivePromptIndex([activePromptIndex[0], prompt, activePromptIndex[2]]);
       console.log(response);
     }
 

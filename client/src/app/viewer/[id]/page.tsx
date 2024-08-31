@@ -243,8 +243,8 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
       console.log("fetching answers");
 
       try {
-        console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
-        const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        console.log(prompts.current, activePromptIndex, activePromptIndex[1]);
+        const response = await getLassoAnswers(projectId, page, focusedLasso, activePromptIndex[1]);
         console.log("fetched answers", response);
         answers.current = response.map((result: {caption: string, result: string}) => result.result);
         console.log("mapped answers", answers.current);
@@ -275,11 +275,11 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
     prompts.current.map((prompt, idx) => {
       const className = "rounded-t-2xl w-fit pt-1 pb-4 px-4 font-bold " +
-        (idx === activePromptIndex[1] ? "bg-[#b6bcc5]" : "bg-[#b6bcc5]/50");
+        (prompt === activePromptIndex[1] ? "bg-[#b6bcc5]" : "bg-[#b6bcc5]/50");
       
       return (
         <div className={className}
-          onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+          onClick = {() => {setActivePromptIndex([activePromptIndex[0], prompt, 0]);}}
           key={"subprompt-"+idx}
         >
           {prompt}

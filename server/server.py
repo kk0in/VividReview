@@ -1382,6 +1382,15 @@ async def lasso_query(data: Lasso_Query_Data):
         info_json_path = os.path.join(lasso_path, "info.json")
         with open(info_json_path, "w") as json_file:
             json.dump(lasso_info, json_file, indent=4)
+    else:
+        info_json_path = os.path.join(lasso_path, "info.json")
+        info_json_data = {}
+        with open(info_json_path, "r") as json_file:
+            info_json_data = json.load(json_file)
+            if prompt_text not in info_json_data["prompts"]:
+              info_json_data["prompts"].append(prompt_text)
+        with open(info_json_path, "w") as json_file:
+            json.dump(info_json_data, json_file, indent=4)
 
     # 요약된 내용 JSON 파일로 저장
     result_path = os.path.join(lasso_path, sanitize_filename(prompt_text))

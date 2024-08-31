@@ -76,7 +76,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           return (
             <>
               <button onClick={async () => {
-                const response = await lassoTransform(props.projectId, props.page, props.focusedLasso, activePromptIndex[2]+1, props.prompts[activePromptIndex[1]], prompt);
+                const response = await lassoTransform(props.projectId, props.page, props.focusedLasso, activePromptIndex[2]+1, activePromptIndex[1], prompt);
                 console.log(response);
                 setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], response.version - 1]);
               }}
