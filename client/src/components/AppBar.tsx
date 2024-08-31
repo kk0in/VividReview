@@ -76,12 +76,12 @@ function ReviewAppBar() {
 
   let i = 0;
   return (
-    <div className="flex justify-end space-x-4 w-1/5 border-l-4 ml-4 border-dotted border-white-100">
+    <div className="flex justify-end items-center space-x-4 w-[calc(20%-1rem)] h-full border-l-4 ml-4 border-double border-white-100">
       {icons.map(({ name, icon: Icon, action }) => {
         return (
           <Icon
             key={name}
-            className={classNames('h-6 w-6 cursor-pointer transition-colors duration-300',
+            className={classNames('h-5 w-5 cursor-pointer transition-colors duration-300',
               activeIndex === i++ ? 'text-yellow-500' : 'text-white'
             )}
             onClick={action}
@@ -216,9 +216,9 @@ export default function AppBar() {
   ];
 
   return (
-    <nav className="bg-gray-500">
+    <nav className="bg-gray-600">
       <div className="mx-auto px-2 sm:px-6 lg:px-8">
-        <div className="relative flex h-16 items-center justify-between">
+        <div className="relative flex h-12 items-center justify-between">
           <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
           </div>
           <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
@@ -226,7 +226,7 @@ export default function AppBar() {
               VividReview
             </div>
             <div className="hidden sm:ml-6 sm:block">
-              <div className="flex space-x-4">
+              <div className="flex space-x-1">
                 {navigation.map((item) => (
                   <Link
                     key={item.name}
@@ -251,7 +251,7 @@ export default function AppBar() {
                     <Icon
                       key={name}
                       className={classNames(
-                        'h-6 w-6 cursor-pointer transition-colors duration-300',
+                        'h-5 w-5 cursor-pointer transition-colors duration-300',
                         gridMode === 2 ? 'text-red-500' : gridMode === 1 ? 'text-yellow-500' : 'text-white'
                       )}
                       onClick={() => handleGridIconClick(tool)}
@@ -263,7 +263,7 @@ export default function AppBar() {
                   <Icon
                     key={name}
                     className={classNames(
-                      'h-6 w-6 cursor-pointer transition-colors duration-300',
+                      'h-5 w-5 cursor-pointer transition-colors duration-300',
                       activeIcon === name ? 'text-yellow-500' : 'text-white'
                     )}
                     onClick={() => handleIconClick(name, tool)}
@@ -274,7 +274,7 @@ export default function AppBar() {
                 <Icon
                   key={name}
                   className={classNames(
-                    'h-6 w-6 cursor-pointer transition-colors duration-300',
+                    'h-5 w-5 cursor-pointer transition-colors duration-300',
                     temporaryActiveIcons.has(name) ? 'text-yellow-500' : 'text-white'
                   )}
                   onClick={() => handleTemporaryActivation(name, action)}
@@ -282,24 +282,24 @@ export default function AppBar() {
               ))}
               {!isReviewMode && <FaMicrophone
                 className={classNames(
-                  'h-6 w-6 cursor-pointer transition-colors duration-300',
+                  'h-5 w-5 cursor-pointer transition-colors duration-300',
                   isRecording ? 'text-yellow-500' : 'text-white'
                 )}
                 onClick={handleMicToggle}
               />}
               <div className="relative flex items-center">
-                <FaSearch className="absolute cursor-pointer left-3 text-white" onClick={handleSearch} />
+                <FaSearch className="absolute h-4 w-4 cursor-pointer right-2 text-white" onClick={handleSearch} />
                 <input
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)} // 입력된 텍스트 상태 업데이트
                   onKeyDown={handleKeyDown} // Enter 키 감지
-                  className="bg-gray-700 text-white p-2 pl-10 rounded"
+                  className="bg-gray-700 text-white w-80 pr-8 py-1 pl-24 rounded"
                   placeholder="Search..."
                 />
                 <button
                   onClick={toggleSearchType}
-                  className="bg-gray-600 w-24 text-white p-2 rounded cursor-pointer outline-none"
+                  className="absolute bg-slate-300 w-20 left-1 text-black px-2 py-1 rounded cursor-pointer outline-none"
                 >
                   {searchType === 'semantic' ? 'Semantic' : 'Keyword'}
                 </button>

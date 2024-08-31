@@ -657,7 +657,7 @@ function ReviewPage({
   }, [gridMode, page, tocIndex]);
 
   return (
-    <div className="flex-none w-1/5 bg-slate-100 overflow-y-auto h-[calc(100vh-4rem)]">
+    <div className="flex-none w-1/5 bg-slate-100 overflow-y-auto h-[calc(100vh-3rem)]">
       <div className="flex pr-1 mt-4">
         <div
           className={
@@ -1246,7 +1246,7 @@ export default function Page({ params }: { params: { id: string } }) {
       )}
       {tableOfContents && semanticSearchSets && keywordSearchSets && (
         <div className="flex-grow flex flex-row">
-          <div className="flex-none w-1/5 bg-slate-50 p-4 overflow-y-auto h-[calc(100vh-4rem)]">
+          <div className="flex-none w-1/5 bg-slate-50 p-4 overflow-y-auto h-[calc(100vh-3rem)]">
             <div className="mb-4 font-bold">Table of Contents</div>
             <ol>{buildTableOfContents(tableOfContents)}</ol>
             <hr className="border-2 border-gray-300 my-4" />
