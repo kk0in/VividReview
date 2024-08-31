@@ -389,6 +389,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     };
     
     const handleMouseMove = (event: MouseEvent | TouchEvent) => {
+      if (selectedTool !== "spinner") {
+        event.stopPropagation();
+        event.preventDefault();
+      }
       if (selectedTool === "eraser") {
         erase(event);
       } else {

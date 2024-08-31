@@ -1990,6 +1990,9 @@ async def save_recording(
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
     drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
     os.makedirs(drawings_dir, exist_ok=True)
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
+    with open(page_info_path, "r") as file:
+        page_info = json.load(file)
 
     pdf_file = [
         file
@@ -2049,9 +2052,13 @@ async def save_recording(
         remove_transparency(image_path)
         text = detect_handwritten_text(image_path)
         ocr_results[str(i + 1)] = text.strip()
+        page_info["pages"][str(i + 1)]["annotation"] = text.strip()
 
     with open(annnotation_path, "w") as json_file:
         json.dump(ocr_results, json_file, indent=4)
+    
+    with open(page_info_path, "w") as file:
+        json.dump(page_info, file, indent=4)
 
     # save recording file
     with open(webm_path, "wb") as buffer:
@@ -2081,14 +2088,15 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         for file in os.listdir(PDF)
         if file.startswith(f"{project_id}_") and file.endswith(".pdf")
     ]
-
     if not pdf_file:
         raise HTTPException(status_code=404, detail="PDF file not found")
-
     if len(pdf_file) > 1:
         raise HTTPException(status_code=500, detail="Multiple PDF files found")
 
     original_pdf_path = os.path.join(PDF, pdf_file[0])
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
+    with open(page_info_path, "r") as file:
+        page_info = json.load(file)
 
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
@@ -2124,6 +2132,7 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         remove_transparency(image_path)
         text = detect_handwritten_text(image_path)
         ocr_results[str(page_num + 1)] = text.strip()
+        page_info["pages"][str(page_num + 1)]["annotation"] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -2137,10 +2146,12 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         # Insert the annotated page image into the original PDF
         annotated_page.insert_image(annotated_page.rect, stream=img_bytes)
 
-    
     with open(annnotation_path, "w") as json_file:
         json.dump(ocr_results, json_file, indent=4)
-    
+
+    with open(page_info_path, "w") as file:
+        json.dump(page_info, file, indent=4)
+
     annotated_pdf.save(annotated_pdf_path)
 
     original_pdf.close()

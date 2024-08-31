@@ -1334,7 +1334,7 @@ export default function Page({ params }: { params: { id: string } }) {
                     <button
                       className={`px-4 py-2 text-white rounded ${
                         isSaveButtonDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700'
-                      }`}
+                      } mr-4`}
                       onClick={handleSaveSearchSet}
                       disabled={isSaveButtonDisabled}
                     >
@@ -1468,11 +1468,9 @@ export default function Page({ params }: { params: { id: string } }) {
                                 }}
                                 onTouchStart={(e) => {
                                   if (e.target.closest('.toggle-button')) return;
-                                  e.preventDefault();
                                   handlePageClick(e, page);
                                 }}
                                 onTouchEnd={(e) => {
-                                  e.preventDefault();
                                   handleMouseUp(page);
                                 }}
                               >
@@ -1499,7 +1497,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
                                 {/* Pie 차트 영역 (이미지 중심에 위치) */}
                                 {showPieChart[page] && pieChartData[page] && (
-                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="absolute inset-0 flex items-center justify-center z-10 select-none">
                                     <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
                                       <Pie
                                         data={pieChartData[page]}
@@ -1554,16 +1552,14 @@ export default function Page({ params }: { params: { id: string } }) {
                                   if (e.target.closest('.toggle-button')) return;
                                   handlePageClick(e, page);
                                 }}
-                                onMouseUp={(e) => {
+                                onMouseUp={(e) => {   
                                   handleMouseUp(page);
                                 }}
                                 onTouchStart={(e) => {
-                                  if (e.target.closest('.toggle-button')) return;
-                                  e.preventDefault();
+                                  if (e.target.closest('.toggle-button')) return; 
                                   handlePageClick(e, page);
                                 }}
-                                onTouchEnd={(e) => {
-                                  e.preventDefault();
+                                onTouchEnd={(e) => {    
                                   handleMouseUp(page);
                                 }}
                               >
@@ -1589,7 +1585,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 <p className="text-center font-semibold text-black">Page {page}</p>
                                 {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
                                 {showPieChart[page] && pieChartData[page] && (
-                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="absolute inset-0 flex items-center justify-center z-10 select-none">
                                     <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
                                       <Pie
                                         data={pieChartData[page]}
@@ -1649,11 +1645,9 @@ export default function Page({ params }: { params: { id: string } }) {
                                 }}
                                 onTouchStart={(e) => {
                                   if (e.target.closest('.toggle-button')) return;
-                                  e.preventDefault();
                                   handlePageClick(e, page);
                                 }}
                                 onTouchEnd={(e) => {
-                                  e.preventDefault();
                                   handleMouseUp(page);
                                 }}
                               >
@@ -1679,7 +1673,7 @@ export default function Page({ params }: { params: { id: string } }) {
                                 <p className="text-center font-semibold text-black">Page {page}</p>
                                 {/* <p className="text-center text-sm text-black">Total Score: {totalScore.toFixed(4)}</p> */}
                                 {showPieChart[page] && pieChartData[page] && (
-                                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <div className="absolute inset-0 flex items-center justify-center z-10 select-none">
                                     <div className="w-full h-full bg-white bg-opacity-80 p-2 border border-gray-400">
                                       <Pie
                                         data={pieChartData[page]}
