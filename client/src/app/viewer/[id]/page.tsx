@@ -261,7 +261,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
         console.log("mapped answers", answers.current);
       } catch (e) {
         console.log("Failed to fetch answers:", e);
-        alert("Failed to load answers");
+        // alert("Failed to load answers");
         setProcessing({type: ProcessingType.NONE, message: ""});
         answers.current = [];
       }
