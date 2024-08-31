@@ -71,7 +71,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           </button>
         )}
       </div>
-      {showFlag && <div className="change-answers">
+      {showFlag && <div className="change-answers" style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
         {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
           return (
             <>

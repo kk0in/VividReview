@@ -1376,9 +1376,7 @@ async def lasso_query(data: Lasso_Query_Data):
 
     if cur_lasso_id is None:
         caption = lasso_answer.get("caption", "untitled")
-        prompts = ["summarize", "translate to korean"]
-        if prompt_text not in prompts:
-            prompts.append(prompt_text)
+        prompts = [prompt_text]
         lasso_info = {"name": caption, "bbox": bbox, "image_url": image_url, "prompts": prompts}
         # lasso_path 경로에 info.json 파일로 저장
         info_json_path = os.path.join(lasso_path, "info.json")

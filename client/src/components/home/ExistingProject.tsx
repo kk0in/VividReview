@@ -24,7 +24,7 @@ const ExistingProject: React.FC = () => {
 
   useEffect(() => {
     document.documentElement.requestFullscreen();
-  }, [document]);
+  }, []);
 
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
