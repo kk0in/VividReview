@@ -372,7 +372,7 @@ function ReviewPage({
     start: 0,
     end: 0,
   });
-  const [bboxList, setBboxList] = useState<any[]>([]);
+  const bboxList = useRef<any[]>([]);
   const pdfWidth = useRef(0);
   const pdfHeight = useRef(0);
   const bboxIndex = useRef(-1);
@@ -428,7 +428,7 @@ function ReviewPage({
       });
       pdfWidth.current = bboxes.image_size.width;
       pdfHeight.current = bboxes.image_size.height;
-      setBboxList(bboxes.bboxes);
+      bboxList.current = bboxes.bboxes;
     };
     bboxIndex.current = -1;
     getBboxes();
@@ -505,15 +505,14 @@ function ReviewPage({
     }
 
     const handleHighlightBox = () => {
+      const ignoreSpotlightThreshold = 0.5; // change value to ignore short spotlights
+
       if (currentNavigation === NavigationStateType.NONE && !audio.paused) {
-        // console.log(audio.currentTime);
-        // console.log(bboxList[0]);
-        // console.log(bboxIndex.current);
         let changeIndexFlag = false;
-        for (let i = 0; i < bboxList.length; i++) {
+        for (let i = 0; i < bboxList.current.length; i++) {
           if (
-            currentAudioTime >= bboxList[i].start &&
-            currentAudioTime < bboxList[i].end
+            currentAudioTime >= bboxList.current[i].start &&
+            currentAudioTime < bboxList.current[i].end
           ) {
             if (i !== bboxIndex.current) {
               bboxIndex.current = i;
@@ -524,11 +523,13 @@ function ReviewPage({
         }
         if (!changeIndexFlag) return;
 
-        const bbox = bboxList[bboxIndex.current].bbox;
+        const bboxObj = bboxList.current[bboxIndex.current];
+        const bbox = bboxObj.bbox;
+
         const canvas = spotlightRef.current;
         const ctx = canvas?.getContext("2d");
         if (!canvas || !ctx) return;
-        if (bbox.start - bbox.end < 0.5) return;
+        if (bboxObj.end - bboxObj.start < ignoreSpotlightThreshold) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -554,6 +555,7 @@ function ReviewPage({
         gradient.addColorStop(0.7, "rgba(0, 0, 0, 0.3)"); // 중심에서 조금 떨어진 부분
         gradient.addColorStop(0.9, "rgba(0, 0, 0, 0.5)"); // 중심에서 조금 떨어진 부분
         gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)"); // 외곽부는 어두운 명암
+
         // ctx.fillStyle = gradient;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -561,15 +563,11 @@ function ReviewPage({
           bbox[0] / pdfWidth.current * canvas.width,
           bbox[1] / pdfHeight.current * canvas.width,
           (bbox[2]*3) / pdfWidth.current * canvas.width,
-          (bbox[3]*3) / pdfHeight.current * canvas.height);  
-        // ctx.clearRect(
-        // (bbox[0] - bbox[2] < 0 ? 0 : bbox[0] - bbox[2]) / pdfWidth.current * canvas.width,
-        // (bbox[1] - bbox[3] < 0 ? 0 : bbox[0] - bbox[2]) / pdfHeight.current * canvas.width,
-        // (bbox[0] + bbox[2] > canvas.width ? canvas.width : bbox[0] + bbox[2]) / pdfWidth.current * canvas.width,
-        // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
-        setInterval(() => {
+          (bbox[3]*3) / pdfHeight.current * canvas.height);
+        const timeout = (bboxObj.end - bboxObj.start) > 5.5 ? 5000 : ((bboxObj.end - bboxObj.start - 0.5) * 1000);
+        setTimeout(() => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }, (bbox.end - bbox.start) > 5.5 ? 5000 : ((bbox.end-bbox.start - 0.5) * 1000));
+        }, timeout);
       }
     };
 
