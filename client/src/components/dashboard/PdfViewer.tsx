@@ -264,7 +264,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   useEffect(() => {
     const canvas = focusedLassoRef.current;
     const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
+    if (!canvas || !context || gridMode !== 0) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     const drawBorder = async () => {
