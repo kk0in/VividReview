@@ -102,7 +102,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       </div>
       {showFlag && (
         <div className="change-answers flex flex-row justify-items-center font-sans">
-          {["regenerate", "shorten", "bullet_point"].map((prompt, idx) => {
+          {["regenerate", "shorten", "bullet point"].map((prompt, idx) => {
             return (
                 <button
                   className="bg-slate-500 text-white grow rounded mx-0.5 px-2 py-1"
