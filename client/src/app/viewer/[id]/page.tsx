@@ -492,6 +492,7 @@ function ReviewPage({
         const canvas = spotlightRef.current;
         const ctx = canvas?.getContext("2d");
         if (!canvas || !ctx) return;
+        if (bbox.start - bbox.end < 0.5) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -532,7 +533,7 @@ function ReviewPage({
         // (bbox[1] + bbox[3] > canvas.height ? canvas.height : bbox[1] + bbox[3]) / pdfHeight.current * canvas.height);
         setInterval(() => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }, 5000);
+        }, (bbox.end - bbox.start) > 5.5 ? 5000 : ((bbox.end-bbox.start - 0.5) * 1000));
       }
     };
 
