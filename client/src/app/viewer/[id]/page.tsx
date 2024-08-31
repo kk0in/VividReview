@@ -505,6 +505,8 @@ function ReviewPage({
     }
 
     const handleHighlightBox = () => {
+      if (gridMode !== 0) return;
+
       const ignoreSpotlightThreshold = 0.5; // change value to ignore short spotlights
 
       if (currentNavigation === NavigationStateType.NONE && !audio.paused) {
