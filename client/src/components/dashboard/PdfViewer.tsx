@@ -264,8 +264,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   useEffect(() => {
     const canvas = focusedLassoRef.current;
     const context = canvas?.getContext("2d");
-    if (!canvas || !context || gridMode !== 0) return;
+    if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (gridMode !== 0) return;
 
     const drawBorder = async () => {
       context.strokeStyle = "red";
@@ -279,7 +281,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     if (focusedLasso !== null) {
       drawBorder();
     }
-  }, [focusedLasso, pageNumber, projectId, setFocusedLasso]);
+  }, [focusedLasso, gridMode, pageNumber, projectId, setFocusedLasso]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -452,17 +454,22 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   const getImage = (lassoBox: {x: number, y: number, width: number, height: number}) => {
     console.log("getting Image");
     const pdfImage: HTMLImageElement | null = document.querySelector('.pdf-next-image');
-    if (!pdfImage) return "";
+    if (pdfImage === null) {
+      console.error("no pdf image!");
+      return "";
+    }
     const canvas = canvasRef.current;
     if (!canvas){
       console.error("no canvas!");
       return "";
     }
     const pdfRect = pdfImage.getBoundingClientRect();
+    console.log(pdfRect);
+    console.log(pdfImage.width, pdfImage.height);
     const canvasRect = canvas.getBoundingClientRect();
 
-    const xScale = canvasRect.width / canvas.width / pdfRect.width * pdfImage.width;
-    const yScale = canvasRect.height / canvas.height / pdfRect.height * pdfImage.height;
+    const xScale = canvasRect.width / canvas.width / pdfRect.width * pdfImage.naturalWidth;
+    const yScale = canvasRect.height / canvas.height / pdfRect.height * pdfImage.naturalHeight;
 
     const x = lassoBox.x;
     const pdfx = x * xScale;
@@ -474,8 +481,8 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     const pdfh = h * yScale;
 
     const tmpCanvas = document.createElement("canvas");
-    tmpCanvas.width = canvasRect.width;
-    tmpCanvas.height = canvasRect.height;
+    tmpCanvas.width = lassoBox.width * canvasRect.width / canvas.width;
+    tmpCanvas.height = lassoBox.height * canvasRect.height / canvas.height;
     const tmpContext = tmpCanvas.getContext("2d");
     if (tmpContext) {
       tmpContext.imageSmoothingEnabled = false;
@@ -485,6 +492,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         tmpContext.drawImage(layer.canvas, x, y, w, h, 0, 0, tmpCanvas.width, tmpCanvas.height);
       }
     }
+    console.log("tmpcanvas", tmpCanvas.toDataURL());
     return tmpCanvas.toDataURL();
   }
 
