@@ -112,7 +112,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
                       props.page,
                       props.focusedLasso,
                       activePromptIndex[2] + 1,
-                      props.prompts[activePromptIndex[1]],
+                      activePromptIndex[1],
                       prompt
                     );
                     console.log(response);

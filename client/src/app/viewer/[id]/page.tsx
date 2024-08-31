@@ -252,9 +252,9 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
       console.log("fetching answers");
 
       try {
-        console.log(prompts.current, activePromptIndex, prompts.current[activePromptIndex[1]]);
+        console.log(prompts.current, activePromptIndex, activePromptIndex[1]);
         setProcessing({type: ProcessingType.LASSO_LOADING_ANSWER, message: "Loading answer..."});
-        const response = await getLassoAnswers(projectId, page, focusedLasso, prompts.current[activePromptIndex[1]]);
+        const response = await getLassoAnswers(projectId, page, focusedLasso, activePromptIndex[1]);
         setProcessing({type: ProcessingType.NONE, message: ""});
         console.log("fetched answers", response);
         answers.current = response.map((result: {caption: string, result: string}) => result.result);
@@ -298,11 +298,11 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     prompts.current.map((prompt, idx) => {
       const className =
         "rounded-t-lg w-fit py-1 px-3 " +
-        (idx === activePromptIndex[1] ? "font-bold bg-white" : "bg-gray-200");
+        (prompt === activePromptIndex[1] ? "font-bold bg-white" : "bg-gray-200");
       
       return (
         <div className={className}
-          onClick = {() => {setActivePromptIndex([activePromptIndex[0], idx, 0]);}}
+          onClick = {() => {setActivePromptIndex([activePromptIndex[0], prompt, 0]);}}
           key={"subprompt-"+idx}
         >
           {prompt}

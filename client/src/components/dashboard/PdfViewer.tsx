@@ -1020,8 +1020,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       setProcessing({type: ProcessingType.NONE, message: ""});
       setReloadFlag((prev) => !prev);
       setFocusedLasso(response.lasso_id);
+      setClickedLasso({...clickedLasso, lassoId: response.lasso_id});
       setScriptMode("prompts");
-      setActivePromptIndex([activePromptIndex[0], idx, activePromptIndex[2]]);
+      setActivePromptIndex([activePromptIndex[0], prompt, activePromptIndex[2]]);
       console.log(response);
     }
 
