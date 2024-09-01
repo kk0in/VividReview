@@ -36,6 +36,7 @@ from PIL import Image
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer, util
 import time
+from deepmultilingualpunctuation import PunctuationModel
 
 app = FastAPI()
 logging.basicConfig(filename="info.log", level=logging.DEBUG)
@@ -271,14 +272,6 @@ def encode_image(image_path):
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
 
-    transcript_segment = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file,
-        response_format="verbose_json",
-        language="en",
-        timestamp_granularities=["segment"],
-    )
-
     transcript_word = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file,
@@ -287,19 +280,19 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
         timestamp_granularities=["word"],
     )
 
-    script = ''
-    for segment in transcript_segment.segments:
-        script += segment['text']
+    script = ""
+    for word in transcript_word.words:
+        script += word['word'] + " "
 
     script = script.strip()
+    model = PunctuationModel()
+    result = model.restore_punctuation(script)
 
     with open(timestamp_path, "w") as output_file:
         json.dump(transcript_word.words, output_file, indent=4)
 
     with open(transcription_path, "w") as output_file:
-        json.dump(script, output_file, indent=4)
-
-
+        json.dump(result, output_file, indent=4)
 
 def issue_id():
     """
@@ -1102,8 +1095,8 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
     output["pages"] = {}
     for para_id, paragraph_text in matched_paragraphs.items():
         words = paragraph_text.split()
-        gpt_start_time = word_timestamp[offset]["start"]
-        gpt_end_time = word_timestamp[offset + len(words) - 1]["end"] if int(para_id) < len(matched_paragraphs) else word_timestamp[-1]["end"]
+        gpt_start_time = word_timestamp[offset].get("start")
+        gpt_end_time = word_timestamp[offset + len(words) - 1].get("end") if int(para_id) < len(matched_paragraphs) else word_timestamp[-1].get("end")
         pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
         annotation = annotations[para_id]
         output["pages"][para_id] = {
@@ -1519,12 +1512,16 @@ async def activate_review(project_id: int):
     image_directory = os.path.join(IMAGE, str(project_id), 'raw')
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     matched_file_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
-
+    lasso_path = os.path.join(LASSO, f"{project_id}")
+    os.makedirs(lasso_path, exist_ok=True)
     page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
     keyword_dir = os.path.join(KEYWORD, str(project_id))
     os.makedirs(bbox_dir, exist_ok=True)
     os.makedirs(keyword_dir, exist_ok=True)
+
+    with open(os.path.join(lasso_path, 'info.json'), "w") as file:
+        json.dump({"prompts": ["summarize", "translate to korean"]}, file)
 
     with open(os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
@@ -2409,6 +2406,10 @@ async def delete_project(project_id: int):
         delete_project_files(RECORDING)
         delete_project_files(TOC)
         delete_project_files(LASSO)
+        delete_project_files(SIMILARITY)
+        delete_project_files(KEYWORD)
+        delete_project_files(ANNOTATIONS)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during deletion: {e}")
 
