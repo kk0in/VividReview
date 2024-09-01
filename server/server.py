@@ -1419,6 +1419,8 @@ async def search_query(project_id: int, search_query: str = Form(...), search_ty
     spm_path = os.path.join(SPM, f"{project_id}_page_info.json")
     similarity_path = os.path.join(SIMILARITY, str(project_id))
 
+    search_query = search_query.strip()
+
     with open(spm_path, "r") as file:
         page_info = json.load(file)
 
