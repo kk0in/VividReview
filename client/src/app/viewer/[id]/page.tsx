@@ -1718,7 +1718,7 @@ export default function Page({ params }: { params: { id: string } }) {
             </SearchModal>
             {isReviewMode && (
               <div
-                className="bg-white rounded-lg shadow-xl shadow-slate-200 h-fit"
+                className="bg-white rounded-lg shadow-xl shadow-slate-200 h-fit mb-12"
                 ref={containerRef}
               >
                 <ArousalGraph
