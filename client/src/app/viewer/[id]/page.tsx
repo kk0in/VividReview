@@ -1062,6 +1062,7 @@ export default function Page({ params }: { params: { id: string } }) {
       await fetchSemanticSearchSets();
       await fetchKeywordSearchSets();
       
+      setSelectedPages(new Set());
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error saving search set:", error);
@@ -1331,7 +1332,7 @@ export default function Page({ params }: { params: { id: string } }) {
                     <button
                       className={`px-4 py-2 text-white rounded ${
                         isSaveButtonDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700'
-                      } mr-4`}
+                      } mr-8`}
                       onClick={handleSaveSearchSet}
                       disabled={isSaveButtonDisabled}
                     >
