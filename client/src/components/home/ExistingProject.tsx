@@ -22,10 +22,6 @@ const ExistingProject: React.FC = () => {
   const [activationAvailable, setActivationAvailable] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    document.documentElement.requestFullscreen();
-  }, []);
-
   // get project list
   const { data: projectListData } = useQuery(["projectList"], getProjectList, {
     enabled: true, // 항상 호출

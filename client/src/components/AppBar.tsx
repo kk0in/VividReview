@@ -15,7 +15,8 @@ import {
   FaPlay,
   FaStepForward,
   FaStepBackward,
-  FaPause
+  FaPause,
+  FaExpand,
 } from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -232,10 +233,12 @@ export default function AppBar() {
                     key={item.name}
                     href={item.href}
                     className={classNames(
-                      pathname === item.href ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                      'rounded-md px-3 py-2 text-sm font-medium'
+                      pathname === item.href
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-300 hover:bg-gray-700 hover:text-white",
+                      "rounded-md px-3 py-2 text-sm font-medium"
                     )}
-                    aria-current={pathname === item.href ? 'page' : undefined}
+                    aria-current={pathname === item.href ? "page" : undefined}
                   >
                     {item.name}
                   </Link>
@@ -245,6 +248,26 @@ export default function AppBar() {
           </div>
           {isViewerPage && (
             <div className="flex space-x-4 items-center">
+              <FaExpand
+                className={classNames(
+                  "h-6 w-6 cursor-pointer transition-colors duration-300",
+                  temporaryActiveIcons.has("expand")
+                    ? "text-yellow-500"
+                    : "text-white"
+                )}
+                onClick={() => {
+                  try {
+                    handleTemporaryActivation("expand");
+                    if (document.fullscreenElement === null) {
+                      document.documentElement.requestFullscreen();
+                    } else {
+                      document.exitFullscreen();
+                    }
+                  } catch (error) {
+                    console.error(error);
+                  }
+                }}
+              />
               {icons.map(({ name, icon: Icon, tool }) => {
                 if (name === 'grid') {
                   return (
@@ -301,14 +324,12 @@ export default function AppBar() {
                   onClick={toggleSearchType}
                   className="absolute bg-slate-300 w-20 left-1 text-black px-2 py-1 rounded cursor-pointer outline-none"
                 >
-                  {searchType === 'semantic' ? 'Semantic' : 'Keyword'}
+                  {searchType === "semantic" ? "Semantic" : "Keyword"}
                 </button>
               </div>
             </div>
           )}
-          {
-            (isViewerPage && isReviewMode && <ReviewAppBar />)
-          }
+          {isViewerPage && isReviewMode && <ReviewAppBar />}
         </div>
       </div>
     </nav>
