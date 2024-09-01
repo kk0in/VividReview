@@ -5,10 +5,10 @@ export type Prompt = {
   answers: string[];
 }
 
-export const defaultPrompts: Prompt[] = [
-  {prompt: "summarize", answers: []},
-  {prompt: "translate to korean", answers: []}
-]
+export const defaultPromptsState = atom<string[]>({
+  key: "defaultPromptsState",
+  default: ["summarize", "translate to korean"]
+});
 
 export const focusedLassoState = atom<number | null>({
   key: 'focusedLassoState',

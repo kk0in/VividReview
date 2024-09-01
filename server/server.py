@@ -1280,6 +1280,52 @@ async def lasso_transform(
         "version": version_count
     }
 
+class LassoPromptData(BaseModel):
+    prompt_text: str
+
+@app.post("/api/remove_lasso_prompt/{project_id}")
+async def remove_lasso_prompt(project_id: int, data: LassoPromptData):
+    prompt = data.prompt_text
+
+    lasso_path = os.path.join(LASSO, str(project_id), "info.json")
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Project ID not found")
+    
+    lasso_info ={}
+    with open(lasso_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        if prompt in lasso_info["prompts"]:
+            lasso_info["prompts"].remove(prompt)
+        else:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+    with open(lasso_path, "w") as json_file:
+        json.dump(lasso_info, json_file, indent=4)
+    
+    return {"message": "Prompt removed successfully"}
+
+
+@app.get("/api/project_prompts/{project_id}")
+async def project_prompts(project_id: int):
+    """
+    특정 project id에 대한 모든 프롬프트 텍스트를 반환하는 API 엔드포인트입니다.
+
+    :param project_id: 프로젝트 ID
+    :param page_num: 페이지 번호
+    :param lasso_id: Lasso ID
+    """
+
+    lasso_path = os.path.join(LASSO, str(project_id))
+    if not os.path.exists(lasso_path):
+        raise HTTPException(status_code=404, detail="Lasso ID not found")
+    
+    prompt_texts = []
+
+    info_json_path = os.path.join(lasso_path, "info.json")
+    with open(info_json_path, "r") as json_file:
+        lasso_info = json.load(json_file)
+        prompt_texts = lasso_info["prompts"]
+    
+    return prompt_texts
 
 @app.get("/api/lasso_prompts/")
 async def lasso_prompts(project_id: int, page_num: int, lasso_id: int):
@@ -1303,7 +1349,6 @@ async def lasso_prompts(project_id: int, page_num: int, lasso_id: int):
         prompt_texts = lasso_info["prompts"]
     
     return prompt_texts
-
 
 class AddPromptData(BaseModel):
     project_id: int
@@ -1359,6 +1404,7 @@ async def lasso_query(data: Lasso_Query_Data):
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     lasso_id = cur_lasso_id if cur_lasso_id else issue_lasso_id(project_id, page_num)
     lasso_path = os.path.join(LASSO, f"{project_id}", f"{page_num}", f"{lasso_id}")
+    project_info_path = os.path.join(LASSO, f"{project_id}", "info.json")
     os.makedirs(lasso_path, exist_ok=True)
 
     # 이미지 인코딩
@@ -1391,6 +1437,14 @@ async def lasso_query(data: Lasso_Query_Data):
               info_json_data["prompts"].append(prompt_text)
         with open(info_json_path, "w") as json_file:
             json.dump(info_json_data, json_file, indent=4)
+
+    project_info = {}
+    with open(project_info_path, "r") as json_file:
+        project_info = json.load(json_file)
+        if prompt_text not in project_info["prompts"]:
+            project_info["prompts"].append(prompt_text)
+    with open(project_info_path, "w") as json_file:
+        json.dump(project_info, json_file, indent=4)
 
     # 요약된 내용 JSON 파일로 저장
     result_path = os.path.join(lasso_path, sanitize_filename(prompt_text))
@@ -2446,6 +2500,11 @@ async def upload_project(
         json.dump(metadata, f)
 
     executor.submit(metadata_file_path, pdf_file_path)
+
+    lasso_path = os.path.join(LASSO, str(id), "info.json")
+    os.makedirs(os.path.join(LASSO, str(id)), exist_ok=True)
+    with open(lasso_path, "w") as f:
+        json.dump({"prompts": ["summarize", "translate to korean"]}, f)
 
     return JSONResponse(
         content={"id": id, "redirect_url": f"/viewer/{id}?mode=default"}
