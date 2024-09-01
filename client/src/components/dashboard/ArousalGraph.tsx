@@ -265,7 +265,7 @@ const ArousalGraph = ({
   ]);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center">
+    <div className="relative w-full h-[25vh] flex flex-col items-center">
       <ResponsiveContainer width="100%" height="40%">
         <LineChart data={processedData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -360,7 +360,7 @@ const ArousalGraph = ({
                 pageStartTime={calculateScalingFactor(pageStartTime)}
                 pageEndTime={calculateScalingFactor(pageEndTime)}
                 y={0}
-                y2={graphHeight * 0.4 - 31}
+                y2={graphHeight * 0.4 - 33}
               />
             }
           />
@@ -369,7 +369,7 @@ const ArousalGraph = ({
               <CurrentPositionLine
                 x={circlePosition + 5}
                 y1={0}
-                y2={graphHeight * 0.4 - 31}
+                y2={graphHeight * 0.4 - 33}
               />
             }
           />
@@ -401,7 +401,7 @@ const ArousalGraph = ({
         />
       </div>
       <div
-        className={`absolute inset-x-[5px] w-[calc(100%-10px)] h-[80%]`}
+        className={`absolute inset-x-[5px] inset-y-[20px] w-[calc(100%-10px)] h-[70%]`}
         ref={divRef}
       ></div>
       <CustomToggleSwitch
