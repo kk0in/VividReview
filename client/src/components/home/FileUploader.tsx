@@ -25,10 +25,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
       maxFiles: 1
     });
 
-  useEffect(() => {
-    document.documentElement.requestFullscreen();
-  }, [document]);
-
   return (
     <div {...getRootProps()} className="w-full h-full px-6 py-12">
       <input {...getInputProps()} />
