@@ -29,7 +29,7 @@ import {
   reloadFlagState,
   rerenderFlagState,
   activePromptState,
-  defaultPrompts
+  defaultPromptsState
 } from "@/app/recoil/LassoState";
 import PromptDisplay from "@/components/dashboard/PromptDisplay";
 
@@ -213,11 +213,12 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const [focusedLasso, setFocusedLasso] = useRecoilState(focusedLassoState);
   const [rerenderFlag, setRerenderFlag] = useRecoilState(rerenderFlagState);
+  const [defaultPrompts, setDefaultPrompts] = useRecoilState(defaultPromptsState);
   const reloadFlag = useRecoilValue(reloadFlagState);
   const setProcessing = useSetRecoilState(processingState);
   const lassos = useRef<{lasso_id: number, name: string}[]>([]);
   const answers = useRef<string[]>([]);
-  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt.prompt));
+  const prompts = useRef<string[]>(defaultPrompts.map((prompt) => prompt));
 
   useEffect(() => {
     const fetchLassos = async () => {
@@ -231,7 +232,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
       if(focusedLasso === null){
         console.log("focus lasso is null");
         if(lassos.current.length > 0) setFocusedLasso(lassos.current[0].lasso_id);
-        prompts.current = defaultPrompts.map((prompt) => prompt.prompt);
+        prompts.current = defaultPrompts.map((prompt) => prompt);
         return;
       }
       console.log("fetching prompts");
@@ -274,7 +275,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
   const lassoTabElements = lassos.current.map((lasso, idx) => {
     const className =
       "rounded grow py-1 px-3 " +
-      (idx === activePromptIndex[0]
+      (lasso.lasso_id === activePromptIndex[0]
         ? "bg-slate-500 text-white shadow-lg font-bold "
         : "bg-slate-200")
 
@@ -282,12 +283,12 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
       <div
         className={className}
         onClick={() => {
-          setActivePromptIndex([idx, activePromptIndex[1], 0]);
+          setActivePromptIndex([lasso.lasso_id, activePromptIndex[1], 0]);
           setFocusedLasso(lasso.lasso_id);
         }}
         key={"sublasso-" + idx}
       >
-        {idx === activePromptIndex[0]
+        {lasso.lasso_id === activePromptIndex[0]
           ? lasso.name
           : lasso.name.slice(0, 5) + "..."}
       </div>

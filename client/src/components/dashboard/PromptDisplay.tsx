@@ -52,10 +52,10 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           ? preprocessText(props.answers[activePromptIndex[2]], []).map(
               (line) => {
                 return (
-                  <>
+                  <div key={`promptdisplaysubdiv-${line}`}>
                     {line}
                     <br />
-                  </>
+                  </div>
                 );
               }
             )
