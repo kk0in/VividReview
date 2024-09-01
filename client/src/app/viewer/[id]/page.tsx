@@ -1289,7 +1289,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 ))}
             </div>
           </div>
-          <div className="flex flex-col w-3/5 bg-slate-100 p-3 text-black">
+          <div className={"flex flex-col bg-slate-100 p-3 text-black " + (isReviewMode ? "w-3/5 " : "w-4/5") }>
             <PdfViewer
               scale={1.5}
               projectId={params.id}
