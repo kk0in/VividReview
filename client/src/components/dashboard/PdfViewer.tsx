@@ -1105,17 +1105,16 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div className="flex w-full flex-col items-center">
+    <div className="flex w-full h-full flex-col items-center">
       <div className="flex w-full justify-center">
         <div
           className="relative flex flex-col w-full items-center"
           ref={viewerRef}
-          style={{ width: 1120 }}
         >
           <div
             className={
               "overflow-y-auto w-fit " +
-              (isReviewMode ? "max-h-[56vh] " : "max-h-[85vh] ") +
+              (isReviewMode ? "max-h-[55vh] " : "max-h-[85vh] ") +
               (gridMode !== 0 ? "grid grid-cols-2 justify-items-center" : "shadow-xl ")
             }
           >
@@ -1173,9 +1172,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           {clickedLasso !== null && isReviewMode && <PromptList />}
         </div>
       </div>
-      <div className="relative w-[60vw] h-10 z-[2] text-sm mt-3 mb-5">
+      <div className="relative w-[60vw] h-[7vh] z-[2] text-sm mt-4">
         <button
-          className="absolute right-[51%] w-28 justify-center h-10 flex items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute right-[51%] w-28 justify-center h-10 flex items-center bg-slate-600 text-white p-2 rounded disabled:text-zinc-400"
           onClick={goToPreviousPage}
           disabled={pageNumber <= 1}
         >
@@ -1183,7 +1182,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           Previous
         </button>
         <button
-          className="absolute left-[51%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded disabled:text-zinc-400"
+          className="absolute left-[51%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 rounded disabled:text-zinc-400"
           onClick={goToNextPage}
           disabled={
             gridMode === 0
@@ -1199,7 +1198,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <FaArrowCircleRight className="w-fit h-4 ml-2" />
         </button>
         <button
-          className="absolute right-[5%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 my-1 rounded"
+          className="absolute right-[5%] flex w-28 justify-center h-10 items-center bg-slate-600 text-white p-2 rounded"
           onClick={handleSave}
         >
           <FaSave className="w-fit h-4 mr-2" />

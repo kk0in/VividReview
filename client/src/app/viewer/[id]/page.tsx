@@ -1289,7 +1289,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 ))}
             </div>
           </div>
-          <div className="flex-auto h-full w-3/5 bg-slate-100 p-3 text-black">
+          <div className="flex flex-col w-3/5 bg-slate-100 p-3 text-black">
             <PdfViewer
               scale={1.5}
               projectId={params.id}
@@ -1717,8 +1717,7 @@ export default function Page({ params }: { params: { id: string } }) {
             </SearchModal>
             {isReviewMode && (
               <div
-                className="bg-white py-1 rounded-lg shadow-xl shadow-slate-200"
-                style={{ height: "25vh" }} // Custom height using inline style
+                className="bg-white rounded-lg shadow-xl shadow-slate-200 h-fit"
                 ref={containerRef}
               >
                 <ArousalGraph

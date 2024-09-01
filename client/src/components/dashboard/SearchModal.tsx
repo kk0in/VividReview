@@ -2,6 +2,7 @@ import React from 'react';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { FaXmark } from "react-icons/fa6";
 
 ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
 
@@ -30,10 +31,10 @@ export default function SearchModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-gray-200 rounded-lg shadow-lg w-11/12 max-w-7xl h-full p-6 relative">
         <button
-          className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-3xl"
+          className="absolute bg-slate-400 p-1 rounded-full top-2 right-2 text-slate-700 hover:text-slate-900 text-3xl"
           onClick={onClose}
         >
-          X
+          <FaXmark />
         </button>
         <div className="h-full overflow-y-auto relative">
           {children}
