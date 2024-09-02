@@ -1013,57 +1013,66 @@ def calculate_similarity(data, query):
     return results
 
 
+# def get_pdf_text_and_image(project_id, para_id, pdf_path):
+#     doc = pymupdf.open(pdf_path)
+#     page_num = int(para_id) - 1
+#     page = doc.load_page(page_num)
+#     text = page.get_text("text")
+#     images_info = page.get_image_info(xrefs=True)
+#     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
+#     os.makedirs(image_path, exist_ok=True)
+
+#     crop_images = []
+#     for image_index, img_info in enumerate(images_info):
+#         xref = img_info["xref"]  # 이미지의 xref 값
+#         base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+#         image_bytes = base_image["image"]  # 이미지 바이트 데이터
+#         crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+#         crop_images.append(crop_path)
+#         # 이미지 저장
+#         with open(crop_path, "wb") as img_file:
+#             img_file.write(image_bytes)
+            
+#     return text, crop_images
+
 def get_pdf_text_and_image(project_id, para_id, pdf_path):
-    doc = pymupdf.open(pdf_path)
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception as e:
+        raise ValueError(f"Failed to open the PDF file: {e}")
+
     page_num = int(para_id) - 1
+    if page_num < 0 or page_num >= len(doc):
+        raise ValueError(f"Invalid para_id: {para_id}. It must be within the range of the document pages.")
+
     page = doc.load_page(page_num)
     text = page.get_text("text")
-    images_info = page.get_image_info(xrefs=True)
+    
+    images_info = page.get_images(full=True)
     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
     os.makedirs(image_path, exist_ok=True)
 
     crop_images = []
     for image_index, img_info in enumerate(images_info):
-        xref = img_info["xref"]  # 이미지의 xref 값
-        base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-        image_bytes = base_image["image"]  # 이미지 바이트 데이터
-        crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-        crop_images.append(crop_path)
-        # 이미지 저장
-        with open(crop_path, "wb") as img_file:
-            img_file.write(image_bytes)
+        xref = img_info[0]  # 이미지의 xref 값, 리스트의 첫 번째 요소로 위치를 가져옴
+        try:
+            base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+            if not base_image:
+                print(f"Skipping empty image data for xref {xref} on page {page_num + 1}")
+                continue
+            
+            image_bytes = base_image["image"]  # 이미지 바이트 데이터
+            crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+            crop_images.append(crop_path)
+            # 이미지 저장
+            with open(crop_path, "wb") as img_file:
+                img_file.write(image_bytes)
+        except Exception as e:
+            print(f"Skipping invalid xref {xref} on page {page_num + 1} due to error: {e}")
+            continue
             
     return text, crop_images
 
-# def get_pdf_text_and_image(project_id, pdf_path):
-#     try:
-#         doc = fitz.open(pdf_path)
-#     except Exception as e:
-#         raise ValueError(f"Failed to open the PDF file: {e}")
-
-#     for page_num in range(len(doc)):
-#         page = doc.load_page(page_num)
-#         text = page.get_text("text")
-#         images_info = page.get_images(full=True)
-#         image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
-#         os.makedirs(image_path, exist_ok=True)
-
-#         crop_images = []
-#         for image_index, img_info in enumerate(images_info):
-#             xref = img_info[0]  # 이미지의 xref 값, 첫 번째 요소로 위치를 가져옴
-#             try:
-#                 base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-#                 image_bytes = base_image["image"]  # 이미지 바이트 데이터
-#                 crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-#                 crop_images.append(crop_path)
-#                 # 이미지 저장
-#                 with open(crop_path, "wb") as img_file:
-#                     img_file.write(image_bytes)
-#             except ValueError as e:
-#                 print(f"Skipping invalid xref {xref} on page {page_num + 1}: {e}")
-#                 continue
-
-#         return text, crop_images
 
 
 def find_important_parts(data):
@@ -1184,8 +1193,8 @@ def timestamp_for_bbox(project_id, word_timestamp):
                 continue
             bbox = item["bbox"]
 
-            if bbox and isinstance(bbox[0], list):
-                bbox = bbox[0]    
+            if not isinstance(bbox, list) or not all(isinstance(coord, (int, float)) for coord in bbox):
+                continue
             if not bbox or bbox[2] == 0 or bbox[3] == 0:
                 continue
 
@@ -1602,16 +1611,6 @@ async def activate_review(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
     print("Completed - Phase 2: spatially match the script content to the images")
-
-
-    # Phase 3: Prosodic Analysis
-    try:
-        await prosodic_analysis(project_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error during prosodic analysis: {e}"
-        )
-    print("Completed - Phase 3: Prosodic Analysis")
 
     # Time Stamping for matched paragraphs (temporal)
     output = create_page_info(project_id, matched_paragraphs, word_timestamp)
@@ -2204,6 +2203,13 @@ async def save_recording(
         executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
+    
+    try:
+        await prosodic_analysis(project_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error during prosodic analysis: {e}"
+        )
 
     return {"message": "Recording saved and STT processing started successfully"}
 

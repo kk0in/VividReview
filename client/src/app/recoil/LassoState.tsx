@@ -7,7 +7,7 @@ export type Prompt = {
 
 export const defaultPromptsState = atom<string[]>({
   key: "defaultPromptsState",
-  default: ["summarize", "translate to korean"]
+  default: ["briefly explain", "translate to korean"]
 });
 
 export const focusedLassoState = atom<number | null>({
