@@ -15,16 +15,6 @@ export interface IToCIndex {
   subsection: number;
 }
 
-export enum ProcessingType {
-  SEARCHING,
-  SAVING_RECORDING,
-  SAVING_ANNOTATED_PDF,
-  LASSO_QUERYING,
-  LASSO_LOADING_ANSWER,
-  REMOVING_SEARCH_RESULT,
-  NONE,
-}
-
 export const pdfPageState = atom({
   key: "pdfPageState",
   default: 1,
@@ -55,7 +45,7 @@ export const scriptModeState = atom<string>({
   default: "script",
 });
 
-export const processingState = atom<{type: ProcessingType, message: string}>({
+export const processingState = atom<{isProcessing: boolean, message: string}>({
   key: "processingState",
-  default: {type: ProcessingType.NONE, message: ""},
+  default: {isProcessing: false, message: ""},
 });
