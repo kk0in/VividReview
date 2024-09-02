@@ -143,7 +143,7 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
       },
     },
     {
-      title: "Processing",
+      title: "Formal",
       onClick: () => {
         setFocusedTabIndex(1);
       },
