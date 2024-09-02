@@ -211,6 +211,19 @@ export async function getSemanticSearchSets({queryKey}: {queryKey: string[]}) {
     return response.data;
 }
 
+export async function removeSearchResult({ queryKey }: { queryKey: string[] }) {
+  const [_key, project_id, search_id, search_type] = queryKey;
+  const response = await axios.post(
+    SERVER_ENDPOINT + `api/remove_search_result/${project_id}/${search_id}/${search_type}`,
+    {
+      headers: {
+        "ngrok-skip-browser-warning": "69420",
+      },
+    }
+  );
+  return response.data;
+}
+
 export async function getKeywordSearchSets({queryKey}: {queryKey: string[]}) {
     const [_key, project_id] = queryKey;
     const response = await axios.get(SERVER_ENDPOINT+`api/get_search_sets/${project_id}`, {

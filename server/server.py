@@ -1750,6 +1750,49 @@ async def get_search_sets(project_id: int, search_type: str):
 
     return search_sets
 
+
+@app.post("/api/remove_search_result/{project_id}/{search_id}/{search_type}")
+async def remove_search_result(project_id: int, search_id: int, search_type: str):
+    """
+    특정 프로젝트 ID와 search_id에 해당하는 semantic 검색 결과를 제거하는 API 엔드포인트입니다.
+    프로젝트 ID와 search_id 디렉토리에서 JSON 파일을 찾아 반환합니다.
+
+    :param project_id: 프로젝트 ID
+    :param search_id: 검색결과 ID
+    :param search_type: 검색 종류 ('semantic' or 'keyword')
+    """
+
+    search_path = os.path.join(SIMILARITY, str(project_id))
+
+    if not os.path.exists(search_path):
+        raise HTTPException(status_code=404, detail="Search files not found")
+    
+    is_removed = False
+    target_file_path = ""
+    search_sets = []
+    for filename in os.listdir(search_path):
+        if filename.endswith(f"{search_type}.json"):
+            filepath = os.path.join(search_path, filename)
+            with open(filepath, "r") as file:
+                data = json.load(file)
+                # "page_set" 키가 있는 JSON 파일만 필터링
+                if "page_set" in data:
+                    file_search_id = filename.split("_")[0]  # 파일 이름에서 search_id 추출
+                    if (file_search_id == str(search_id)):
+                        target_file_path = filepath
+                        is_removed = True
+                    else:
+                        search_sets.append({
+                            "search_id": int(file_search_id),
+                            "query": data.get("query", ""),
+                        })
+    if is_removed:
+        os.remove(target_file_path)
+        return search_sets
+    else:
+        raise HTTPException(status_code=404, detail="Search set not found")
+
+
 @app.get("/api/get_page_info/{project_id}", status_code=200)
 async def get_page_info(project_id: int):
     """
