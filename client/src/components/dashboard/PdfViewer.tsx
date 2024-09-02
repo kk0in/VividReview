@@ -10,7 +10,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
 import { toolState, recordingState, gridModeState, isSaveClickedState } from "@/app/recoil/ToolState";
 import { getNewHistoryId, historyState, HistoryType, redoStackState } from "@/app/recoil/HistoryState";
-import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState, processingState, ProcessingType } from "@/app/recoil/ViewerState";
+import { pdfPageState, tocState, tocIndexState, pdfImagesState, scriptModeState, processingState } from "@/app/recoil/ViewerState";
 import { defaultPromptsState, focusedLassoState, reloadFlagState, activePromptState, Prompt } from "@/app/recoil/LassoState";
 import { saveAnnotatedPdf, getPdf, saveRecording, lassoQuery, getLassoInfo, getRawImages, projectPrompts, removeLassoPrompt } from "@/utils/api";
 import "./Lasso.css";
@@ -585,10 +585,10 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           drawings.push(tmpCanvas.toDataURL());
         }
       }
-      setProcessing({type: ProcessingType.SAVING_ANNOTATED_PDF, message: "Saving annotated pdf..."});
+      setProcessing({isProcessing: true, message: "Saving annotated pdf..."});
       await saveAnnotatedPdf(projectId, drawings);
       console.log("Annotated PDF saved successfully");
-      setProcessing({type: ProcessingType.NONE, message: ""});
+      setProcessing({isProcessing: false, message: ""});
       
       // Update the Recoil state to enable the useQuery call
       setIsSaveClicked(true);
@@ -596,7 +596,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
     } catch (error) {
       console.error("Failed to save annotated PDF:", error);
       alert("Failed to save annotated PDF");
-      setProcessing({type: ProcessingType.NONE, message: ""});
+      setProcessing({isProcessing: false, message: ""});
     };
   };
 
@@ -651,15 +651,15 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           formData.append('drawings', JSON.stringify(drawings));
 
           try {
-            setProcessing({type: ProcessingType.SAVING_RECORDING, message: "Saving recorded lecture audio..."});
+            setProcessing({isProcessing: true, message: "Saving recorded lecture audio..."});
             await saveRecording(projectId, formData); // 서버에 녹음 파일 저장
             console.log("Recording saved successfully");
-            setProcessing({type: ProcessingType.NONE, message: ""});
+            setProcessing({isProcessing: false, message: ""});
             pageTimeline.current = [];
           } catch (error) {
             console.error("Failed to save recording:", error);
             alert("Failed to save recorded lecture audio.");
-            setProcessing({type: ProcessingType.NONE, message: ""});
+            setProcessing({isProcessing: false, message: ""});
           }
         };
       }
@@ -1047,9 +1047,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       console.log("clickedLasso", clickedLasso);
       const image = (clickedLasso.image && (clickedLasso.image !== null)) ? clickedLasso.image : getImage(clickedLasso.boundingBox);
       console.log(image);
-      setProcessing({type: ProcessingType.LASSO_QUERYING, message: "Querying lasso..."});
+      setProcessing({isProcessing: true, message: "Querying lasso..."});
       const response = await lassoQuery(projectId, pageNumber, prompt, image, boxToArray(clickedLasso.boundingBox), clickedLasso.lassoId);
-      setProcessing({type: ProcessingType.NONE, message: ""});
+      setProcessing({isProcessing: false, message: ""});
       setReloadFlag((prev) => !prev);
       setFocusedLasso(response.lasso_id);
       setClickedLasso({...clickedLasso, lassoId: response.lasso_id});

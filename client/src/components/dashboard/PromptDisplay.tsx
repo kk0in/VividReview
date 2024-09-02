@@ -1,11 +1,13 @@
 import React from "react";
 import { lassoTransform } from "@/utils/api";
-import { useRecoilState } from "recoil";
+import { useRecoilState, useSetRecoilState } from "recoil";
 import { activePromptState } from "@/app/recoil/LassoState";
 import { TriangleLeftIcon, TriangleRightIcon } from "@primer/octicons-react";
+import { processingState } from "@/app/recoil/ViewerState";
 
 const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number, prompts: string[], rerenderFlag: boolean}) => {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
+  const setProcessing = useSetRecoilState(processingState);
 
   const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
 
@@ -109,6 +111,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
                 <button
                   className="bg-slate-500 text-white grow rounded mx-0.5 px-2 py-1"
                   onClick={async () => {
+                    setProcessing({isProcessing: true, message: "Transforming answers..."});
                     const response = await lassoTransform(
                       props.projectId,
                       props.page,
@@ -117,6 +120,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
                       activePromptIndex[1],
                       transformedPrompt
                     );
+                    setProcessing({isProcessing: false, message: ""});
                     console.log(response);
                     setActivePromptIndex([
                       activePromptIndex[0],

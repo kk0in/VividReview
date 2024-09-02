@@ -5,7 +5,7 @@ import PdfViewer from "@/components/dashboard/PdfViewer";
 import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState, isSaveClickedState } from "@/app/recoil/ToolState";
-import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState, processingState, ProcessingType } from '@/app/recoil/ViewerState';
+import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState, processingState } from '@/app/recoil/ViewerState';
 import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts, removeSearchResult } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -174,10 +174,27 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
       return result;
     };
 
-    const processedHTML = text ? text.replace(/- (.*?)(\n|$)/g, "• $1\n")
-                                     .replace(/\n/g, "<br />")
-                                     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                                     .replace(/  /g, "\u00a0\u00a0") : "";
+    const processedHTML = text
+      ? text
+          .replace(
+            /      - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 2.1rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /    - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 1.4rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /  - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 0.7rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /- (.*?)(\n|$)/g,
+            "<div style='display: flex'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br />")
+      : "";
     return highlightKeywords(processedHTML, keywords);
   };
 
@@ -256,16 +273,16 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
 
       try {
         console.log(prompts.current, activePromptIndex, activePromptIndex[1]);
-        setProcessing({type: ProcessingType.LASSO_LOADING_ANSWER, message: "Loading answer..."});
+        setProcessing({isProcessing: true, message: "Loading answer..."});
         const response = await getLassoAnswers(projectId, page, focusedLasso, activePromptIndex[1]);
-        setProcessing({type: ProcessingType.NONE, message: ""});
+        setProcessing({isProcessing: false, message: ""});
         console.log("fetched answers", response);
         answers.current = response.map((result: {caption: string, result: string}) => result.result);
         console.log("mapped answers", answers.current);
       } catch (e) {
         console.log("Failed to fetch answers:", e);
         // alert("Failed to load answers");
-        setProcessing({type: ProcessingType.NONE, message: ""});
+        setProcessing({isProcessing: false, message: ""});
         answers.current = [];
       }
       setRerenderFlag((prev) => !prev);
@@ -1077,7 +1094,7 @@ export default function Page({ params }: { params: { id: string } }) {
     if (query.trim() === "") return;
     try {
       console.log('start search');
-      setProcessing({type: ProcessingType.SEARCHING, message: "Searching..."});
+      setProcessing({isProcessing: true, message: "Searching..."});
       const result = await searchQuery(projectId, query, type);
       setSearchId(result.search_id); // 검색 ID를 저장
       setSelectedSearchId(null); // 선택된 search_id 초기화
@@ -1086,12 +1103,12 @@ export default function Page({ params }: { params: { id: string } }) {
       setPreviousQuery(query);
       setQueryText(query);
       console.log('end search');
-      setProcessing({type: ProcessingType.NONE, message: ""});
+      setProcessing({isProcessing: false, message: ""});
     } catch (error) {
       console.error("Error during search:", error);
       alert("Searching is failed. Please click save button first.");
       setSearchQuery((prevState) => ({ ...prevState, query: '' }));
-      setProcessing({type: ProcessingType.NONE, message: ""});
+      setProcessing({isProcessing: false, message: ""});
     }
   };
 
@@ -1123,7 +1140,7 @@ export default function Page({ params }: { params: { id: string } }) {
     try {
       console.log("remove search result");
       setProcessing({
-        type: ProcessingType.REMOVING_SEARCH_RESULT,
+        isProcessing: true,
         message: "Removing...",
       });
       const result = await removeSearchResult({
@@ -1135,10 +1152,10 @@ export default function Page({ params }: { params: { id: string } }) {
         setSemanticSearchSets(result);
       }
       console.log("end removing");
-      setProcessing({ type: ProcessingType.NONE, message: "" });
+      setProcessing({ isProcessing: false, message: "" });
     } catch (error) {
       console.error("Error during search:", error);
-      setProcessing({ type: ProcessingType.NONE, message: "" });
+      setProcessing({ isProcessing: false, message: "" });
     }
   };
 
@@ -1248,7 +1265,7 @@ export default function Page({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-full flex flex-col">
-      {currentProcessing.type !== ProcessingType.NONE && (
+      {currentProcessing.isProcessing && (
         <div className="fixed flex flex-col inset-0 w-full h-full items-center justify-center z-50 bg-opacity-40 bg-black">
           <svg className="animate-spin h-24 w-24 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
