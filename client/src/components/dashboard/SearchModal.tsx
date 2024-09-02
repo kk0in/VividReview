@@ -31,14 +31,12 @@ export default function SearchModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-gray-200 rounded-lg shadow-lg w-11/12 max-w-7xl h-full p-6 relative">
         <button
-          className="absolute bg-slate-400 p-1 rounded-full top-2 right-2 text-slate-700 hover:text-slate-900 text-3xl"
+          className="absolute z-10 bg-slate-400 p-1 rounded-full top-2 right-2 text-slate-700 hover:text-slate-900 text-3xl"
           onClick={onClose}
         >
           <FaXmark />
         </button>
-        <div className="h-full overflow-y-auto relative">
-          {children}
-        </div>
+        <div className="h-full overflow-y-auto relative">{children}</div>
       </div>
     </div>
   );
