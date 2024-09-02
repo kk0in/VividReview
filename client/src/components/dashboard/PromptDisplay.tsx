@@ -103,6 +103,8 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       {showFlag && (
         <div className="change-answers flex flex-row justify-items-center font-sans">
           {["regenerate", "shorten", "bullet point"].map((prompt, idx) => {
+            const transformedPrompt = prompt === "bullet point" ? "bullet_point" : prompt;
+
             return (
                 <button
                   className="bg-slate-500 text-white grow rounded mx-0.5 px-2 py-1"
@@ -113,7 +115,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
                       props.focusedLasso,
                       activePromptIndex[2] + 1,
                       activePromptIndex[1],
-                      prompt
+                      transformedPrompt
                     );
                     console.log(response);
                     setActivePromptIndex([

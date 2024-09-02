@@ -2086,9 +2086,9 @@ async def save_recording(
     annnotation_path = os.path.join(ANNOTATIONS, f"{project_id}_annotation.json")
     drawings_dir = os.path.join(ANNOTATIONS, f"{project_id}")
     os.makedirs(drawings_dir, exist_ok=True)
-    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
-    with open(page_info_path, "r") as file:
-        page_info = json.load(file)
+    # page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
+    # with open(page_info_path, "r") as file:
+    #     page_info = json.load(file)
 
     pdf_file = [
         file
@@ -2148,13 +2148,13 @@ async def save_recording(
         remove_transparency(image_path)
         text = detect_handwritten_text(image_path)
         ocr_results[str(i + 1)] = text.strip()
-        page_info["pages"][str(i + 1)]["annotation"] = text.strip()
+        # page_info["pages"][str(i + 1)]["annotation"] = text.strip()
 
     with open(annnotation_path, "w") as json_file:
         json.dump(ocr_results, json_file, indent=4)
     
-    with open(page_info_path, "w") as file:
-        json.dump(page_info, file, indent=4)
+    # with open(page_info_path, "w") as file:
+    #     json.dump(page_info, file, indent=4)
 
     # save recording file
     with open(webm_path, "wb") as buffer:
