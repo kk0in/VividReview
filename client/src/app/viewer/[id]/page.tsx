@@ -6,7 +6,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 import { pdfDataState } from "@/app/recoil/DataState";
 import { gridModeState, searchQueryState, inputTextState, searchTypeState, isSaveClickedState } from "@/app/recoil/ToolState";
 import { pdfPageState, tocState, IToCSubsection, tocIndexState, matchedParagraphsState, scriptModeState, processingState, ProcessingType } from '@/app/recoil/ViewerState';
-import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts } from "@/utils/api";
+import { getProject, getPdf, getTableOfContents, getMatchParagraphs, getRecording, getBbox, getKeywords, getPageInfo, getProsody, searchQuery, getSearchResult, getRawImages, getAnnotatedImages, saveSearchSet, getSemanticSearchSets, getKeywordSearchSets, lassoPrompts, getLassosOnPage, getLassoAnswers, getMissedAndImportantParts, removeSearchResult } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import Image from "next/image";
@@ -35,6 +35,8 @@ import PromptDisplay from "@/components/dashboard/PromptDisplay";
 
 import { Pie } from 'react-chartjs-2';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+import { FaXmark } from "react-icons/fa6";
+
 Chart.register(ArcElement, Tooltip, Legend);
 
 import {
@@ -1112,6 +1114,34 @@ export default function Page({ params }: { params: { id: string } }) {
     fetchPageList(searchId, searchType); // 페이지 리스트 가져오기
   };
 
+  const handleRemoveSearch = async (searchId: string, searchType: string) => {
+    if (searchType != "keyword" && searchType != "semantic") {
+      alert("invalid searchType:" + searchType);
+      return;
+    }
+
+    try {
+      console.log("remove search result");
+      setProcessing({
+        type: ProcessingType.REMOVING_SEARCH_RESULT,
+        message: "Removing...",
+      });
+      const result = await removeSearchResult({
+        queryKey: ["getSearchResult", projectId, searchId, searchType],
+      });
+      if (searchType === "keyword") {
+        setKeywordSearchSets(result);
+      } else {
+        setSemanticSearchSets(result);
+      }
+      console.log("end removing");
+      setProcessing({ type: ProcessingType.NONE, message: "" });
+    } catch (error) {
+      console.error("Error during search:", error);
+      setProcessing({ type: ProcessingType.NONE, message: "" });
+    }
+  };
+
   const handleToggle = (toggleType: string) => {
     const totalTogglesOn = [toggleScript, togglePdfText, togglePdfImage, toggleAnnotation].filter(t => t).length;
 
@@ -1263,13 +1293,17 @@ export default function Page({ params }: { params: { id: string } }) {
                 .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
                 .map(({ search_id, query }) => (
                   <div
-                    key={search_id}
-                    className={`px-3 py-2 mb-1 rounded-lg ${
-                      selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
-                    }`}
-                    onClick={() => handleBoxClick(search_id, query, 'semantic')}
-                  >
-                    {search_id}. {query}
+                  key={search_id}
+                  className={`flex flex-row flex-auto items-center px-3 py-2 mb-1 rounded-lg ${
+                    selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
+                  }`}>
+                    <div className="grow"
+                      onClick={() => handleBoxClick(search_id, query, 'semantic')}
+                    >
+                      {search_id}. {query}
+                    </div>
+                    <FaXmark className="w-fit" 
+                      onClick={() => handleRemoveSearch(search_id.toString(), 'semantic')}/>
                   </div>
                 ))}
             </div>
@@ -1280,13 +1314,17 @@ export default function Page({ params }: { params: { id: string } }) {
                 .sort((a, b) => a.search_id - b.search_id) // search_id 기준으로 정렬
                 .map(({ search_id, query }) => (
                   <div
-                    key={search_id}
-                    className={`px-3 py-2 mb-1 rounded-lg ${
-                      selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
-                    }`}
-                    onClick={() => handleBoxClick(search_id, query, 'keyword')}
-                  >
-                    {search_id}. {query}
+                  key={search_id}
+                  className={`flex flex-row flex-auto items-center px-3 py-2 mb-1 rounded-lg ${
+                    selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
+                  }`}>
+                    <div className="grow"
+                      onClick={() => handleBoxClick(search_id, query, 'keyword')}
+                    >
+                      {search_id}. {query}
+                    </div>
+                    <FaXmark className="w-fit" 
+                      onClick={() => handleRemoveSearch(search_id.toString(), 'keyword')}/>
                   </div>
                 ))}
             </div>
