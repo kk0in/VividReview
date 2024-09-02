@@ -174,10 +174,27 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
       return result;
     };
 
-    const processedHTML = text ? text.replace(/- (.*?)(\n|$)/g, "• $1\n")
-                                     .replace(/\n/g, "<br />")
-                                     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                                     .replace(/  /g, "\u00a0\u00a0") : "";
+    const processedHTML = text
+      ? text
+          .replace(
+            /      - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 2.1rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /    - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 1.4rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /  - (.*?)(\n|$)/g,
+            "<div style='display: flex; margin-left: 0.7rem'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(
+            /- (.*?)(\n|$)/g,
+            "<div style='display: flex'><div style='margin-right: 0.3rem'>•</div><div>$1</div></div>"
+          )
+          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br />")
+      : "";
     return highlightKeywords(processedHTML, keywords);
   };
 
