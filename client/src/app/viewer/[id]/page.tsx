@@ -1349,6 +1349,15 @@ export default function Page({ params }: { params: { id: string } }) {
                       <div
                         key={page}
                         className="p-4 bg-gray-100 rounded-lg shadow flex flex-col items-center"
+                        onClick={() => {
+                          const tocIndex = findTocIndex(page, toc);
+                          if (tocIndex) {
+                            setTocIndex(tocIndex);
+                          }
+                          setPage(page);
+                          setCurrentNavigation(NavigationStateType.PAGE_CHANGED);
+                          handleCloseModal();
+                        }}
                       >
                         <img
                           src={annotatedImages[page - 1].image} // 이미지 배열에서 페이지에 해당하는 이미지를 가져옴
