@@ -916,7 +916,6 @@ def find_start_indices(script_content, first_sentences):
     
     return start_indices
 
-
 # Match the paragraphs to the first sentences
 def match_paragraphs_3(script_content, first_sentences):
     # Step 1: Find all start indices
@@ -940,6 +939,29 @@ def match_paragraphs_3(script_content, first_sentences):
  
 
     return matched_paragraphs
+
+def match_paragraphs_by_real(real_timestamp, word_timestamp):
+    model = PunctuationModel()
+    matched_paragraphs = {}
+    for page, timestamp in real_timestamp.items():
+        start = real_timestamp[page]['start']
+        end = real_timestamp[page]['end']
+        paragraph = ""
+        for index, word in enumerate(word_timestamp):
+            start_index, end_index = 0, len(word_timestamp) - 1
+            if word['start'] <= start <= word['end']:
+                start_index = index
+            if word['start'] <= end <= word['end']:
+                end_index = index
+
+        for i in range(start_index, end_index + 1):
+            paragraph += word_timestamp[i]['word'] + " "
+        
+        result = model.restore_punctuation(paragraph.strip())
+        matched_paragraphs[page] = result
+
+    return matched_paragraphs
+
 
 def calculate_similarity(data, query):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -1552,6 +1574,7 @@ async def activate_review(project_id: int):
     image_directory = os.path.join(IMAGE, str(project_id), 'raw')
     script_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     matched_file_path = os.path.join(SPM, f"{project_id}_matched_paragraphs.json")
+    real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
     lasso_path = os.path.join(LASSO, f"{project_id}")
     os.makedirs(lasso_path, exist_ok=True)
     page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
@@ -1560,8 +1583,11 @@ async def activate_review(project_id: int):
     os.makedirs(bbox_dir, exist_ok=True)
     os.makedirs(keyword_dir, exist_ok=True)
 
+    with open(real_timestamp_path, "r") as file:
+        real_timestamp = json.load(file)
+
     with open(os.path.join(lasso_path, 'info.json'), "w") as file:
-        json.dump({"prompts": ["summarize", "translate to korean"]}, file)
+        json.dump({"prompts": ["briefly explain", "translate to korean"]}, file)
 
     with open(os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
@@ -1597,10 +1623,17 @@ async def activate_review(project_id: int):
 
     # 단락 매칭
     matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
+    # matched_paragraphs = match_paragraphs_3(script_content, first_sentences) if len(real_timestamp) != len(image_paths) else match_paragraphs_by_real(real_timestamp, word_timestamp)
+
     with open(matched_file_path, "w") as json_file:
         json.dump(matched_paragraphs, json_file, indent=4)
     print("Completed - Making matched_paragraphs file")
 
+    # Time Stamping for matched paragraphs (temporal)
+    output = create_page_info(project_id, matched_paragraphs, word_timestamp)
+    with open(page_info_path, "w") as json_file:
+        json.dump(output, json_file, indent=4)
+    print("Completed - Making page_info file")
 
     # Phase 2: spatially match the script content to the images
     try:
@@ -1611,12 +1644,6 @@ async def activate_review(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
     print("Completed - Phase 2: spatially match the script content to the images")
-
-    # Time Stamping for matched paragraphs (temporal)
-    output = create_page_info(project_id, matched_paragraphs, word_timestamp)
-    with open(page_info_path, "w") as json_file:
-        json.dump(output, json_file, indent=4)
-    print("Completed - Making page_info file")
 
     # Time Stamping for bbox (spatial)
     timestamp_for_bbox(project_id, word_timestamp)
@@ -2584,10 +2611,10 @@ async def upload_project(
 
     executor.submit(metadata_file_path, pdf_file_path)
 
-    lasso_path = os.path.join(LASSO, str(id), "info.json")
-    os.makedirs(os.path.join(LASSO, str(id)), exist_ok=True)
-    with open(lasso_path, "w") as f:
-        json.dump({"prompts": ["summarize", "translate to korean"]}, f)
+    # lasso_path = os.path.join(LASSO, str(id), "info.json")
+    # os.makedirs(os.path.join(LASSO, str(id)), exist_ok=True)
+    # with open(lasso_path, "w") as f:
+    #     json.dump({"prompts": ["summarize", "translate to korean"]}, f)
 
     return JSONResponse(
         content={"id": id, "redirect_url": f"/viewer/{id}?mode=default"}
