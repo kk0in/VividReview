@@ -216,7 +216,7 @@ export const HorizontalLine = ({
 
 export const CustomLegend = (props: any) => {
   const FONT_COLOR = "#333";
-  const FONT_SIZE = "10px";
+  const FONT_SIZE = "12px";
   const { payload } = props;
   return (
     <div
