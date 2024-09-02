@@ -775,6 +775,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLProgressElement>(null);
   const toc = useRecoilValue(tocState);
+  const gridMode = useRecoilValue(gridModeState);
 
   const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
   const isSaveClicked = useRecoilValue(isSaveClickedState);
@@ -1346,7 +1347,7 @@ export default function Page({ params }: { params: { id: string } }) {
                 ))}
             </div>
           </div>
-          <div className={"flex flex-col bg-slate-100 p-3 text-black " + (isReviewMode ? "w-3/5 " : "w-4/5") }>
+          <div className={"flex flex-col flex-auto h-full bg-slate-100 p-3 text-black " + (isReviewMode ? "w-3/5 " : "w-4/5") }>
             <PdfViewer
               scale={1.5}
               projectId={params.id}
@@ -1782,25 +1783,27 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div
-                className="bg-white rounded-lg shadow-xl shadow-slate-200 h-fit mb-8"
-                ref={containerRef}
-              >
-                <ArousalGraph
-                  data={prosodyData}
-                  positiveEmotion={positiveEmotion}
-                  negativeEmotion={negativeEmotion}
-                  page={page}
-                  pageInfo={pageInfo}
-                  pages={pages}
-                  progressRef={progressRef}
-                  tableOfContents={tableOfContents}
-                  graphWidth={graphWidth}
-                  graphHeight={graphHeight}
-                  images={rawImages}
-                  missedAndImportantParts={missedAndImportantParts}
-                />
-                <audio ref={audioRef} />
+              <div className={"flex h-full " + (gridMode === 0 ? "items-start " : "items-end ")}>
+                <div
+                  className={"bg-white rounded-lg shadow-xl shadow-slate-200 w-full h-fit "}
+                  ref={containerRef}
+                >
+                  <ArousalGraph
+                    data={prosodyData}
+                    positiveEmotion={positiveEmotion}
+                    negativeEmotion={negativeEmotion}
+                    page={page}
+                    pageInfo={pageInfo}
+                    pages={pages}
+                    progressRef={progressRef}
+                    tableOfContents={tableOfContents}
+                    graphWidth={graphWidth}
+                    graphHeight={graphHeight}
+                    images={rawImages}
+                    missedAndImportantParts={missedAndImportantParts}
+                  />
+                  <audio ref={audioRef} />
+                </div>
               </div>
             )}
           </div>
