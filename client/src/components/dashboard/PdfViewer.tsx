@@ -986,7 +986,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         pageComponents.push(
           <ImagePage
             className={
-              "flex mr-4 mb-10 items-center justify-center " +
+              "flex items-center justify-center " +
               (isReviewMode && startIndex + i === pageNumber
                 ? "shadow-md border-4 border-blue-500"
                 : "")
@@ -1008,9 +1008,9 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
         pageComponents.push(
           <ImagePage
             className={
-              "flex mr-4 mb-10 items-center justify-center " +
+              "flex items-center justify-center " +
               (isReviewMode && page === pageNumber
-                ? "border-4 border-blue-500"
+                ? "shadow-md border-4 border-blue-500"
                 : "")
             }
             key={page}
@@ -1149,7 +1149,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
   }
 
   return (
-    <div className="flex w-full h-full flex-col items-center">
+    <div className="flex w-full flex-col items-center">
       <div className="flex w-full justify-center">
         <div
           className="relative flex flex-col w-full items-center"
@@ -1158,7 +1158,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           <div
             className={
               "overflow-y-auto w-fit " +
-              (isReviewMode ? "max-h-[55vh] " : "max-h-[80vh] ") +
+              (isReviewMode ? "max-h-[56dvh] " : "max-h-[80dvh] ") +
               (gridMode !== 0 ? "grid grid-cols-2 justify-items-center" : "shadow-xl ")
             }
           >
@@ -1216,7 +1216,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
           {clickedLasso !== null && isReviewMode && <PromptList promptStrings={defaultPrompts} />}
         </div>
       </div>
-      <div className="relative w-[60vw] h-[7vh] z-[2] text-sm mt-4">
+      <div className="relative w-[60vw] h-10 z-[2] text-sm my-4">
         <button
           className="absolute right-[51%] w-28 justify-center h-10 flex items-center bg-slate-600 text-white p-2 rounded disabled:text-zinc-400"
           onClick={goToPreviousPage}
