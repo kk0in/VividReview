@@ -1783,7 +1783,7 @@ export default function Page({ params }: { params: { id: string } }) {
               )}
             </SearchModal>
             {isReviewMode && (
-              <div className={"flex h-full " + (gridMode === 0 ? "items-start " : "items-end ")}>
+              <div className={"flex h-full mb-8 " + (gridMode === 0 ? "items-start " : "items-end ")}>
                 <div
                   className={"bg-white rounded-lg shadow-xl shadow-slate-200 w-full h-fit "}
                   ref={containerRef}
