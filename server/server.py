@@ -7,7 +7,7 @@ import shutil
 import zipfile
 import re
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from typing import Any, List, Union
 from dotenv import load_dotenv
@@ -460,7 +460,7 @@ def keyword_api_request(script_segment):
     return {"error": "Failed to retrieve scripts after 3 attempts"}
 
 
-def bbox_api_request(script_segment, encoded_image):
+async def bbox_api_request(script_segment, encoded_image):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {gpt_api_key}",
@@ -541,7 +541,7 @@ async def create_bbox_and_keyword(
         page_number = str(i + 1)
         script_segment = matched_paragraphs[page_number]
 
-        response_data_bbox = bbox_api_request(script_segment, encoded_image)
+        response_data_bbox = await bbox_api_request(script_segment, encoded_image)
 
         bbox_path = os.path.join(bbox_dir, f"{page_number}_spm.json")
         with open(bbox_path, "w") as json_file:
@@ -1013,28 +1013,58 @@ def calculate_similarity(data, query):
     return results
 
 
-def get_pdf_text_and_image(project_id, pdf_path):
+def get_pdf_text_and_image(project_id, para_id, pdf_path):
     doc = pymupdf.open(pdf_path)
+    page_num = int(para_id) - 1
+    page = doc.load_page(page_num)
+    text = page.get_text("text")
+    images_info = page.get_image_info(xrefs=True)
+    image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
+    os.makedirs(image_path, exist_ok=True)
 
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        text = page.get_text("text")
-        images_info = page.get_image_info(xrefs=True)
-        image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
-        os.makedirs(image_path, exist_ok=True)
+    crop_images = []
+    for image_index, img_info in enumerate(images_info):
+        xref = img_info["xref"]  # 이미지의 xref 값
+        base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+        image_bytes = base_image["image"]  # 이미지 바이트 데이터
+        crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+        crop_images.append(crop_path)
+        # 이미지 저장
+        with open(crop_path, "wb") as img_file:
+            img_file.write(image_bytes)
+            
+    return text, crop_images
 
-        crop_images = []
-        for image_index, img_info in enumerate(images_info):
-            xref = img_info["xref"]  # 이미지의 xref 값
-            base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-            image_bytes = base_image["image"]  # 이미지 바이트 데이터
-            crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-            crop_images.append(crop_path)
-            # 이미지 저장
-            with open(crop_path, "wb") as img_file:
-                img_file.write(image_bytes)
+# def get_pdf_text_and_image(project_id, pdf_path):
+#     try:
+#         doc = fitz.open(pdf_path)
+#     except Exception as e:
+#         raise ValueError(f"Failed to open the PDF file: {e}")
 
-        return text, crop_images
+#     for page_num in range(len(doc)):
+#         page = doc.load_page(page_num)
+#         text = page.get_text("text")
+#         images_info = page.get_images(full=True)
+#         image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
+#         os.makedirs(image_path, exist_ok=True)
+
+#         crop_images = []
+#         for image_index, img_info in enumerate(images_info):
+#             xref = img_info[0]  # 이미지의 xref 값, 첫 번째 요소로 위치를 가져옴
+#             try:
+#                 base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+#                 image_bytes = base_image["image"]  # 이미지 바이트 데이터
+#                 crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+#                 crop_images.append(crop_path)
+#                 # 이미지 저장
+#                 with open(crop_path, "wb") as img_file:
+#                     img_file.write(image_bytes)
+#             except ValueError as e:
+#                 print(f"Skipping invalid xref {xref} on page {page_num + 1}: {e}")
+#                 continue
+
+#         return text, crop_images
+
 
 def find_important_parts(data):
     positve_emotion = ['Excitement', 'Interest', 'Amusement', 'Joy']
@@ -1097,14 +1127,15 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
         words = paragraph_text.split()
         gpt_start_time = word_timestamp[offset].get("start")
         gpt_end_time = word_timestamp[offset + len(words) - 1].get("end") if int(para_id) < len(matched_paragraphs) else word_timestamp[-1].get("end")
-        pdf_text, pdf_image = get_pdf_text_and_image(project_id, pdf_path)
+        pdf_text, pdf_image = get_pdf_text_and_image(project_id, para_id, pdf_path)
         annotation = annotations[para_id]
         output["pages"][para_id] = {
+            "start": gpt_start_time,
+            "end": gpt_end_time,
             "script": paragraph_text,
             "pdf_text": pdf_text,
             "pdf_image": pdf_image,
             "annotation": annotation,
-            "gpt_timestamp": {"start": gpt_start_time, "end": gpt_end_time},
             "user_timestamp": {
                 "start": real_timestamp.get(para_id, {}).get("start"),
                 "end": real_timestamp.get(para_id, {}).get("end"),
@@ -1112,8 +1143,8 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
         }
         if para_id != "1":
             prev_page = str(int(para_id) - 1)
-            gpt_start = output["pages"][para_id]["gpt_timestamp"].get("start")
-            gpt_end = output["pages"][para_id]["gpt_timestamp"].get("end")
+            gpt_start = output["pages"][para_id].get("start")
+            gpt_end = output["pages"][para_id].get("end")
             user_end = output["pages"][prev_page]["user_timestamp"].get("end")
 
             if gpt_start is not None and gpt_end is not None and user_end is not None:

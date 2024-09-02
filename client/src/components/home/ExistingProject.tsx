@@ -20,6 +20,7 @@ const ExistingProject: React.FC = () => {
   const router = useRouter();
   const setPdfData = useSetRecoilState(pdfDataState);
   const [activationAvailable, setActivationAvailable] = useState([]);
+  const [activatingProjectId, setActivatingProjectId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   // get project list
@@ -53,10 +54,10 @@ const ExistingProject: React.FC = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries(["projectList"]);
-      setIsModalOpen(false);
       if (data.redirect_url) {
         router.push(data.redirect_url);
       }
+      setIsModalOpen(false);
     },
     onError: () => {
       setIsModalOpen(false);
@@ -298,9 +299,16 @@ const ExistingProject: React.FC = () => {
                                 ) : activationAvailable.includes(project.id) ? (
                                   <button
                                     className="rounded-md items-center justify-center text-white bg-blue-500 hover:bg-blue-600 px-2 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                                    onClick={() => activateReviewMutation.mutate(project.id)}
+                                    onClick={() => {
+                                      setActivatingProjectId(project.id);
+                                      activateReviewMutation.mutate(project.id, {
+                                        onSuccess: () => setActivatingProjectId(null), // 성공 시 상태 초기화
+                                        onError: () => setActivatingProjectId(null), // 실패 시 상태 초기화
+                                      });
+                                    }}
+                                    disabled={activatingProjectId === project.id} // 클릭 중복 방지
                                   >
-                                    {activateReviewMutation.isLoading ? "Activating..." : "Activation"}
+                                    {activatingProjectId === project.id ? "Activating..." : "Activation"}
                                   </button>
                                 ) : (
                                   "NOT AVAILABLE"
