@@ -1312,7 +1312,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   <div
                   key={search_id}
                   className={`flex flex-row flex-auto items-center px-3 py-2 mb-1 rounded-lg ${
-                    selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
+                    selectedSearchId === search_id && selectedSearchType === 'semantic' ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
                   }`}>
                     <div className="grow"
                       onClick={() => handleBoxClick(search_id, query, 'semantic')}
@@ -1333,7 +1333,7 @@ export default function Page({ params }: { params: { id: string } }) {
                   <div
                   key={search_id}
                   className={`flex flex-row flex-auto items-center px-3 py-2 mb-1 rounded-lg ${
-                    selectedSearchId === search_id ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
+                    selectedSearchId === search_id && selectedSearchType === 'keyword' ? " bg-slate-600 shadow-lg my-2 font-extrabold text-white" : " bg-white "
                   }`}>
                     <div className="grow"
                       onClick={() => handleBoxClick(search_id, query, 'keyword')}
