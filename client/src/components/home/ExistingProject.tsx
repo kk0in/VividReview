@@ -57,9 +57,12 @@ const ExistingProject: React.FC = () => {
       if (data.redirect_url) {
         router.push(data.redirect_url);
       }
+      console.log("Success");
+      console.log(data);
       setIsModalOpen(false);
     },
     onError: () => {
+      console.log("Error");
       setIsModalOpen(false);
     },
   });

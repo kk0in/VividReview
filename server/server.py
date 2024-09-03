@@ -39,8 +39,14 @@ import time
 from deepmultilingualpunctuation import PunctuationModel
 
 app = FastAPI()
-logging.basicConfig(filename="info.log", level=logging.DEBUG)
+# 로그 파일 설정
+logging.basicConfig(
+    filename="server_logs.log",  # 로그가 저장될 파일 이름
+    level=logging.INFO,  # 로그 레벨 설정
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",  # 로그 형식 설정
+)
 GPT_MODEL = "gpt-4o"
+MAX_TOKENS = 4096
 
 load_dotenv()
 
@@ -425,7 +431,7 @@ def keyword_api_request(script_segment):
             },
             {"role": "user", "content": content},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -501,7 +507,7 @@ async def bbox_api_request(script_segment, encoded_image):
             },
             {"role": "user", "content": content},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -594,7 +600,7 @@ async def create_spm(script_content, encoded_images):
             },
             {"role": "user", "content": content},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -699,7 +705,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
             },
             {"role": "user", "content": content},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -778,7 +784,7 @@ async def transform_lasso_answer(lasso_answer, transform_type):
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -2668,7 +2674,7 @@ async def create_toc(project_id: int, image_dir: str):
             },
             {"role": "user", "content": content},
         ],
-        "max_tokens": 2000,
+        "max_tokens": MAX_TOKENS,
     }
 
     attempts = 0
@@ -2737,5 +2743,4 @@ async def test_get_json():
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=9998)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None, reload=True)
