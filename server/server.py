@@ -463,7 +463,65 @@ def keyword_api_request(script_segment):
 
     # 최대 시도 횟수를 초과했을 때
     print("Max attempts reached. Failed to get a valid response.")
-    return {"error": "Failed to retrieve scripts after 3 attempts"}
+    return "Error: failed to retrieve scripts after 3 attempts"
+
+async def adjust_spm(script_content, paragraph_text):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {gpt_api_key}",
+    }
+
+    content = [
+        {
+            "type": "text",
+            "text": (
+                "Given the overall script and the specific paragraph provided, "
+                "please analyze the paragraph to determine if any essential information is missing or if there are any redundant parts. "
+                "If important details are missing in the paragraph, extract them from the overall script and ensure that the revised paragraph exists as a continuous sequence of sentences from the script. "
+                "The paragraph must be a direct, unbroken excerpt from the script. "
+                f"Overall script: {script_content} "
+                f"Paragraph: {paragraph_text} "
+                "Please provide the revised paragraph in a single string, ensuring it is a continuous excerpt from the script."
+            ),
+        }
+    ]
+
+    payload = {
+        "model": GPT_MODEL,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that edits and improves text content.",
+            },
+            {"role": "user", "content": content},
+        ],
+        "max_tokens": MAX_TOKENS,
+    }
+
+    attempts = 0
+    while attempts < MAX_ATTEMPTS:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            )
+            response_data = response.json()
+
+            # 정상 응답인지 확인
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                revised_paragraph = response_data["choices"][0]["message"]["content"]
+                return revised_paragraph  # 정상적으로 수정된 paragraph 반환
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+        attempts += 1
+        time.sleep(2)  # 시도 간에 잠시 대기
+
+    # 최대 시도 횟수를 초과했을 때
+    print("Max attempts reached. Failed to get a valid response.")
+    return {"error": "Failed to adjust paragraph after 3 attempts"}
+
 
 
 async def bbox_api_request(script_segment, encoded_image):
@@ -658,9 +716,12 @@ async def prosodic_analysis(project_id):
     with open(prosody_file_path, "r") as file:
         data = json.load(file)
 
-    prosodic_data = data[0]["results"]["predictions"][0]["models"]["prosody"][
-        "grouped_predictions"
-    ][0]["predictions"]
+    try:
+        prosodic_data = data[0]["results"]["predictions"][0]["models"]["prosody"][
+            "grouped_predictions"
+        ][0]["predictions"]
+    except KeyError:
+        raise HTTPException(status_code=500, detail="Error processing prosody data")
 
     # 각 segment에 대해 softmax를 적용하여 "relative_score" 계산 및 추가
     for segment in prosodic_data:
@@ -1616,20 +1677,28 @@ async def activate_review(project_id: int):
     script_content = read_script(script_path)
 
     # Phase 1: temporally match the script content to the images
-    try:
-        first_sentences = await create_spm(script_content, encoded_images)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
-    print("Completed - Phase 1: temporally match the script content to the images")
+    matched_paragraphs = {}
+    if len(real_timestamp) != len(image_paths):
+        print("Using create_spm...")
+        try:
+            first_sentences = await create_spm(script_content, encoded_images)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
+        print("Completed - Phase 1: temporally match the script content to the images")
 
-    # 결과 저장
-    first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
-    with open(first_sentences_path, "w") as json_file:
-        json.dump(first_sentences, json_file, indent=4)
+        # 결과 저장
+        first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
+        with open(first_sentences_path, "w") as json_file:
+            json.dump(first_sentences, json_file, indent=4)
 
-    # 단락 매칭
-    matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
-    # matched_paragraphs = match_paragraphs_3(script_content, first_sentences) if len(real_timestamp) != len(image_paths) else match_paragraphs_by_real(real_timestamp, word_timestamp)
+        # 단락 매칭
+        matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
+    else:
+        print("Using adjust_spm...")
+        matched_paragraphs_real = match_paragraphs_by_real(real_timestamp, word_timestamp)
+        for para_id, paragraph_text in matched_paragraphs_real.items():
+            matched_paragraphs[para_id] = await adjust_spm(script_content, paragraph_text, encoded_images)
+
 
     with open(matched_file_path, "w") as json_file:
         json.dump(matched_paragraphs, json_file, indent=4)
@@ -2208,9 +2277,13 @@ async def save_recording(
         image_path = os.path.join(drawings_dir, f"{i + 1}.png")
         image_resized = image.resize((pdf_image_pil.width, pdf_image_pil.height))
         image.save(image_path)
+        print("1")
         remove_transparency(image_path)
+        print("2")
         text = detect_handwritten_text(image_path)
+        print("3")
         ocr_results[str(i + 1)] = text.strip()
+        print("4")
         # page_info["pages"][str(i + 1)]["annotation"] = text.strip()
 
     with open(annnotation_path, "w") as json_file:
