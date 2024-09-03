@@ -104,7 +104,7 @@ os.makedirs(SIMILARITY, exist_ok=True)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb46.json"
 
 confidence_threshold = 0.5
-miss_threshold = 0.5
+miss_threshold = 0.9
 
 def fill_missing_pages(toc_data, total_pages):
     """
@@ -687,7 +687,7 @@ async def create_lasso_answer(prompt_text, script_content, encoded_image):
             "type": "text",
             "text": (
                 "Given the following image, which is a captured portion of a lecture notes page, and the lecture script, "
-                f"please {prompt_text} in context based on the script, "
+                f"please {prompt_text} for the image, referring to the script. "
                 "and please caption the image with a description that is no longer than three words. "
                 'The output should be in the format: {"caption": "string", "result": "string"}. '
                 f"Lecture script: {script_content} "
@@ -970,9 +970,16 @@ def match_paragraphs_by_real(real_timestamp, word_timestamp):
 
 
 def calculate_similarity(data, query):
+
+    # print(data)
+    print("1")
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("2")
     text_model = SentenceTransformer("all-MiniLM-L6-v2")  # Sentence Transformers 모델
+    print("3")
     clip_model, preprocess = clip.load("ViT-B/32", device=device)
+    print("4")
+
 
     # Query 텍스트 임베딩 계산
     query_embedding = text_model.encode(query, convert_to_tensor=True)
@@ -1016,7 +1023,7 @@ def calculate_similarity(data, query):
             page_result["annotation"] = 0.0
         # pdf_images 유사도 계산 (CLIP 사용)
         image_similarities = []
-        for image_path in content["pdf_images"]:
+        for image_path in content["pdf_image"]:
             image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
             with torch.no_grad():
                 image_features = clip_model.encode_image(image)
@@ -1041,65 +1048,65 @@ def calculate_similarity(data, query):
     return results
 
 
-# def get_pdf_text_and_image(project_id, para_id, pdf_path):
-#     doc = pymupdf.open(pdf_path)
-#     page_num = int(para_id) - 1
-#     page = doc.load_page(page_num)
-#     text = page.get_text("text")
-#     images_info = page.get_image_info(xrefs=True)
-#     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
-#     os.makedirs(image_path, exist_ok=True)
-
-#     crop_images = []
-#     for image_index, img_info in enumerate(images_info):
-#         xref = img_info["xref"]  # 이미지의 xref 값
-#         base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-#         image_bytes = base_image["image"]  # 이미지 바이트 데이터
-#         crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-#         crop_images.append(crop_path)
-#         # 이미지 저장
-#         with open(crop_path, "wb") as img_file:
-#             img_file.write(image_bytes)
-            
-#     return text, crop_images
-
 def get_pdf_text_and_image(project_id, para_id, pdf_path):
-    try:
-        doc = fitz.open(pdf_path)
-    except Exception as e:
-        raise ValueError(f"Failed to open the PDF file: {e}")
-
+    doc = pymupdf.open(pdf_path)
     page_num = int(para_id) - 1
-    if page_num < 0 or page_num >= len(doc):
-        raise ValueError(f"Invalid para_id: {para_id}. It must be within the range of the document pages.")
-
     page = doc.load_page(page_num)
     text = page.get_text("text")
-    
-    images_info = page.get_images(full=True)
+    images_info = page.get_image_info(xrefs=True)
     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
     os.makedirs(image_path, exist_ok=True)
 
     crop_images = []
     for image_index, img_info in enumerate(images_info):
-        xref = img_info[0]  # 이미지의 xref 값, 리스트의 첫 번째 요소로 위치를 가져옴
-        try:
-            base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-            if not base_image:
-                print(f"Skipping empty image data for xref {xref} on page {page_num + 1}")
-                continue
-            
-            image_bytes = base_image["image"]  # 이미지 바이트 데이터
-            crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-            crop_images.append(crop_path)
-            # 이미지 저장
-            with open(crop_path, "wb") as img_file:
-                img_file.write(image_bytes)
-        except Exception as e:
-            print(f"Skipping invalid xref {xref} on page {page_num + 1} due to error: {e}")
-            continue
+        xref = img_info["xref"]  # 이미지의 xref 값
+        base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+        image_bytes = base_image["image"]  # 이미지 바이트 데이터
+        crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+        crop_images.append(crop_path)
+        # 이미지 저장
+        with open(crop_path, "wb") as img_file:
+            img_file.write(image_bytes)
             
     return text, crop_images
+
+# def get_pdf_text_and_image(project_id, para_id, pdf_path):
+#     try:
+#         doc = fitz.open(pdf_path)
+#     except Exception as e:
+#         raise ValueError(f"Failed to open the PDF file: {e}")
+
+#     page_num = int(para_id) - 1
+#     if page_num < 0 or page_num >= len(doc):
+#         raise ValueError(f"Invalid para_id: {para_id}. It must be within the range of the document pages.")
+
+#     page = doc.load_page(page_num)
+#     text = page.get_text("text")
+    
+#     images_info = page.get_images(full=True)
+#     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
+#     os.makedirs(image_path, exist_ok=True)
+
+#     crop_images = []
+#     for image_index, img_info in enumerate(images_info):
+#         xref = img_info[0]  # 이미지의 xref 값, 리스트의 첫 번째 요소로 위치를 가져옴
+#         try:
+#             base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+#             if not base_image:
+#                 print(f"Skipping empty image data for xref {xref} on page {page_num + 1}")
+#                 continue
+            
+#             image_bytes = base_image["image"]  # 이미지 바이트 데이터
+#             crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+#             crop_images.append(crop_path)
+#             # 이미지 저장
+#             with open(crop_path, "wb") as img_file:
+#                 img_file.write(image_bytes)
+#         except Exception as e:
+#             print(f"Skipping invalid xref {xref} on page {page_num + 1} due to error: {e}")
+#             continue
+            
+#     return text, crop_images
 
 
 
@@ -1199,7 +1206,7 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
         offset += len(words)
 
     output["missed_parts"] = missed_parts
-    output["important_parts"] = find_important_parts(prosody_file)
+    # output["important_parts"] = find_important_parts(prosody_file)
 
     return output
 

@@ -17,6 +17,7 @@ server/spms
 server/crops
 server/annotations
 server/logging_config.yaml
+server/sandbox
 
 __pycache__/
 
@@ -34,6 +35,8 @@ server/.DS_Store
 *.log
 *.jpg
 !*config.json
+*.yaml
+*.ipynb
 
 server/scalers/
 server/*cache*/
