@@ -143,7 +143,7 @@ function ScriptTabPage({pages, scripts}: {pages: number[], scripts: IScript[]}) 
       },
     },
     {
-      title: "Processing",
+      title: "Formal",
       onClick: () => {
         setFocusedTabIndex(1);
       },
@@ -712,7 +712,7 @@ function ReviewPage({
             setScriptMode("prompts");
           }}
         >
-          Prompts
+          Prompt
         </div>
       </div>
       {scriptMode === "script" ? (

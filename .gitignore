@@ -16,6 +16,7 @@ server/lasso
 server/spms
 server/crops
 server/annotations
+server/logging_config.yaml
 
 __pycache__/
 
