@@ -104,7 +104,7 @@ os.makedirs(SIMILARITY, exist_ok=True)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "disco-beach-433010-q6-bf0ff037eb46.json"
 
 confidence_threshold = 0.5
-miss_threshold = 0.9
+miss_threshold = 0.8
 
 def fill_missing_pages(toc_data, total_pages):
     """
@@ -274,6 +274,19 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
+class CustomPunctuationModel(PunctuationModel):
+    def restore_punctuation(self, text):
+        # Define the punctuation characters you want to exclude
+        excluded_punctuation = ["-", ":"]
+        
+        # Call the superclass method to get the punctuation-restored text
+        restored_text = super().restore_punctuation(text)
+        
+        # Remove the excluded punctuation characters
+        for char in excluded_punctuation:
+            restored_text = restored_text.replace(char, "")
+        
+        return restored_text
 
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
@@ -291,7 +304,7 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
         script += word['word'] + " "
 
     script = script.strip()
-    model = PunctuationModel()
+    model = CustomPunctuationModel()  # 수정된 PunctuationModel 사용
     result = model.restore_punctuation(script)
 
     with open(timestamp_path, "w") as output_file:
@@ -567,11 +580,16 @@ async def create_bbox_and_keyword(
         #     "original": script_segment
         # }
 
-async def create_spm(script_content, encoded_images):
+async def create_spm(script_content, encoded_images, matched_paragraphs_real):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {gpt_api_key}",
     }
+
+    # 페이지별 실제 녹음된 음성 텍스트를 추가하여 힌트를 제공합니다.
+    page_hints = []
+    for page, text in matched_paragraphs_real.items():
+        page_hints.append(f"Paragraph hint for page {page}: {text}")
 
     content = [
         {
@@ -584,10 +602,12 @@ async def create_spm(script_content, encoded_images):
                 "and the value should be the first sentence of the script content for that page. "
                 "The value corresponding to a larger key must be a sentence that appears later in the script. "
                 f"The number of dictionary keys must be equal to {len(encoded_images)}. "
-                "The original format of the script, including uppercase and lowercase letters, punctuation marks such as periods and commas, must be preserved without any alterations."
+                f"Lecture script: {script_content} "
+                # "Here are additional paragraph hints for each page, derived from the major time spent by the user on each section. Please use these only when the confidence level is low:\n" +
+                # "\n".join(page_hints) + "\n\n"  # 페이지별 실제 녹음 텍스트를 힌트로 추가
+                # "The original format of the script, including uppercase and lowercase letters, punctuation marks such as periods and commas, must be preserved without any alterations."
             ),
         },
-        {"type": "text", "text": script_content},
     ] + encoded_images
 
     payload = {
@@ -952,18 +972,20 @@ def match_paragraphs_by_real(real_timestamp, word_timestamp):
     for page, timestamp in real_timestamp.items():
         start = real_timestamp[page]['start']
         end = real_timestamp[page]['end']
+        print(start, end)
         paragraph = ""
-        for index, word in enumerate(word_timestamp):
-            start_index, end_index = 0, len(word_timestamp) - 1
+        start_index, end_index = 0, len(word_timestamp) - 1
+        for index, word in enumerate(word_timestamp):            
             if word['start'] <= start <= word['end']:
                 start_index = index
             if word['start'] <= end <= word['end']:
                 end_index = index
-
+        print(start_index, end_index)
         for i in range(start_index, end_index + 1):
             paragraph += word_timestamp[i]['word'] + " "
         
         result = model.restore_punctuation(paragraph.strip())
+
         matched_paragraphs[page] = result
 
     return matched_paragraphs
@@ -1604,6 +1626,10 @@ async def activate_review(project_id: int):
 
     with open(os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json"), "r") as file:
         word_timestamp = json.load(file)
+        
+    for idx, word in enumerate(word_timestamp):
+        if idx < len(word_timestamp) - 1:
+            word['end'] = word_timestamp[idx + 1]['start']
 
     image_paths = sorted(
         [
@@ -1622,9 +1648,13 @@ async def activate_review(project_id: int):
 
     script_content = read_script(script_path)
 
+    matched_paragraphs_real = match_paragraphs_by_real(real_timestamp, word_timestamp)
+    with open(matched_file_path, "w") as json_file:
+        json.dump(matched_paragraphs_real, json_file, indent=4)
+
     # Phase 1: temporally match the script content to the images
     try:
-        first_sentences = await create_spm(script_content, encoded_images)
+        first_sentences = await create_spm(script_content, encoded_images, matched_paragraphs_real)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
     print("Completed - Phase 1: temporally match the script content to the images")

@@ -581,6 +581,11 @@ function ReviewPage({
         // ctx.fillStyle = gradient;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // ctx.clearRect(
+        //   (bbox[0] - 3*bbox[2] < 0 ? 0 : bbox[0] - 3*bbox[2]) / pdfWidth.current * canvas.width,
+        //   (bbox[1] - 3*bbox[3] < 0 ? 0 : bbox[1] - 3*bbox[3]) / pdfHeight.current * canvas.width,
+        //   (bbox[0] + 3*bbox[2] > canvas.width ? canvas.width - (bbox[0]-3*bbox[2]) : 3*bbox[2]) / pdfWidth.current * canvas.width,
+        //   (bbox[1] + 3*bbox[3] > canvas.height ? canvas.height - (bbox[1]-3*bbox[3]) : 3*bbox[3]) / pdfHeight.current * canvas.height);
         ctx.clearRect(
           bbox[0] / pdfWidth.current * canvas.width,
           bbox[1] / pdfHeight.current * canvas.width,
