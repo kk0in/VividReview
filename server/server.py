@@ -274,19 +274,19 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-class CustomPunctuationModel(PunctuationModel):
-    def restore_punctuation(self, text):
-        # Define the punctuation characters you want to exclude
-        excluded_punctuation = ["-", ":"]
+# class CustomPunctuationModel(PunctuationModel):
+#     def restore_punctuation(self, text):
+#         # Define the punctuation characters you want to exclude
+#         excluded_punctuation = ["-", ":"]
         
-        # Call the superclass method to get the punctuation-restored text
-        restored_text = super().restore_punctuation(text)
+#         # Call the superclass method to get the punctuation-restored text
+#         restored_text = super().restore_punctuation(text)
         
-        # Remove the excluded punctuation characters
-        for char in excluded_punctuation:
-            restored_text = restored_text.replace(char, "")
+#         # Remove the excluded punctuation characters
+#         for char in excluded_punctuation:
+#             restored_text = restored_text.replace(char, "")
         
-        return restored_text
+#         return restored_text
 
 def run_stt(mp3_path, transcription_path, timestamp_path):
     audio_file = open(mp3_path, "rb")
@@ -304,14 +304,16 @@ def run_stt(mp3_path, transcription_path, timestamp_path):
         script += word['word'] + " "
 
     script = script.strip()
-    model = CustomPunctuationModel()  # 수정된 PunctuationModel 사용
+    model = PunctuationModel()
     result = model.restore_punctuation(script)
+
+    result_without_dash_colon = result.replace("-", "")
 
     with open(timestamp_path, "w") as output_file:
         json.dump(transcript_word.words, output_file, indent=4)
 
     with open(transcription_path, "w") as output_file:
-        json.dump(result, output_file, indent=4)
+        json.dump(result_without_dash_colon, output_file, indent=4)
 
 def issue_id():
     """
@@ -602,12 +604,14 @@ async def create_spm(script_content, encoded_images, matched_paragraphs_real):
                 "and the value should be the first sentence of the script content for that page. "
                 "The value corresponding to a larger key must be a sentence that appears later in the script. "
                 f"The number of dictionary keys must be equal to {len(encoded_images)}. "
-                f"Lecture script: {script_content} "
+                "Please ensure that the script content is distributed as evenly as possible across all pages."
+                # f"Lecture script: {script_content} "
                 # "Here are additional paragraph hints for each page, derived from the major time spent by the user on each section. Please use these only when the confidence level is low:\n" +
                 # "\n".join(page_hints) + "\n\n"  # 페이지별 실제 녹음 텍스트를 힌트로 추가
                 # "The original format of the script, including uppercase and lowercase letters, punctuation marks such as periods and commas, must be preserved without any alterations."
             ),
         },
+        {"type": "text", "text": script_content},
     ] + encoded_images
 
     payload = {
@@ -1070,7 +1074,7 @@ def calculate_similarity(data, query):
     return results
 
 
-def get_pdf_text_and_image(project_id, para_id, pdf_path):
+def get_pdf_text_and_image_1(project_id, para_id, pdf_path):
     doc = pymupdf.open(pdf_path)
     page_num = int(para_id) - 1
     page = doc.load_page(page_num)
@@ -1092,43 +1096,43 @@ def get_pdf_text_and_image(project_id, para_id, pdf_path):
             
     return text, crop_images
 
-# def get_pdf_text_and_image(project_id, para_id, pdf_path):
-#     try:
-#         doc = fitz.open(pdf_path)
-#     except Exception as e:
-#         raise ValueError(f"Failed to open the PDF file: {e}")
+def get_pdf_text_and_image_2(project_id, para_id, pdf_path):
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception as e:
+        raise ValueError(f"Failed to open the PDF file: {e}")
 
-#     page_num = int(para_id) - 1
-#     if page_num < 0 or page_num >= len(doc):
-#         raise ValueError(f"Invalid para_id: {para_id}. It must be within the range of the document pages.")
+    page_num = int(para_id) - 1
+    if page_num < 0 or page_num >= len(doc):
+        raise ValueError(f"Invalid para_id: {para_id}. It must be within the range of the document pages.")
 
-#     page = doc.load_page(page_num)
-#     text = page.get_text("text")
+    page = doc.load_page(page_num)
+    text = page.get_text("text")
     
-#     images_info = page.get_images(full=True)
-#     image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
-#     os.makedirs(image_path, exist_ok=True)
+    images_info = page.get_images(full=True)
+    image_path = os.path.join(CROP, str(project_id), str(page_num + 1))
+    os.makedirs(image_path, exist_ok=True)
 
-#     crop_images = []
-#     for image_index, img_info in enumerate(images_info):
-#         xref = img_info[0]  # 이미지의 xref 값, 리스트의 첫 번째 요소로 위치를 가져옴
-#         try:
-#             base_image = doc.extract_image(xref)  # 이미지 데이터 추출
-#             if not base_image:
-#                 print(f"Skipping empty image data for xref {xref} on page {page_num + 1}")
-#                 continue
+    crop_images = []
+    for image_index, img_info in enumerate(images_info):
+        xref = img_info[0]  # 이미지의 xref 값, 리스트의 첫 번째 요소로 위치를 가져옴
+        try:
+            base_image = doc.extract_image(xref)  # 이미지 데이터 추출
+            if not base_image:
+                print(f"Skipping empty image data for xref {xref} on page {page_num + 1}")
+                continue
             
-#             image_bytes = base_image["image"]  # 이미지 바이트 데이터
-#             crop_path = os.path.join(image_path, f"{image_index + 1}.png")
-#             crop_images.append(crop_path)
-#             # 이미지 저장
-#             with open(crop_path, "wb") as img_file:
-#                 img_file.write(image_bytes)
-#         except Exception as e:
-#             print(f"Skipping invalid xref {xref} on page {page_num + 1} due to error: {e}")
-#             continue
+            image_bytes = base_image["image"]  # 이미지 바이트 데이터
+            crop_path = os.path.join(image_path, f"{image_index + 1}.png")
+            crop_images.append(crop_path)
+            # 이미지 저장
+            with open(crop_path, "wb") as img_file:
+                img_file.write(image_bytes)
+        except Exception as e:
+            print(f"Skipping invalid xref {xref} on page {page_num + 1} due to error: {e}")
+            continue
             
-#     return text, crop_images
+    return text, crop_images
 
 
 
@@ -1193,8 +1197,8 @@ def create_page_info(project_id, matched_paragraphs, word_timestamp):
         words = paragraph_text.split()
         gpt_start_time = word_timestamp[offset].get("start")
         gpt_end_time = word_timestamp[offset + len(words) - 1].get("end") if int(para_id) < len(matched_paragraphs) else word_timestamp[-1].get("end")
-        pdf_text, pdf_image = get_pdf_text_and_image(project_id, para_id, pdf_path)
-        annotation = annotations[para_id]
+        pdf_text, pdf_image = get_pdf_text_and_image_2(project_id, para_id, pdf_path)
+        annotation = annotations[para_id] if para_id in annotations else ""
         output["pages"][para_id] = {
             "start": gpt_start_time,
             "end": gpt_end_time,
