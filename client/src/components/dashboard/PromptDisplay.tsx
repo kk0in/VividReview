@@ -110,6 +110,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
             return (
                 <button
                   className="bg-slate-500 text-white grow rounded mx-0.5 px-2 py-1"
+                  key={`transform-button-${idx}`}
                   onClick={async () => {
                     setProcessing({isProcessing: true, message: "Transforming answers..."});
                     const response = await lassoTransform(

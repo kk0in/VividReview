@@ -314,7 +314,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     );
   });
 
-  const promptTabElements = (lassos.current.length === 0 || focusedLasso === null ? [] :
+  const promptTabElements = (lassos.current.length === 0 || focusedLasso === null || !prompts.current ? [] :
     prompts.current.map((prompt, idx) => {
       const className =
         "rounded-t-lg w-fit py-1 px-3 " +

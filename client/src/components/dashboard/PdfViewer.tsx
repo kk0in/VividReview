@@ -1054,7 +1054,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
       setFocusedLasso(response.lasso_id);
       setClickedLasso({...clickedLasso, lassoId: response.lasso_id});
       setScriptMode("prompts");
-      setActivePromptIndex([response.lasso_id, prompt, activePromptIndex[2]]);
+      setActivePromptIndex([response.lasso_id, prompt, 0]);
       if (!defaultPrompts.find((p) => p === prompt)) {
         setDefaultPrompts((prev) => [...prev, prompt]);
         refetchPromptsFlag.current = !refetchPromptsFlag.current;
