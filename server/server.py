@@ -1619,6 +1619,7 @@ async def activate_review(project_id: int):
     page_info_path = os.path.join(SPM, f"{project_id}_page_info.json")
     bbox_dir = os.path.join(BBOX, str(project_id))
     keyword_dir = os.path.join(KEYWORD, str(project_id))
+    crop_dir = os.path.join(CROP, str(project_id))
     os.makedirs(bbox_dir, exist_ok=True)
     os.makedirs(keyword_dir, exist_ok=True)
 
@@ -1635,66 +1636,98 @@ async def activate_review(project_id: int):
         if idx < len(word_timestamp) - 1:
             word['end'] = word_timestamp[idx + 1]['start']
 
-    image_paths = sorted(
-        [
-            os.path.join(image_directory, f)
-            for f in os.listdir(image_directory)
-            if f.lower().endswith(".png")
-        ]
-    )
-    encoded_images = [
-        {
-            "type": "image_url",
-            "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"},
-        }
-        for image in image_paths
-    ]
-
     script_content = read_script(script_path)
 
-    matched_paragraphs_real = match_paragraphs_by_real(real_timestamp, word_timestamp)
-    with open(matched_file_path, "w") as json_file:
-        json.dump(matched_paragraphs_real, json_file, indent=4)
+    # image_paths = sorted(
+    #     [
+    #         os.path.join(image_directory, f)
+    #         for f in os.listdir(image_directory)
+    #         if f.lower().endswith(".png")
+    #     ]
+    # )
+    # encoded_images = [
+    #     {
+    #         "type": "image_url",
+    #         "image_url": {"url": f"data:image/png;base64,{encode_image(image)}"},
+    #     }
+    #     for image in image_paths
+    # ]
 
-    # Phase 1: temporally match the script content to the images
-    try:
-        first_sentences = await create_spm(script_content, encoded_images, matched_paragraphs_real)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
-    print("Completed - Phase 1: temporally match the script content to the images")
+    # matched_paragraphs_real = match_paragraphs_by_real(real_timestamp, word_timestamp)
+    # with open(matched_file_path, "w") as json_file:
+    #     json.dump(matched_paragraphs_real, json_file, indent=4)
+
+    # # Phase 1: temporally match the script content to the images
+    # try:
+    #     first_sentences = await create_spm(script_content, encoded_images, matched_paragraphs_real)
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Error during creating spm: {e}")
+    # print("Completed - Phase 1: temporally match the script content to the images")
 
     # 결과 저장
+        
+    metadata_file_path = f"{META_DATA}/{project_id}_metadata.json"
     first_sentences_path = os.path.join(SPM, f"{project_id}_spm.json")
-    with open(first_sentences_path, "w") as json_file:
-        json.dump(first_sentences, json_file, indent=4)
 
+    with open(metadata_file_path, "r") as f:
+        data = json.load(f)
+        
+        # 파일 복사
+        shutil.copy(os.path.join(SPM, f"{data['userID']}_spm.json"), first_sentences_path)
+        shutil.copy(os.path.join(SPM, f"{data['userID']}_matched_paragraphs.json"), matched_file_path)
+        shutil.copy(os.path.join(SPM, f"{data['userID']}_page_info.json"), page_info_path)
+        
+        print('1')
+
+        # BBOX 디렉토리 복사
+        if os.path.exists(bbox_dir):
+            shutil.rmtree(bbox_dir)  # 기존 폴더가 있으면 삭제
+        shutil.copytree(os.path.join(BBOX, str(data['userID'])), bbox_dir)
+        
+        print('2')
+
+        # KEYWORD 디렉토리 복사
+        if os.path.exists(keyword_dir):
+            shutil.rmtree(keyword_dir)  # 기존 폴더가 있으면 삭제
+        shutil.copytree(os.path.join(KEYWORD, str(data['userID'])), keyword_dir)
+
+        # CROP 디렉토리 복사
+        if os.path.exists(crop_dir):
+            shutil.rmtree(crop_dir)  # 기존 폴더가 있으면 삭제
+        shutil.copytree(os.path.join(CROP, str(data['userID'])), crop_dir)
+
+    # with open(page_info_path, "r") as f:
+    #     data = json.load(f)
+
+    # with open(first_sentences_path, "w") as json_file:
+    #     json.dump(first_sentences, json_file, indent=4)
     # 단락 매칭
-    matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
+    # matched_paragraphs = match_paragraphs_3(script_content, first_sentences)
     # matched_paragraphs = match_paragraphs_3(script_content, first_sentences) if len(real_timestamp) != len(image_paths) else match_paragraphs_by_real(real_timestamp, word_timestamp)
 
-    with open(matched_file_path, "w") as json_file:
-        json.dump(matched_paragraphs, json_file, indent=4)
-    print("Completed - Making matched_paragraphs file")
+    # with open(matched_file_path, "w") as json_file:
+    #     json.dump(matched_paragraphs, json_file, indent=4)
+    # print("Completed - Making matched_paragraphs file")
 
     # Time Stamping for matched paragraphs (temporal)
-    output = create_page_info(project_id, matched_paragraphs, word_timestamp)
-    with open(page_info_path, "w") as json_file:
-        json.dump(output, json_file, indent=4)
-    print("Completed - Making page_info file")
+    # output = create_page_info(project_id, matched_paragraphs, word_timestamp)
+    # with open(page_info_path, "w") as json_file:
+    #     json.dump(output, json_file, indent=4)
+    # print("Completed - Making page_info file")
 
-    # Phase 2: spatially match the script content to the images
-    try:
-        await create_bbox_and_keyword(
-            bbox_dir, keyword_dir, matched_paragraphs, encoded_images
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
+    # # Phase 2: spatially match the script content to the images
+    # try:
+    #     await create_bbox_and_keyword(
+    #         bbox_dir, keyword_dir, matched_paragraphs, encoded_images
+    #     )
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Error during creating bbox: {e}")
 
-    print("Completed - Phase 2: spatially match the script content to the images")
+    # print("Completed - Phase 2: spatially match the script content to the images")
 
-    # Time Stamping for bbox (spatial)
-    timestamp_for_bbox(project_id, word_timestamp)
-    print("Completed - Timestamping on bbox files")
+    # # Time Stamping for bbox (spatial)
+    # timestamp_for_bbox(project_id, word_timestamp)
+    # print("Completed - Timestamping on bbox files")
 
     # Update metadata file to enable review mode
     with open(metadata_file_path, "r") as f:
