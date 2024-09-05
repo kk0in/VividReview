@@ -2184,6 +2184,7 @@ async def save_recording(
 ):
     webm_path = os.path.join(RECORDING, f"{project_id}_recording.webm")
     mp3_path = os.path.join(RECORDING, f"{project_id}_recording.mp3")
+    prosody_file_path = f"{RECORDING}/{project_id}_prosody_predictions.json"
     transcription_path = os.path.join(SCRIPT, f"{project_id}_transcription.json")
     gpt_timestamp_path = os.path.join(SCRIPT, f"{project_id}_gpt_timestamp.json")
     real_timestamp_path = os.path.join(SCRIPT, f"{project_id}_real_timestamp.json")
@@ -2275,28 +2276,30 @@ async def save_recording(
     metadata_file_path = f"{META_DATA}/{project_id}_metadata.json"
     with open(metadata_file_path, "r") as f:
         data = json.load(f)
-        shutil.copy(os.path.join(RECORDING, f"{data["userID"]}_recording.mp3"), mp3_path)
-
-    print(mp3_path)
+        shutil.copy(os.path.join(RECORDING, f"{data['userID']}_recording.mp3"), mp3_path)
+        shutil.copy(os.path.join(RECORDING, f"{data['userID']}_prosody_predictions.json"), prosody_file_path)
+        shutil.copy(os.path.join(SCRIPT, f"{data['userID']}_transcription.json"), transcription_path)
+        shutil.copy(os.path.join(SCRIPT, f"{data['userID']}_gpt_timestamp.json"), gpt_timestamp_path)
         
-    # STT 모델 실행
-    try:
-        executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
+    # # STT 모델 실행
+    # try:
+    #     executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Error during STT: {e}")
     
-    try:
-        await prosodic_analysis(project_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error during prosodic analysis: {e}"
-        )
+    # try:
+    #     await prosodic_analysis(project_id)
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=500, detail=f"Error during prosodic analysis: {e}"
+    #     )
 
     return {"message": "Recording saved and STT processing started successfully"}
 
 
 @app.post("/api/save_annotated_pdf/{project_id}", status_code=200)
 async def save_annotated_pdf(project_id: int, data: AnnotationData):
+
     pdf_file = [
         file
         for file in os.listdir(PDF)
@@ -2318,8 +2321,8 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
     print("Length of original_pdf: ", len(original_pdf))
     print("Length of data.annotations: ", len(data.annotations))
 
-    if len(original_pdf) != len(data.annotations):
-        raise HTTPException(status_code=400, detail="Page count mismatch")
+    # if len(original_pdf) != len(data.annotations):
+    #     raise HTTPException(status_code=400, detail="Page count mismatch")
     
     annotated_pdf_path = os.path.join(ANNOTATED_PDF, pdf_file[0])
     annotated_pdf = fitz.open(original_pdf_path)
@@ -2334,7 +2337,11 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
     ocr_results = {}
     for page_num in range(len(annotated_pdf)):
         annotated_page = annotated_pdf.load_page(page_num)
-        annotation_image = decode_base64_image(data.annotations[page_num])
+
+        if page_num < len(data.annotations):
+            annotation_image = decode_base64_image(data.annotations[page_num])
+        else:
+            annotation_image = decode_base64_image(data.annotations[-1])
 
         # PDF 페이지를 이미지로 변환
         pdf_image = annotated_page.get_pixmap()  # 페이지를 이미지로 변환
