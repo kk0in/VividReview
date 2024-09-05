@@ -289,7 +289,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
     }
 
     fetchAnswers();
-  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag]);
+  }, [projectId, page, focusedLasso, activePromptIndex, reloadFlag, setRerenderFlag, setFocusedLasso, defaultPrompts, setProcessing]);
 
   const lassoTabElements = lassos.current.map((lasso, idx) => {
     const className =
@@ -344,7 +344,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
             answers={answers.current}
             projectId={projectId}
             page={page}
-            focusedLasso={focusedLasso!}
+            focusedLasso={focusedLasso}
             prompts={prompts.current}
             rerenderFlag={rerenderFlag}
           />

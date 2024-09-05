@@ -1,15 +1,15 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { lassoTransform } from "@/utils/api";
 import { useRecoilState, useSetRecoilState } from "recoil";
 import { activePromptState } from "@/app/recoil/LassoState";
 import { TriangleLeftIcon, TriangleRightIcon } from "@primer/octicons-react";
 import { processingState } from "@/app/recoil/ViewerState";
 
-const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number, prompts: string[], rerenderFlag: boolean}) => {
+const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number | null, prompts: string[], rerenderFlag: boolean}) => {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const setProcessing = useSetRecoilState(processingState);
 
-  const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
+  const showFlag = (props.focusedLasso !== null && props.answers.length > activePromptIndex[2] && props.answers.length > 0);
 
   const convertWhiteSpaces = (text: string) => {
     return text.replace(/  /g, "\u00a0\u00a0");
@@ -65,7 +65,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       </div>
       <div className="relative grid grid-cols-3 items-center h-9">
         <div className="flex flex-grow justify-start px-1">
-          {activePromptIndex[2] > 0 && (
+          {showFlag && activePromptIndex[2] > 0 && (
             <button
               onClick={() =>
                 setActivePromptIndex([
@@ -80,14 +80,14 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           )}
         </div>
         <div className="flex justify-center">
-          {props.answers.length > 0 && (
+          {showFlag && (
             <div>
               {activePromptIndex[2] + 1} / {props.answers.length}
             </div>
           )}
         </div>
         <div className="flex justify-end">
-          {activePromptIndex[2] < props.answers.length - 1 && (
+          {showFlag && activePromptIndex[2] < props.answers.length - 1 && (
             <button
               onClick={() =>
                 setActivePromptIndex([
