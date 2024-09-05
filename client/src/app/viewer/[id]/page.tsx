@@ -344,7 +344,7 @@ function PromptTabPage({projectId, page}: {projectId: string, page: number}) {
             answers={answers.current}
             projectId={projectId}
             page={page}
-            focusedLasso={focusedLasso!}
+            focusedLasso={focusedLasso}
             prompts={prompts.current}
             rerenderFlag={rerenderFlag}
           />
