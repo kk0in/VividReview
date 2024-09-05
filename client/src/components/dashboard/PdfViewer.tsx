@@ -1093,7 +1093,7 @@ const PdfViewer = ({ scale, projectId, spotlightRef }: PDFViewerProps) => {
             left: clickedLasso.boundingBox.x / scaleX,
             color: "black",
             background: "gray",
-            zIndex: 2,
+            zIndex: 20,
           }}
         >
           {prompts.map((prompt, idx) => {
