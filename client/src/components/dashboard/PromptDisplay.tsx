@@ -9,13 +9,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const setProcessing = useSetRecoilState(processingState);
 
-  useEffect(() => {
-    if (activePromptIndex[2] >= props.answers.length) {
-      setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], 0]);
-    }
-  })
-
-  const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
+  const showFlag = (props.answers.length > activePromptIndex[2] && props.answers.length > 0);
 
   const convertWhiteSpaces = (text: string) => {
     return text.replace(/  /g, "\u00a0\u00a0");
@@ -71,7 +65,7 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
       </div>
       <div className="relative grid grid-cols-3 items-center h-9">
         <div className="flex flex-grow justify-start px-1">
-          {activePromptIndex[2] > 0 && (
+          {showFlag && activePromptIndex[2] > 0 && (
             <button
               onClick={() =>
                 setActivePromptIndex([
@@ -86,14 +80,14 @@ const PromptDisplay = (props: {answers: string[], projectId: string, page: numbe
           )}
         </div>
         <div className="flex justify-center">
-          {props.answers.length > 0 && (
+          {showFlag && (
             <div>
               {activePromptIndex[2] + 1} / {props.answers.length}
             </div>
           )}
         </div>
         <div className="flex justify-end">
-          {activePromptIndex[2] < props.answers.length - 1 && (
+          {showFlag && activePromptIndex[2] < props.answers.length - 1 && (
             <button
               onClick={() =>
                 setActivePromptIndex([
