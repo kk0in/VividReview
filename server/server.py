@@ -2261,17 +2261,24 @@ async def save_recording(
     #     json.dump(page_info, file, indent=4)
 
     # save recording file
-    with open(webm_path, "wb") as buffer:
-        shutil.copyfileobj(recording.file, buffer)
+    # with open(webm_path, "wb") as buffer:
+    #     shutil.copyfileobj(recording.file, buffer)
 
     # webm 파일을 mp3로 변환
-    try:
-        convert_webm_to_mp3(webm_path, mp3_path)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Erro during converting webm to mp3: {e}"
-        )
+    # try:
+    #     convert_webm_to_mp3(webm_path, mp3_path)
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=500, detail=f"Erro during converting webm to mp3: {e}"
+    #     )
 
+    metadata_file_path = f"{META_DATA}/{project_id}_metadata.json"
+    with open(metadata_file_path, "r") as f:
+        data = json.load(f)
+        shutil.copy(os.path.join(RECORDING, f"{data["userID"]}_recording.mp3"), mp3_path)
+
+    print(mp3_path)
+        
     # STT 모델 실행
     try:
         executor.submit(run_stt, mp3_path, transcription_path, gpt_timestamp_path)
