@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { lassoTransform } from "@/utils/api";
 import { useRecoilState, useSetRecoilState } from "recoil";
 import { activePromptState } from "@/app/recoil/LassoState";
@@ -8,6 +8,12 @@ import { processingState } from "@/app/recoil/ViewerState";
 const PromptDisplay = (props: {answers: string[], projectId: string, page: number, focusedLasso: number, prompts: string[], rerenderFlag: boolean}) => {
   const [activePromptIndex, setActivePromptIndex] = useRecoilState(activePromptState);
   const setProcessing = useSetRecoilState(processingState);
+
+  useEffect(() => {
+    if (activePromptIndex[2] >= props.answers.length) {
+      setActivePromptIndex([activePromptIndex[0], activePromptIndex[1], 0]);
+    }
+  })
 
   const showFlag = (props.answers.length >= activePromptIndex[2] && props.answers.length > 0);
 
