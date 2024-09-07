@@ -2311,9 +2311,9 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         raise HTTPException(status_code=500, detail="Multiple PDF files found")
 
     original_pdf_path = os.path.join(PDF, pdf_file[0])
-    # page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
-    # with open(page_info_path, "r") as file:
-    #     page_info = json.load(file)
+    page_info_path = os.path.join(SPM, f"{project_id}_page_info.json") 
+    with open(page_info_path, "r") as file:
+        page_info = json.load(file)
 
     # Open the original PDF and the annotated PDF
     original_pdf = fitz.open(original_pdf_path)
@@ -2353,7 +2353,7 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
         remove_transparency(image_path)
         text = detect_handwritten_text(image_path)
         ocr_results[str(page_num + 1)] = text.strip()
-        # page_info["pages"][str(page_num + 1)]["annotation"] = text.strip()
+        page_info["pages"][str(page_num + 1)]["annotation"] = text.strip()
 
         combined_image = Image.alpha_composite(pdf_image_pil.convert("RGBA"), annotation_image_resized.convert("RGBA"))
 
@@ -2370,8 +2370,8 @@ async def save_annotated_pdf(project_id: int, data: AnnotationData):
     with open(annnotation_path, "w") as json_file:
         json.dump(ocr_results, json_file, indent=4)
 
-    # with open(page_info_path, "w") as file:
-    #     json.dump(page_info, file, indent=4)
+    with open(page_info_path, "w") as file:
+        json.dump(page_info, file, indent=4)
 
     annotated_pdf.save(annotated_pdf_path)
 
